@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { 
   Kanban, 
   Calendar, 
@@ -7,14 +8,21 @@ import {
   BarChart3, 
   Users, 
   DollarSign, 
-  Send 
+  Send,
+  Upload
 } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 
+// URL da API no Render (substitui local por nuvem em produção)
+const API_URL = 'https://nexuscob-api.onrender.com';
+
 export default function App() {
   const [abaAtiva, setAbaAtiva] = useState('kanban');
+  const [clientes, setClientes] = useState([]);
+  const [carregando, setCarregando] = useState(false);
+  const [arquivo, setArquivo] = useState(null);
 
-  const clienteAtivo = {
+  const clienteAtivo = clientes[0] || {
     nome: 'Marcos Silva',
     valor_devido: 1250.00,
     dias_atraso: 14,
@@ -25,14 +33,53 @@ export default function App() {
 
   const templateScript = "Olá {NOME_CLIENTE}, tudo bem? Sou {NOME_OPERADOR} do setor de negociação. Identificamos que o contrato {NUMERO_CONTRATO} no valor de {VALOR_DEVIDO} venceu em {DATA_VENCIMENTO}. Conseguimos uma condição especial com desconto para quitação hoje via PIX. Podemos formalizar?";
 
+  // Buscar clientes da API no Render
+  const carregarClientes = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/api/clientes`);
+      if (res.data && res.data.length > 0) {
+        setClientes(res.data);
+      }
+    } catch (err) {
+      console.log('Modo demonstrativo ativo / Erro ao conectar na API:', err.message);
+    }
+  };
+
+  useEffect(() => {
+    carregarClientes();
+  }, []);
+
+  // Fazer Upload da Planilha Excel (.xlsx)
+  const handleUploadExcel = async (e) => {
+    e.preventDefault();
+    if (!arquivo) return alert('Selecione um arquivo Excel primeiro!');
+
+    const formData = new FormData();
+    formData.append('arquivo', arquivo);
+
+    setCarregando(true);
+    try {
+      const res = await axios.post(`${API_URL}/api/clientes/importar`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      alert(res.data.mensagem || 'Planilha importada com sucesso!');
+      carregarClientes();
+      setAbaAtiva('kanban');
+    } catch (err) {
+      alert('Erro ao importar planilha. Verifique o formato do arquivo.');
+    } finally {
+      setCarregando(false);
+    }
+  };
+
   const renderizarScript = (template, cliente) => {
     return template
       .replace(/{NOME_CLIENTE}/g, cliente.nome)
-      .replace(/{VALOR_DEVIDO}/g, `R$ ${cliente.valor_devido.toFixed(2)}`)
-      .replace(/{DIAS_ATRASO}/g, cliente.dias_atraso)
-      .replace(/{DATA_VENCIMENTO}/g, cliente.data_vencimento)
-      .replace(/{NUMERO_CONTRATO}/g, cliente.numero_contrato)
-      .replace(/{NOME_OPERADOR}/g, cliente.nome_operador);
+      .replace(/{VALOR_DEVIDO}/g, `R$ ${Number(cliente.valor_devido || 0).toFixed(2)}`)
+      .replace(/{DIAS_ATRASO}/g, cliente.dias_atraso || '0')
+      .replace(/{DATA_VENCIMENTO}/g, cliente.data_vencimento || '22/09/2026')
+      .replace(/{NUMERO_CONTRATO}/g, cliente.numero_contrato || 'CTR-0000')
+      .replace(/{NOME_OPERADOR}/g, 'Juliana');
   };
 
   return (
@@ -81,7 +128,7 @@ export default function App() {
                 <div style={{ backgroundColor: '#fff', padding: '12px', borderRadius: '6px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', borderLeft: '4px solid #f59e0b' }}>
                   <div style={{ fontWeight: 'bold', color: '#1e293b' }}>{clienteAtivo.nome}</div>
                   <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '4px' }}>Contrato: {clienteAtivo.numero_contrato}</div>
-                  <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#059669', marginTop: '8px' }}>R$ {clienteAtivo.valor_devido.toFixed(2)}</div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: '#059669', marginTop: '8px' }}>R$ {Number(clienteAtivo.valor_devido || 0).toFixed(2)}</div>
                   <span style={{ display: 'inline-block', marginTop: '8px', padding: '2px 8px', borderRadius: '12px', backgroundColor: '#fef3c7', color: '#d97706', fontSize: '0.75rem', fontWeight: 'bold' }}>
                     #PromessaDePagamento
                   </span>
@@ -106,7 +153,7 @@ export default function App() {
               </div>
 
               <button 
-                onClick={() => alert("Script copiado com sucesso!")} 
+                onClick={() => navigator.clipboard.writeText(renderizarScript(templateScript, clienteAtivo))} 
                 style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px', backgroundColor: '#0284c7', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
                 <Send size={16} /> Copiar para WhatsApp
               </button>
@@ -117,12 +164,25 @@ export default function App() {
         {abaAtiva === 'metricas' && <Dashboard />}
 
         {abaAtiva === 'importar' && (
-          <div style={{ backgroundColor: '#fff', padding: '30px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', textAlign: 'center' }}>
-            <FileSpreadsheet size={48} color="#0284c7" style={{ marginBottom: '15px' }} />
+          <form onSubmit={handleUploadExcel} style={{ backgroundColor: '#fff', padding: '30px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px' }}>
+            <FileSpreadsheet size={48} color="#0284c7" />
             <h2>Upload de Carteira de Clientes (Excel / .xlsx)</h2>
-            <p style={{ color: '#64748b' }}>Arraste ou selecione seu arquivo `.xlsx` com a lista de devedores para importar para o Kanban.</p>
-            <input type="file" accept=".xlsx, .csv" style={{ marginTop: '15px' }} />
-          </div>
+            <p style={{ color: '#64748b' }}>Selecione seu arquivo `.xlsx` com colunas (Nome, CPF, Telefone, Valor, Contrato) para importar diretamente ao banco de dados e ao Kanban.</p>
+            
+            <input 
+              type="file" 
+              accept=".xlsx, .csv" 
+              onChange={(e) => setArquivo(e.target.files[0])}
+              style={{ padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px' }} 
+            />
+
+            <button 
+              type="submit" 
+              disabled={carregando}
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 24px', backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>
+              <Upload size={18} /> {carregando ? 'Importando...' : 'Processar e Salvar no Kanban'}
+            </button>
+          </form>
         )}
       </main>
     </div>

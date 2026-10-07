@@ -37,7 +37,7 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'API Nexus-Cob operacional' });
 });
 
-// AUTENTICAÇÃO E CADASTRO DE USUÁRIOS
+// LOGIN E USUÁRIOS
 app.post('/api/login', async (req, res) => {
   const { email } = req.body;
   try {
@@ -108,6 +108,31 @@ app.put('/api/clientes/:id/estagio', async (req, res) => {
   }
 });
 
+// EXCLUIR CLIENTE INDIVIDUAL
+app.delete('/api/clientes/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM clientes WHERE id = $1', [id]);
+    res.json({ sucesso: true, mensagem: 'Cliente excluído com sucesso!' });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao excluir cliente.', detalhe: error.message });
+  }
+});
+
+// EXCLUSÃO EM MASSA (ADMINISTRADOR)
+app.post('/api/clientes/excluir-massa', async (req, res) => {
+  const { ids } = req.body;
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'Nenhum ID selecionado para exclusão.' });
+  }
+  try {
+    await pool.query('DELETE FROM clientes WHERE id = ANY($1::int[])', [ids]);
+    res.json({ sucesso: true, mensagem: `${ids.length} clientes excluídos com sucesso!` });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao excluir clientes em massa.', detalhe: error.message });
+  }
+});
+
 // AGENDA
 app.get('/api/agenda', async (req, res) => {
   try {
@@ -131,7 +156,7 @@ app.post('/api/agenda', async (req, res) => {
   }
 });
 
-// SCRIPTS DE COBRANÇA
+// SCRIPTS
 app.get('/api/scripts', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM scripts ORDER BY id DESC');
@@ -154,8 +179,8 @@ app.post('/api/scripts', async (req, res) => {
   }
 });
 
-// IMPORTAÇÃO INTELIGENTE DE EXCEL (Trata R$, virgulas, pontos e cabecalhos flexiveis)
-app.post('/api/clientes/importar', upload.single('arquivo'), async (req, res) => {
+// LER PLANILHA E RETORNAR PRÉVIA PARA O FRONT-END
+app.post('/api/clientes/previa', upload.single('arquivo'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
 
@@ -163,41 +188,59 @@ app.post('/api/clientes/importar', upload.single('arquivo'), async (req, res) =>
     const sheetName = workbook.SheetNames[0];
     const dadosExcel = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: '' });
 
-    let inseridos = 0;
-    for (const item of dadosExcel) {
-      // Procura flexivel por qualquer nome de coluna para ID, Nome e Valor
+    const listaPrevia = dadosExcel.map((item, index) => {
       const chaveId = Object.keys(item).find(k => k.trim().toUpperCase() === 'ID' || k.trim().toUpperCase() === 'CODIGO') || Object.keys(item)[0];
       const chaveNome = Object.keys(item).find(k => k.trim().toUpperCase() === 'NOME' || k.trim().toUpperCase() === 'CLIENTE') || Object.keys(item)[1];
       const chaveValor = Object.keys(item).find(k => k.trim().toUpperCase().includes('VALOR') || k.trim().toUpperCase().includes('DEVEDOR')) || Object.keys(item)[2];
+      const chaveAtraso = Object.keys(item).find(k => k.trim().toUpperCase().includes('ATRASO') || k.trim().toUpperCase().includes('DIAS')) || '';
+      const chaveStatus = Object.keys(item).find(k => k.trim().toUpperCase().includes('STATUS')) || '';
 
-      const codigo = String(item[chaveId] || `CLI-${Math.floor(1000 + Math.random() * 9000)}`).trim();
-      const nome = String(item[chaveNome] || 'Cliente sem Nome').trim();
-
-      // Tratamento para limpar "R$", espaços, pontos e substituir virgula por ponto
       let valorBruto = String(item[chaveValor] || '0');
-      let valorFormatado = valorBruto
-        .replace(/R\$/g, '')
-        .replace(/\s/g, '')
-        .replace(/\./g, '')
-        .replace(',', '.');
+      let valorFormatado = parseFloat(valorBruto.replace(/R\$/g, '').replace(/\s/g, '').replace(/\./g, '').replace(',', '.')) || 0.00;
 
-      const valorFinal = parseFloat(valorFormatado) || 0.00;
+      return {
+        tempId: index + 1,
+        codigo: String(item[chaveId] || `CLI-${index + 1}`).trim(),
+        nome: String(item[chaveNome] || 'Cliente sem Nome').trim(),
+        total_vencido: valorFormatado,
+        dias_atraso: parseInt(item[chaveAtraso]) || 30,
+        status_conexao: String(item[chaveStatus] || 'Ativo').trim(),
+        selecionado: true
+      };
+    });
 
+    res.json({ sucesso: true, total: listaPrevia.length, dados: listaPrevia });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao gerar prévia da planilha.', detalhe: error.message });
+  }
+});
+
+// CONFIRMAR IMPORTAÇÃO SELECIONADA DA PRÉVIA
+app.post('/api/clientes/confirmar-importacao', async (req, res) => {
+  const { clientes } = req.body;
+  if (!clientes || !Array.isArray(clientes) || clientes.length === 0) {
+    return res.status(400).json({ error: 'Nenhum cliente selecionado para importação.' });
+  }
+
+  try {
+    let inseridos = 0;
+    for (const cli of clientes) {
       await pool.query(
-        `INSERT INTO clientes (codigo, nome, total_vencido, estagio_id) 
-         VALUES ($1, $2, $3, 1)
+        `INSERT INTO clientes (codigo, nome, total_vencido, dias_atraso, status_conexao, estagio_id) 
+         VALUES ($1, $2, $3, $4, $5, 1)
          ON CONFLICT (codigo) DO UPDATE SET 
             nome = EXCLUDED.nome,
-            total_vencido = EXCLUDED.total_vencido`,
-        [codigo, nome, valorFinal]
+            total_vencido = EXCLUDED.total_vencido,
+            dias_atraso = EXCLUDED.dias_atraso,
+            status_conexao = EXCLUDED.status_conexao`,
+        [cli.codigo, cli.nome, cli.total_vencido, cli.dias_atraso || 30, cli.status_conexao || 'Ativo']
       );
       inseridos++;
     }
 
-    res.json({ sucesso: true, mensagem: `${inseridos} clientes importados com sucesso!`, total: inseridos });
+    res.json({ sucesso: true, mensagem: `${inseridos} clientes importados para o Funil com sucesso!` });
   } catch (error) {
-    console.error('Erro ao importar Excel:', error);
-    res.status(500).json({ error: 'Erro ao importar planilha.', detalhe: error.message });
+    res.status(500).json({ error: 'Erro ao salvar prévia no banco.', detalhe: error.message });
   }
 });
 

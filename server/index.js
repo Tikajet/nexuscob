@@ -154,20 +154,34 @@ app.post('/api/scripts', async (req, res) => {
   }
 });
 
-// IMPORTAÇÃO DE EXCEL PADRONIZADO (ID, NOME, VALOR)
+// IMPORTAÇÃO INTELIGENTE DE EXCEL (Trata R$, virgulas, pontos e cabecalhos flexiveis)
 app.post('/api/clientes/importar', upload.single('arquivo'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
 
     const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
-    const dadosExcel = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName]);
+    const dadosExcel = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: '' });
 
     let inseridos = 0;
     for (const item of dadosExcel) {
-      const codigo = String(item.ID || item.id || item.Codigo || item.codigo || `CLI-${Math.floor(1000 + Math.random() * 9000)}`);
-      const nome = String(item.Nome || item.nome || item.Cliente || item.cliente || 'Cliente sem Nome');
-      const valor = parseFloat(item['Valor Devedor'] || item.ValorDevedor || item.valor_devedor || item.Valor || item.valor || 0.00);
+      // Procura flexivel por qualquer nome de coluna para ID, Nome e Valor
+      const chaveId = Object.keys(item).find(k => k.trim().toUpperCase() === 'ID' || k.trim().toUpperCase() === 'CODIGO') || Object.keys(item)[0];
+      const chaveNome = Object.keys(item).find(k => k.trim().toUpperCase() === 'NOME' || k.trim().toUpperCase() === 'CLIENTE') || Object.keys(item)[1];
+      const chaveValor = Object.keys(item).find(k => k.trim().toUpperCase().includes('VALOR') || k.trim().toUpperCase().includes('DEVEDOR')) || Object.keys(item)[2];
+
+      const codigo = String(item[chaveId] || `CLI-${Math.floor(1000 + Math.random() * 9000)}`).trim();
+      const nome = String(item[chaveNome] || 'Cliente sem Nome').trim();
+
+      // Tratamento para limpar "R$", espaços, pontos e substituir virgula por ponto
+      let valorBruto = String(item[chaveValor] || '0');
+      let valorFormatado = valorBruto
+        .replace(/R\$/g, '')
+        .replace(/\s/g, '')
+        .replace(/\./g, '')
+        .replace(',', '.');
+
+      const valorFinal = parseFloat(valorFormatado) || 0.00;
 
       await pool.query(
         `INSERT INTO clientes (codigo, nome, total_vencido, estagio_id) 
@@ -175,13 +189,14 @@ app.post('/api/clientes/importar', upload.single('arquivo'), async (req, res) =>
          ON CONFLICT (codigo) DO UPDATE SET 
             nome = EXCLUDED.nome,
             total_vencido = EXCLUDED.total_vencido`,
-        [codigo, nome, valor]
+        [codigo, nome, valorFinal]
       );
       inseridos++;
     }
 
     res.json({ sucesso: true, mensagem: `${inseridos} clientes importados com sucesso!`, total: inseridos });
   } catch (error) {
+    console.error('Erro ao importar Excel:', error);
     res.status(500).json({ error: 'Erro ao importar planilha.', detalhe: error.message });
   }
 });

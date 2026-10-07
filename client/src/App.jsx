@@ -6,17 +6,14 @@ import {
   FileText, 
   BarChart3, 
   Users, 
-  CheckCircle2, 
-  Clock, 
   DollarSign, 
   Send 
 } from 'lucide-react';
+import Dashboard from './components/Dashboard';
 
 export default function App() {
   const [abaAtiva, setAbaAtiva] = useState('kanban');
-  const [scriptSelecionado, setScriptSelecionado] = useState('');
 
-  // Exemplo de cliente selecionado no Kanban
   const clienteAtivo = {
     nome: 'Marcos Silva',
     valor_devido: 1250.00,
@@ -26,7 +23,6 @@ export default function App() {
     nome_operador: 'Juliana'
   };
 
-  // Exemplo de Script cadastrado pelo Admin
   const templateScript = "Olá {NOME_CLIENTE}, tudo bem? Sou {NOME_OPERADOR} do setor de negociação. Identificamos que o contrato {NUMERO_CONTRATO} no valor de {VALOR_DEVIDO} venceu em {DATA_VENCIMENTO}. Conseguimos uma condição especial com desconto para quitação hoje via PIX. Podemos formalizar?";
 
   const renderizarScript = (template, cliente) => {
@@ -79,9 +75,7 @@ export default function App() {
         {/* CONTEÚDO DINÂMICO BASEADO NA ABA */}
         {abaAtiva === 'kanban' && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '20px' }}>
-            {/* KANBAN BOARD */}
             <div style={{ display: 'flex', gap: '15px', overflowX: 'auto', paddingBottom: '10px' }}>
-              {/* Estágio 1 */}
               <div style={{ minWidth: '240px', backgroundColor: '#e2e8f0', borderRadius: '8px', padding: '12px' }}>
                 <h3 style={{ margin: '0 0 10px 0', fontSize: '0.95rem', color: '#334155' }}>Vencido (1-15 dias)</h3>
                 <div style={{ backgroundColor: '#fff', padding: '12px', borderRadius: '6px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', borderLeft: '4px solid #f59e0b' }}>
@@ -93,19 +87,14 @@ export default function App() {
                   </span>
                 </div>
               </div>
-
-              {/* Estágio 2 */}
               <div style={{ minWidth: '240px', backgroundColor: '#e2e8f0', borderRadius: '8px', padding: '12px' }}>
                 <h3 style={{ margin: '0 0 10px 0', fontSize: '0.95rem', color: '#334155' }}>Contato Realizado</h3>
               </div>
-
-              {/* Estágio 3 */}
               <div style={{ minWidth: '240px', backgroundColor: '#e2e8f0', borderRadius: '8px', padding: '12px' }}>
                 <h3 style={{ margin: '0 0 10px 0', fontSize: '0.95rem', color: '#334155' }}>Acordo em Negociação</h3>
               </div>
             </div>
 
-            {/* PAINEL LATERAL DE SCRIPT DE ABORDAGEM */}
             <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', display: 'flex', flexDirection: 'column', gap: '15px' }}>
               <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <FileText size={20} color="#0284c7" />
@@ -124,6 +113,8 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {abaAtiva === 'metricas' && <Dashboard />}
 
         {abaAtiva === 'importar' && (
           <div style={{ backgroundColor: '#fff', padding: '30px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', textAlign: 'center' }}>

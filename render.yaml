@@ -18,7 +18,7 @@ services:
           property: connectionString
 
   # 2. FRONT-END (React + Vite)
-  - type: static
+  - type: web
     name: nexuscob-web
     env: static
     region: oregon

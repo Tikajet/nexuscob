@@ -19,7 +19,7 @@ const pool = new Pool({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
-// MIGRAÇÃO AUTOMÁTICA DO BANCO DE DADOS POSTGRESQL
+// MIGRAÇÃO AUTOMÁTICA DO POSTGRESQL
 async function initDB() {
   try {
     const schemaPath = path.join(__dirname, 'schema.sql');
@@ -28,7 +28,6 @@ async function initDB() {
       await pool.query(sql);
     }
     
-    // Garante que todas as colunas usadas existam na tabela clientes
     await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS codigo VARCHAR(50);`);
     await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS nome VARCHAR(255);`);
     await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS total_vencido NUMERIC(10,2) DEFAULT 0.00;`);
@@ -36,7 +35,7 @@ async function initDB() {
     await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS status_conexao VARCHAR(50) DEFAULT 'Ativo';`);
     await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS estagio_id INT DEFAULT 1;`);
 
-    console.log('✅ Banco PostgreSQL Nexus-Cob pronto e migrado!');
+    console.log('✅ Banco PostgreSQL Nexus-Cob pronto!');
   } catch (error) {
     console.error('❌ Erro na inicializacao do BD:', error.message);
   }
@@ -104,7 +103,7 @@ app.get('/api/clientes', async (req, res) => {
   }
 });
 
-// CADASTRO MANUAL DE CLIENTE
+// CADASTRO MANUAL
 app.post('/api/clientes/manual', async (req, res) => {
   const { codigo, nome, total_vencido, opcao_atraso } = req.body;
   if (!nome || !total_vencido) {
@@ -124,8 +123,6 @@ app.post('/api/clientes/manual', async (req, res) => {
 
   try {
     const cod = codigo && String(codigo).trim() !== '' ? String(codigo).trim() : `CLI-${Math.floor(1000 + Math.random() * 9000)}`;
-    
-    // Tratamento de formato numerico (converte virgula em ponto e limpa R$)
     let valStr = String(total_vencido).replace(/R\$/g, '').replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
     const val = parseFloat(valStr) || 0.00;
 
@@ -137,12 +134,11 @@ app.post('/api/clientes/manual', async (req, res) => {
 
     res.json({ sucesso: true, mensagem: 'Cliente cadastrado com sucesso!', cliente: result.rows[0] });
   } catch (error) {
-    console.error('Erro no cadastro manual:', error);
     res.status(500).json({ error: 'Erro ao cadastrar cliente manualmente.', detalhe: error.message });
   }
 });
 
-// MOVER ESTÁGIO NO KANBAN
+// MOVER ESTÁGIO
 app.put('/api/clientes/:id/estagio', async (req, res) => {
   const { id } = req.params;
   const { estagio_id, usuario_nome, usuario_id } = req.body;
@@ -157,7 +153,7 @@ app.put('/api/clientes/:id/estagio', async (req, res) => {
   }
 });
 
-// EXCLUIR CLIENTE INDIVIDUAL
+// EXCLUIR CLIENTE
 app.delete('/api/clientes/:id', async (req, res) => {
   const { id } = req.params;
   try {
@@ -209,7 +205,7 @@ app.post('/api/clientes/previa', upload.single('arquivo'), async (req, res) => {
         codigo: String(item[chaveId] || `CLI-${index + 1}`).trim(),
         nome: String(item[chaveNome] || 'Cliente sem Nome').trim(),
         total_vencido: valorLimpo,
-        dias_atraso: parseInt(item.DiasAtraso || item.dias_atraso) || 30,
+        opcao_atraso: '30', // Padrão Inicial: 30 dias
         selecionado: true
       };
     });
@@ -220,7 +216,7 @@ app.post('/api/clientes/previa', upload.single('arquivo'), async (req, res) => {
   }
 });
 
-// CONFIRMAR IMPORTAÇÃO DA PRÉVIA
+// CONFIRMAR IMPORTAÇÃO DA PRÉVIA COM A CATEGORIA/FAIXA SELECIONADA
 app.post('/api/clientes/confirmar-importacao', async (req, res) => {
   const { clientes } = req.body;
   if (!clientes || !Array.isArray(clientes) || clientes.length === 0) {
@@ -233,17 +229,27 @@ app.post('/api/clientes/confirmar-importacao', async (req, res) => {
       const cod = String(cli.codigo || `CLI-${Math.floor(1000 + Math.random() * 9000)}`);
       const val = parseFloat(cli.total_vencido) || 0.00;
       const nom = String(cli.nome || 'Cliente sem nome');
-      const dias = parseInt(cli.dias_atraso) || 30;
+
+      let diasAtraso = 30;
+      let statusConexao = 'Ativo';
+
+      if (cli.opcao_atraso === '30') diasAtraso = 30;
+      else if (cli.opcao_atraso === '60') diasAtraso = 60;
+      else if (cli.opcao_atraso === '90') diasAtraso = 90;
+      else if (cli.opcao_atraso === 'CANCELADOS') {
+        diasAtraso = 120;
+        statusConexao = 'Cancelado';
+      }
 
       await pool.query(
-        `INSERT INTO clientes (codigo, nome, total_vencido, dias_atraso, estagio_id) 
-         VALUES ($1, $2, $3, $4, 1)`,
-        [cod, nom, val, dias]
+        `INSERT INTO clientes (codigo, nome, total_vencido, dias_atraso, status_conexao, estagio_id) 
+         VALUES ($1, $2, $3, $4, $5, 1)`,
+        [cod, nom, val, diasAtraso, statusConexao]
       );
       inseridos++;
     }
 
-    res.json({ sucesso: true, mensagem: `${inseridos} clientes importados para o Funil!` });
+    res.json({ sucesso: true, mensagem: `${inseridos} clientes importados para o Funil com sucesso!` });
   } catch (error) {
     console.error('Erro na gravação do PostgreSQL:', error);
     res.status(500).json({ error: 'Erro ao salvar no banco.', detalhe: error.message });

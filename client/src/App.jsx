@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Home, Users, RefreshCw, Calendar, 
-  MessageSquare, BarChart3, Upload, Zap, LogOut, ArrowRight, UserCheck, Shield, Trash2, Filter, UserPlus, Printer
+  MessageSquare, BarChart3, Upload, Zap, LogOut, ArrowRight, UserCheck, Shield, Trash2, Filter, UserPlus, Printer, CheckSquare
 } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 
@@ -200,7 +200,6 @@ export default function App() {
     return true;
   });
 
-  // FILTRAGEM DE RELATÓRIO POR PERÍODO
   const clientesRelatorio = clientes.filter(c => {
     if (!c.criado_em) return true;
     const dataCriacao = new Date(c.criado_em);
@@ -428,7 +427,7 @@ export default function App() {
         {/* DASHBOARD INTEGRADO */}
         {abaAtiva === 'dashboard' && <Dashboard clientes={clientes} />}
 
-        {/* RELATÓRIOS COM FILTRO POR MES E PERIODO */}
+        {/* RELATÓRIOS POR PERÍODO */}
         {abaAtiva === 'relatorios' && (
           <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '20px', flex: 1, overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -438,7 +437,6 @@ export default function App() {
               </button>
             </div>
 
-            {/* BARRA DE FILTROS DE RELATÓRIO */}
             <div style={{ display: 'flex', gap: '15px', alignItems: 'center', backgroundColor: '#f8fafc', padding: '15px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
               <div>
                 <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569', display: 'block' }}>Filtrar por Mês:</label>
@@ -482,7 +480,6 @@ export default function App() {
               )}
             </div>
 
-            {/* TABELA DE RESULTADOS DO RELATÓRIO */}
             <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                 <thead style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
@@ -509,6 +506,110 @@ export default function App() {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* IMPORTAÇÃO & PRÉVIA COM SELETOR DE CATEGORIA/LISTA */}
+        {abaAtiva === 'importar' && (
+          <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '20px', flex: 1, overflowY: 'auto' }}>
+            <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a' }}>📥 Importar Lista & Gerar Prévia do Funil</h2>
+
+            {previaClientes.length === 0 ? (
+              <form onSubmit={handleGerarPrevia} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px', padding: '40px 0' }}>
+                <Upload size={48} color="#0284c7" />
+                <p style={{ color: '#64748b', fontSize: '0.9rem', maxWidth: '500px', textAlign: 'center' }}>
+                  Selecione sua planilha Excel (.xlsx ou .csv). O sistema gerará uma <strong>prévia completa</strong> para você categorizar antes de enviar para o Funil.
+                </p>
+                <input 
+                  type="file" 
+                  accept=".xlsx, .xls, .csv" 
+                  onChange={e => setArquivo(e.target.files[0])}
+                  style={{ padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px' }} 
+                />
+                <button 
+                  type="submit" 
+                  disabled={carregando}
+                  style={{ padding: '12px 24px', backgroundColor: '#0284c7', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem' }}>
+                  {carregando ? 'Processando Planilha...' : 'Gerar Prévia dos Contatos'}
+                </button>
+              </form>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f0f9ff', padding: '12px 16px', borderRadius: '8px', border: '1px solid #bae6fd' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#0369a1' }}>Definir Categoria para Toda a Lista:</label>
+                    <select 
+                      onChange={e => {
+                        const valor = e.target.value;
+                        setPreviaClientes(previaClientes.map(p => ({ ...p, opcao_atraso: valor })));
+                      }}
+                      style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #0284c7', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                      <option value="30">Devedores 30 Dias</option>
+                      <option value="60">Devedores 60 Dias</option>
+                      <option value="90">Devedores 90+ Dias</option>
+                      <option value="CANCELADOS">Clientes Cancelados</option>
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button onClick={() => setPreviaClientes([])} style={{ padding: '8px 14px', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer', backgroundColor: '#fff' }}>
+                      Cancelar
+                    </button>
+                    <button onClick={handleConfirmarImportacaoPrevia} style={{ padding: '8px 18px', backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
+                      Confirmar e Enviar {previaClientes.filter(p => p.selecionado).length} Contatos ao Funil
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                    <thead style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                      <tr>
+                        <th style={{ padding: '10px', textAlign: 'center' }}>Enviar?</th>
+                        <th style={{ padding: '10px', textAlign: 'left' }}>ID / Código</th>
+                        <th style={{ padding: '10px', textAlign: 'left' }}>Nome do Cliente</th>
+                        <th style={{ padding: '10px', textAlign: 'left' }}>Valor Devedor</th>
+                        <th style={{ padding: '10px', textAlign: 'left' }}>Faixa / Categoria do Cliente</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {previaClientes.map(item => (
+                        <tr key={item.tempId} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '10px', textAlign: 'center' }}>
+                            <input 
+                              type="checkbox" 
+                              checked={item.selecionado} 
+                              onChange={e => {
+                                const checked = e.target.checked;
+                                setPreviaClientes(previaClientes.map(p => p.tempId === item.tempId ? { ...p, selecionado: checked } : p));
+                              }}
+                            />
+                          </td>
+                          <td style={{ padding: '10px', fontWeight: 'bold' }}>{item.codigo}</td>
+                          <td style={{ padding: '10px' }}>{item.nome}</td>
+                          <td style={{ padding: '10px', color: '#dc2626', fontWeight: 'bold' }}>R$ {Number(item.total_vencido || 0).toFixed(2)}</td>
+                          <td style={{ padding: '10px' }}>
+                            {/* SELETOR INDIVIDUAL DE FAIXA DE ATRASO / CANCELADO POR LINHA */}
+                            <select 
+                              value={item.opcao_atraso || '30'}
+                              onChange={e => {
+                                const val = e.target.value;
+                                setPreviaClientes(previaClientes.map(p => p.tempId === item.tempId ? { ...p, opcao_atraso: val } : p));
+                              }}
+                              style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.8rem' }}>
+                              <option value="30">30 Dias</option>
+                              <option value="60">60 Dias</option>
+                              <option value="90">90+ Dias</option>
+                              <option value="CANCELADOS">Cancelados</option>
+                            </select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -609,84 +710,6 @@ export default function App() {
                 </div>
               ) : <p style={{ color: '#64748b' }}>Nenhum cliente cadastrado ainda.</p>}
             </div>
-          </div>
-        )}
-
-        {/* IMPORTAÇÃO E PRÉVIA */}
-        {abaAtiva === 'importar' && (
-          <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '20px', flex: 1, overflowY: 'auto' }}>
-            <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a' }}>📥 Importar Lista & Gerar Prévia do Funil</h2>
-
-            {previaClientes.length === 0 ? (
-              <form onSubmit={handleGerarPrevia} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px', padding: '40px 0' }}>
-                <Upload size={48} color="#0284c7" />
-                <p style={{ color: '#64748b', fontSize: '0.9rem', maxWidth: '500px', textAlign: 'center' }}>
-                  Selecione sua planilha Excel (.xlsx ou .csv). O sistema gerará uma <strong>prévia completa</strong> para você revisar antes de enviar para o Funil.
-                </p>
-                <input 
-                  type="file" 
-                  accept=".xlsx, .xls, .csv" 
-                  onChange={e => setArquivo(e.target.files[0])}
-                  style={{ padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px' }} 
-                />
-                <button 
-                  type="submit" 
-                  disabled={carregando}
-                  style={{ padding: '12px 24px', backgroundColor: '#0284c7', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem' }}>
-                  {carregando ? 'Processando Planilha...' : 'Gerar Prévia dos Contatos'}
-                </button>
-              </form>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#334155' }}>
-                    Planilha lida com sucesso! Total de <strong>{previaClientes.length}</strong> contatos encontrados.
-                  </span>
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <button onClick={() => setPreviaClientes([])} style={{ padding: '8px 14px', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer' }}>
-                      Cancelar
-                    </button>
-                    <button onClick={handleConfirmarImportacaoPrevia} style={{ padding: '8px 18px', backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
-                      Confirmar e Enviar {previaClientes.filter(p => p.selecionado).length} Contatos ao Funil
-                    </button>
-                  </div>
-                </div>
-
-                <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                    <thead style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                      <tr>
-                        <th style={{ padding: '10px', textAlign: 'center' }}>Enviar?</th>
-                        <th style={{ padding: '10px', textAlign: 'left' }}>ID / Código</th>
-                        <th style={{ padding: '10px', textAlign: 'left' }}>Nome do Cliente</th>
-                        <th style={{ padding: '10px', textAlign: 'left' }}>Valor Devedor</th>
-                        <th style={{ padding: '10px', textAlign: 'left' }}>Dias Atraso</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {previaClientes.map(item => (
-                        <tr key={item.tempId} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                          <td style={{ padding: '10px', textAlign: 'center' }}>
-                            <input 
-                              type="checkbox" 
-                              checked={item.selecionado} 
-                              onChange={e => {
-                                const checked = e.target.checked;
-                                setPreviaClientes(previaClientes.map(p => p.tempId === item.tempId ? { ...p, selecionado: checked } : p));
-                              }}
-                            />
-                          </td>
-                          <td style={{ padding: '10px', fontWeight: 'bold' }}>{item.codigo}</td>
-                          <td style={{ padding: '10px' }}>{item.nome}</td>
-                          <td style={{ padding: '10px', color: '#dc2626', fontWeight: 'bold' }}>R$ {Number(item.total_vencido || 0).toFixed(2)}</td>
-                          <td style={{ padding: '10px' }}>{item.dias_atraso} dias</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
           </div>
         )}
 

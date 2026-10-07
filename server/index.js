@@ -35,6 +35,17 @@ async function initDB() {
     await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS status_conexao VARCHAR(50) DEFAULT 'Ativo';`);
     await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS estagio_id INT DEFAULT 1;`);
 
+    // Tabela de scripts
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS scripts (
+        id SERIAL PRIMARY KEY,
+        titulo VARCHAR(255) NOT NULL,
+        categoria VARCHAR(50) DEFAULT '30',
+        conteudo TEXT NOT NULL,
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
     console.log('✅ Banco PostgreSQL Nexus-Cob pronto!');
   } catch (error) {
     console.error('❌ Erro na inicializacao do BD:', error.message);
@@ -85,6 +96,42 @@ app.post('/api/usuarios', async (req, res) => {
     res.json({ sucesso: true, usuario: result.rows[0] });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao cadastrar usuário.', detalhe: err.message });
+  }
+});
+
+// ROUTING DE SCRIPTS DE MENSAGEM
+app.get('/api/scripts', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM scripts ORDER BY id DESC');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao buscar scripts.' });
+  }
+});
+
+app.post('/api/scripts', async (req, res) => {
+  const { titulo, categoria, conteudo } = req.body;
+  if (!titulo || !conteudo) {
+    return res.status(400).json({ error: 'Título e Conteúdo são obrigatórios.' });
+  }
+  try {
+    const result = await pool.query(
+      'INSERT INTO scripts (titulo, categoria, conteudo) VALUES ($1, $2, $3) RETURNING *',
+      [titulo, categoria || '30', conteudo]
+    );
+    res.json({ sucesso: true, script: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao salvar script.' });
+  }
+});
+
+app.delete('/api/scripts/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM scripts WHERE id = $1', [id]);
+    res.json({ sucesso: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao excluir script.' });
   }
 });
 
@@ -205,7 +252,7 @@ app.post('/api/clientes/previa', upload.single('arquivo'), async (req, res) => {
         codigo: String(item[chaveId] || `CLI-${index + 1}`).trim(),
         nome: String(item[chaveNome] || 'Cliente sem Nome').trim(),
         total_vencido: valorLimpo,
-        opcao_atraso: '30', // Padrão Inicial: 30 dias
+        opcao_atraso: '30',
         selecionado: true
       };
     });
@@ -216,7 +263,7 @@ app.post('/api/clientes/previa', upload.single('arquivo'), async (req, res) => {
   }
 });
 
-// CONFIRMAR IMPORTAÇÃO DA PRÉVIA COM A CATEGORIA/FAIXA SELECIONADA
+// CONFIRMAR IMPORTAÇÃO
 app.post('/api/clientes/confirmar-importacao', async (req, res) => {
   const { clientes } = req.body;
   if (!clientes || !Array.isArray(clientes) || clientes.length === 0) {

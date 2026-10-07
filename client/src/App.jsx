@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Home, Users, RefreshCw, Calendar, 
-  MessageSquare, BarChart3, Upload, Zap, LogOut, ArrowRight, UserCheck, Shield, Trash2, Filter, UserPlus, Printer, CheckSquare
+  MessageSquare, BarChart3, Upload, Zap, LogOut, ArrowRight, UserCheck, Shield, Trash2, Filter, UserPlus, Printer, Copy, Check
 } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 
@@ -34,6 +34,7 @@ export default function App() {
   const [clientes, setClientes] = useState([]);
   const [previaClientes, setPreviaClientes] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
+  const [scripts, setScripts] = useState([]);
   const [arquivo, setArquivo] = useState(null);
   const [carregando, setCarregando] = useState(false);
 
@@ -47,6 +48,15 @@ export default function App() {
     total_vencido: '',
     opcao_atraso: '30'
   });
+
+  // Estado para cadastro de Scripts
+  const [novoScript, setNovoScript] = useState({
+    titulo: '',
+    categoria: '30', // 30, 60, 90, CANCELADOS
+    conteudo: ''
+  });
+  const [filtroScriptCategoria, setFiltroScriptCategoria] = useState('TODOS');
+  const [copiadoId, setCopiadoId] = useState(null);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -68,6 +78,9 @@ export default function App() {
 
       const resUsuarios = await axios.get(`${API_URL}/api/usuarios`);
       setUsuarios(resUsuarios.data || []);
+
+      const resScripts = await axios.get(`${API_URL}/api/scripts`);
+      setScripts(resScripts.data || []);
     } catch (err) {
       console.log('Conectando...', err.message);
     }
@@ -116,6 +129,39 @@ export default function App() {
     } catch (err) {
       alert('Erro ao excluir em massa.');
     }
+  };
+
+  const handleCadastrarScript = async (e) => {
+    e.preventDefault();
+    if (!novoScript.titulo || !novoScript.conteudo) {
+      return alert('Preencha o título e o conteúdo da mensagem.');
+    }
+
+    try {
+      await axios.post(`${API_URL}/api/scripts`, novoScript);
+      alert('Script de cobrança cadastrado com sucesso!');
+      setNovoScript({ titulo: '', categoria: '30', conteudo: '' });
+      carregarDados();
+    } catch (err) {
+      alert('Erro ao cadastrar script.');
+    }
+  };
+
+  const handleExcluirScript = async (id) => {
+    if (!window.confirm('Deseja excluir este script?')) return;
+    try {
+      await axios.delete(`${API_URL}/api/scripts/${id}`);
+      setScripts(scripts.filter(s => s.id !== id));
+      alert('Script excluído com sucesso!');
+    } catch (err) {
+      alert('Erro ao excluir script.');
+    }
+  };
+
+  const handleCopiarTexto = (id, texto) => {
+    navigator.clipboard.writeText(texto);
+    setCopiadoId(id);
+    setTimeout(() => setCopiadoId(null), 2000);
   };
 
   const handleCadastrarClienteManual = async (e) => {
@@ -200,19 +246,9 @@ export default function App() {
     return true;
   });
 
-  const clientesRelatorio = clientes.filter(c => {
-    if (!c.criado_em) return true;
-    const dataCriacao = new Date(c.criado_em);
-
-    if (dataInicio && dataCriacao < new Date(dataInicio)) return false;
-    if (dataFim && dataCriacao > new Date(dataFim + 'T23:59:59')) return false;
-
-    if (filtroRelatorioMes !== 'TODOS') {
-      const mesCriacao = dataCriacao.getMonth() + 1;
-      if (mesCriacao !== parseInt(filtroRelatorioMes)) return false;
-    }
-
-    return true;
+  const scriptsFiltrados = scripts.filter(s => {
+    if (filtroScriptCategoria === 'TODOS') return true;
+    return String(s.categoria) === filtroScriptCategoria;
   });
 
   if (!usuarioLogado) {
@@ -274,6 +310,7 @@ export default function App() {
           {[
             { id: 'pipeline', label: 'Pipeline / Funis', icon: RefreshCw },
             { id: 'clientes', label: 'Ficha do Cliente', icon: Users },
+            { id: 'scripts', label: 'Scripts de Cobrança', icon: MessageSquare },
             { id: 'dashboard', label: 'Dashboard', icon: Home },
             { id: 'importar', label: 'Importar / Prévia Excel', icon: Upload },
             { id: 'admin', label: 'Administração / Usuários', icon: Shield },
@@ -424,10 +461,110 @@ export default function App() {
           </div>
         )}
 
+        {/* SCRIPTS DE COBRANÇA */}
+        {abaAtiva === 'scripts' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '20px', flex: 1, overflow: 'hidden' }}>
+            <form onSubmit={handleCadastrarScript} style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0284c7', fontWeight: 'bold', fontSize: '1rem' }}>
+                <MessageSquare size={20} /> Cadastrar Script de Cobrança
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Título do Script *</label>
+                <input 
+                  type="text" 
+                  placeholder="Ex: Lembrete de Vencimento 30 Dias" 
+                  value={novoScript.titulo} 
+                  onChange={e => setNovoScript({ ...novoScript, titulo: e.target.value })}
+                  required
+                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Tipo de Devedor / Categoria</label>
+                <select 
+                  value={novoScript.categoria} 
+                  onChange={e => setNovoScript({ ...novoScript, categoria: e.target.value })}
+                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }}>
+                  <option value="30">Devedores 30 Dias</option>
+                  <option value="60">Devedores 60 Dias</option>
+                  <option value="90">Devedores 90+ Dias</option>
+                  <option value="CANCELADOS">Clientes Cancelados</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Mensagem / Texto para Envio *</label>
+                <textarea 
+                  rows={6}
+                  placeholder="Olá {NOME}, identificamos uma pendência no valor de {VALOR}. Podemos enviar a segunda via da fatura?" 
+                  value={novoScript.conteudo} 
+                  onChange={e => setNovoScript({ ...novoScript, conteudo: e.target.value })}
+                  required
+                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                />
+              </div>
+
+              <button type="submit" style={{ padding: '12px', backgroundColor: '#0284c7', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', marginTop: '8px' }}>
+                Salvar Modelo de Mensagem
+              </button>
+            </form>
+
+            <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '15px', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 style={{ margin: 0, fontSize: '1.1rem', color: '#0f172a' }}>📜 Biblioteca de Scripts Cadastrados</h2>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Filtrar Categoria:</span>
+                  <select 
+                    value={filtroScriptCategoria} 
+                    onChange={e => setFiltroScriptCategoria(e.target.value)}
+                    style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.82rem' }}>
+                    <option value="TODOS">Todas as Categorias</option>
+                    <option value="30">30 Dias</option>
+                    <option value="60">60 Dias</option>
+                    <option value="90">90+ Dias</option>
+                    <option value="CANCELADOS">Cancelados</option>
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {scriptsFiltrados.map(s => (
+                  <div key={s.id} style={{ border: '1px solid #e2e8f0', padding: '15px', borderRadius: '8px', backgroundColor: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ fontWeight: 'bold', color: '#0f172a', fontSize: '0.95rem' }}>{s.titulo}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ padding: '3px 8px', borderRadius: '12px', backgroundColor: s.categoria === 'CANCELADOS' ? '#fee2e2' : '#e0f2fe', color: s.categoria === 'CANCELADOS' ? '#dc2626' : '#0369a1', fontSize: '0.72rem', fontWeight: 'bold' }}>
+                          {s.categoria === 'CANCELADOS' ? 'CANCELADOS' : `${s.categoria} DIAS`}
+                        </span>
+                        <button onClick={() => handleExcluirScript(s.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}>
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div style={{ fontSize: '0.85rem', color: '#334155', whiteSpace: 'pre-line', backgroundColor: '#fff', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                      {s.conteudo}
+                    </div>
+
+                    <button 
+                      onClick={() => handleCopiarTexto(s.id, s.conteudo)}
+                      style={{ padding: '8px 14px', backgroundColor: copiadoId === s.id ? '#059669' : '#0284c7', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '6px', alignSelf: 'flex-start' }}>
+                      {copiadoId === s.id ? <><Check size={14} /> Copiado!</> : <><Copy size={14} /> Copiar Texto</>}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* DASHBOARD INTEGRADO */}
         {abaAtiva === 'dashboard' && <Dashboard clientes={clientes} />}
 
-        {/* RELATÓRIOS POR PERÍODO */}
+        {/* RELATÓRIOS */}
         {abaAtiva === 'relatorios' && (
           <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '20px', flex: 1, overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -492,7 +629,7 @@ export default function App() {
                   </tr>
                 </thead>
                 <tbody>
-                  {clientesRelatorio.map(c => (
+                  {clientes.map(c => (
                     <tr key={c.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                       <td style={{ padding: '10px', fontWeight: 'bold' }}>{c.codigo}</td>
                       <td style={{ padding: '10px' }}>{c.nome}</td>
@@ -509,7 +646,7 @@ export default function App() {
           </div>
         )}
 
-        {/* IMPORTAÇÃO & PRÉVIA COM SELETOR DE CATEGORIA/LISTA */}
+        {/* IMPORTAÇÃO & PRÉVIA */}
         {abaAtiva === 'importar' && (
           <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '20px', flex: 1, overflowY: 'auto' }}>
             <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a' }}>📥 Importar Lista & Gerar Prévia do Funil</h2>
@@ -589,7 +726,6 @@ export default function App() {
                           <td style={{ padding: '10px' }}>{item.nome}</td>
                           <td style={{ padding: '10px', color: '#dc2626', fontWeight: 'bold' }}>R$ {Number(item.total_vencido || 0).toFixed(2)}</td>
                           <td style={{ padding: '10px' }}>
-                            {/* SELETOR INDIVIDUAL DE FAIXA DE ATRASO / CANCELADO POR LINHA */}
                             <select 
                               value={item.opcao_atraso || '30'}
                               onChange={e => {

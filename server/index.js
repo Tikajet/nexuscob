@@ -11,24 +11,21 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Middlewares
 app.use(cors());
 app.use(express.json());
 
-// Conexão com o PostgreSQL
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
-// Inicialização automática das tabelas no Banco de Dados
 async function initDB() {
   try {
     const schemaPath = path.join(__dirname, 'schema.sql');
     if (fs.existsSync(schemaPath)) {
       const sql = fs.readFileSync(schemaPath, 'utf8');
       await pool.query(sql);
-      console.log('✅ Banco PostgreSQL do Nexus-Cob pronto!');
+      console.log('✅ Banco PostgreSQL Nexus-Cob pronto!');
     }
   } catch (error) {
     console.error('❌ Erro no schema:', error.message);
@@ -36,18 +33,33 @@ async function initDB() {
 }
 initDB();
 
-// 1. Healthcheck
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'API Nexus-Cob operacional em nuvem' });
 });
 
-// 2. BUSCAR TODOS OS CLIENTES / PIPELINE
+// LOGIN DE USUÁRIOS
+app.post('/api/login', async (req, res) => {
+  const { email, senha } = req.body;
+  if (!email || !senha) return res.status(400).json({ error: 'E-mail e senha são obrigatórios.' });
+
+  res.json({
+    sucesso: true,
+    usuario: {
+      id: 1,
+      nome: email.split('@')[0].toUpperCase(),
+      email: email,
+      cargo: email.includes('admin') ? 'ADMINISTRADOR' : 'COBRADOR'
+    }
+  });
+});
+
+// BUSCAR CLIENTES DO PIPELINE
 app.get('/api/clientes', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT c.*, e.nome as estagio_nome 
+      SELECT c.*, u.nome as operador_nome 
       FROM clientes c 
-      LEFT JOIN estagios e ON c.estagio_id = e.id 
+      LEFT JOIN usuarios u ON c.usuario_responsavel_id = u.id 
       ORDER BY c.id DESC
     `);
     res.json(result.rows);
@@ -56,19 +68,18 @@ app.get('/api/clientes', async (req, res) => {
   }
 });
 
-// 3. MOVER CLIENTE NO PIPELINE / KANBAN
+// MOVER CLIENTE DE ESTÁGIO REGISTRANDO O OPERADOR
 app.put('/api/clientes/:id/estagio', async (req, res) => {
   const { id } = req.params;
-  const { estagio_id } = req.body;
+  const { estagio_id, usuario_nome } = req.body;
   try {
     await pool.query('UPDATE clientes SET estagio_id = $1 WHERE id = $2', [estagio_id, id]);
-    res.json({ sucesso: true, mensagem: 'Estágio do cliente atualizado!' });
+    res.json({ sucesso: true, mensagem: `Cliente movido pelo operador ${usuario_nome || 'Sistema'}` });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao atualizar estágio.', detalhe: error.message });
   }
 });
 
-// 4. AGENDA / TAREFAS DOS OPERADORES
 app.get('/api/agenda', async (req, res) => {
   try {
     const result = await pool.query('SELECT a.*, c.nome as cliente_nome FROM agenda a LEFT JOIN clientes c ON a.cliente_id = c.id ORDER BY a.data_agendamento ASC');
@@ -91,21 +102,6 @@ app.post('/api/agenda', async (req, res) => {
   }
 });
 
-// 5. REGISTRAR HISTÓRICO DE CONTATO (LIGAÇÃO / WHATSAPP / SMS)
-app.post('/api/contatos', async (req, res) => {
-  const { cliente_id, canal, resultado, observacao } = req.body;
-  try {
-    await pool.query(
-      'INSERT INTO historico_contatos (cliente_id, canal, resultado, observacao) VALUES ($1, $2, $3, $4)',
-      [cliente_id, canal, resultado, observacao]
-    );
-    res.json({ sucesso: true, mensagem: 'Histórico de atendimento salvo!' });
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao salvar histórico.', detalhe: error.message });
-  }
-});
-
-// 6. SCRIPTS DE ABORDAGEM
 app.get('/api/scripts', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM scripts ORDER BY id DESC');
@@ -128,12 +124,9 @@ app.post('/api/scripts', async (req, res) => {
   }
 });
 
-// 7. IMPORTAÇÃO DE PLANILHA EXCEL (.xlsx / .csv)
 app.post('/api/clientes/importar', upload.single('arquivo'), async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
-    }
+    if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
 
     const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
     const sheetName = workbook.SheetNames[0];
@@ -158,23 +151,18 @@ app.post('/api/clientes/importar', upload.single('arquivo'), async (req, res) =>
           parseFloat(item.Valor || item.valor_mensal || 119.90),
           parseFloat(item.ValorVencido || item.total_vencido || 239.80),
           parseInt(item.DiasAtraso || item.dias_atraso || 15),
-          1 // Estágio inicial: "NOVOS"
+          1
         ]
       );
       inseridos++;
     }
 
-    res.json({
-      sucesso: true,
-      mensagem: `${inseridos} clientes importados/atualizados com sucesso!`,
-      total: inseridos
-    });
+    res.json({ sucesso: true, mensagem: `${inseridos} clientes importados!`, total: inseridos });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao processar planilha Excel.', detalhe: error.message });
   }
 });
 
-// Inicialização
 app.listen(PORT, () => {
   console.log(`🚀 API NEXUS COB rodando na porta ${PORT}`);
 });

@@ -121,7 +121,7 @@ app.delete('/api/clientes/:id', async (req, res) => {
   }
 });
 
-// EXCLUSÃO EM MASSA CORRIGIDA (LIMPA DEPENDÊNCIAS ANTES)
+// EXCLUSÃO EM MASSA
 app.post('/api/clientes/excluir-massa', async (req, res) => {
   const { ids } = req.body;
   if (!ids || !Array.isArray(ids) || ids.length === 0) {
@@ -138,7 +138,7 @@ app.post('/api/clientes/excluir-massa', async (req, res) => {
   }
 });
 
-// LER PLANILHA E RETORNAR PRÉVIA PARA O FRONT
+// GERAR PRÉVIA A PARTIR DA PLANILHA EXCEL
 app.post('/api/clientes/previa', upload.single('arquivo'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
@@ -162,7 +162,6 @@ app.post('/api/clientes/previa', upload.single('arquivo'), async (req, res) => {
         nome: String(item[chaveNome] || 'Cliente sem Nome').trim(),
         total_vencido: valorLimpo,
         dias_atraso: parseInt(item.DiasAtraso || item.dias_atraso) || 30,
-        status_conexao: String(item.Status || item.status || 'Ativo').trim(),
         selecionado: true
       };
     });
@@ -173,7 +172,7 @@ app.post('/api/clientes/previa', upload.single('arquivo'), async (req, res) => {
   }
 });
 
-// CONFIRMAR IMPORTAÇÃO DA PRÉVIA (CORRIGIDO)
+// CONFIRMAR IMPORTAÇÃO DA PRÉVIA (GRAVAÇÃO ROBUSTA COM UPSERT)
 app.post('/api/clientes/confirmar-importacao', async (req, res) => {
   const { clientes } = req.body;
   if (!clientes || !Array.isArray(clientes) || clientes.length === 0) {
@@ -186,24 +185,24 @@ app.post('/api/clientes/confirmar-importacao', async (req, res) => {
       const cod = String(cli.codigo || `CLI-${Math.floor(1000 + Math.random() * 9000)}`);
       const val = parseFloat(cli.total_vencido) || 0.00;
       const nom = String(cli.nome || 'Cliente sem nome');
+      const dias = parseInt(cli.dias_atraso) || 30;
 
       await pool.query(
-        `INSERT INTO clientes (codigo, nome, total_vencido, dias_atraso, status_conexao, estagio_id) 
-         VALUES ($1, $2, $3, $4, $5, 1)
+        `INSERT INTO clientes (codigo, nome, total_vencido, dias_atraso, estagio_id) 
+         VALUES ($1, $2, $3, $4, 1)
          ON CONFLICT (codigo) DO UPDATE SET 
             nome = EXCLUDED.nome,
             total_vencido = EXCLUDED.total_vencido,
-            dias_atraso = EXCLUDED.dias_atraso,
-            status_conexao = EXCLUDED.status_conexao`,
-        [cod, nom, val, parseInt(cli.dias_atraso) || 30, cli.status_conexao || 'Ativo']
+            dias_atraso = EXCLUDED.dias_atraso`,
+        [cod, nom, val, dias]
       );
       inseridos++;
     }
 
-    res.json({ sucesso: true, mensagem: `${inseridos} clientes importados com sucesso!` });
+    res.json({ sucesso: true, mensagem: `${inseridos} clientes importados para o Funil!` });
   } catch (error) {
-    console.error('Erro no salvamento:', error);
-    res.status(500).json({ error: 'Erro ao salvar clientes no banco de dados.', detalhe: error.message });
+    console.error('Erro na gravação do PostgreSQL:', error);
+    res.status(500).json({ error: 'Erro ao salvar no banco.', detalhe: error.message });
   }
 });
 

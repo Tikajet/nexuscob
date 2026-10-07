@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Home, Users, RefreshCw, Calendar, 
-  MessageSquare, BarChart3, Upload, Zap, LogOut, ArrowRight, UserCheck, Shield, Trash2, Filter, Eye
+  MessageSquare, BarChart3, Upload, Zap, LogOut, ArrowRight, UserCheck, Shield, Trash2, Filter
 } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 
@@ -122,7 +122,7 @@ export default function App() {
         setPreviaClientes(res.data.dados);
       }
     } catch (err) {
-      alert('Erro ao processar arquivo.');
+      alert('Erro ao ler a planilha Excel.');
     } finally {
       setCarregando(false);
     }
@@ -135,13 +135,14 @@ export default function App() {
     setCarregando(true);
     try {
       const res = await axios.post(`${API_URL}/api/clientes/confirmar-importacao`, { clientes: selecionados });
-      alert(res.data.mensagem || 'Importação realizada!');
+      alert(res.data.mensagem || 'Importação realizada com sucesso!');
       setPreviaClientes([]);
       setArquivo(null);
       carregarDados();
       setAbaAtiva('pipeline');
     } catch (err) {
-      alert('Erro ao salvar no banco.');
+      const msg = err.response?.data?.detalhe || err.response?.data?.error || err.message;
+      alert(`Erro ao salvar no banco: ${msg}`);
     } finally {
       setCarregando(false);
     }
@@ -379,7 +380,7 @@ export default function App() {
           </div>
         )}
 
-        {/* FICHA COMPLETA DO CLIENTE */}
+        {/* FICHA DO CLIENTE */}
         {abaAtiva === 'clientes' && (
           <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '20px', flex: 1, overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -387,7 +388,6 @@ export default function App() {
               <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Total de Clientes Cadastrados: <strong>{clientes.length}</strong></span>
             </div>
 
-            {/* SELEÇÃO RÁPIDA DE CLIENTE */}
             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
               <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#334155' }}>Selecionar Cliente:</label>
               <select 

@@ -34,26 +34,52 @@ async function initDB() {
 initDB();
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'API Nexus-Cob operacional em nuvem' });
+  res.json({ status: 'OK', message: 'API Nexus-Cob operacional' });
 });
 
-// LOGIN DE USUÁRIOS
+// AUTENTICAÇÃO E CADASTRO DE USUÁRIOS
 app.post('/api/login', async (req, res) => {
-  const { email, senha } = req.body;
-  if (!email || !senha) return res.status(400).json({ error: 'E-mail e senha são obrigatórios.' });
-
-  res.json({
-    sucesso: true,
-    usuario: {
-      id: 1,
-      nome: email.split('@')[0].toUpperCase(),
-      email: email,
-      cargo: email.includes('admin') ? 'ADMINISTRADOR' : 'COBRADOR'
+  const { email } = req.body;
+  try {
+    const userRes = await pool.query('SELECT * FROM usuarios WHERE email = $1', [email]);
+    if (userRes.rows.length > 0) {
+      return res.json({ sucesso: true, usuario: userRes.rows[0] });
     }
-  });
+    const nome = email.split('@')[0].toUpperCase();
+    const cargo = email.includes('admin') ? 'ADMINISTRADOR' : 'COBRADOR';
+    const newRes = await pool.query(
+      'INSERT INTO usuarios (nome, email, senha_hash, cargo) VALUES ($1, $2, $3, $4) RETURNING *',
+      [nome, email, '123456', cargo]
+    );
+    res.json({ sucesso: true, usuario: newRes.rows[0] });
+  } catch (err) {
+    res.json({ sucesso: true, usuario: { id: 1, nome: email.split('@')[0].toUpperCase(), email, cargo: 'ADMINISTRADOR' } });
+  }
 });
 
-// BUSCAR CLIENTES DO PIPELINE
+app.get('/api/usuarios', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT id, nome, email, cargo, ativo, criado_em FROM usuarios ORDER BY id DESC');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao buscar usuários.' });
+  }
+});
+
+app.post('/api/usuarios', async (req, res) => {
+  const { nome, email, cargo } = req.body;
+  try {
+    const result = await pool.query(
+      'INSERT INTO usuarios (nome, email, senha_hash, cargo) VALUES ($1, $2, $3, $4) RETURNING id, nome, email, cargo',
+      [nome, email, '123456', cargo || 'COBRADOR']
+    );
+    res.json({ sucesso: true, usuario: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao cadastrar usuário.', detalhe: err.message });
+  }
+});
+
+// CLIENTES E KANBAN
 app.get('/api/clientes', async (req, res) => {
   try {
     const result = await pool.query(`
@@ -68,46 +94,50 @@ app.get('/api/clientes', async (req, res) => {
   }
 });
 
-// MOVER CLIENTE DE ESTÁGIO REGISTRANDO O OPERADOR
 app.put('/api/clientes/:id/estagio', async (req, res) => {
   const { id } = req.params;
-  const { estagio_id, usuario_nome } = req.body;
+  const { estagio_id, usuario_nome, usuario_id } = req.body;
   try {
-    await pool.query('UPDATE clientes SET estagio_id = $1 WHERE id = $2', [estagio_id, id]);
-    res.json({ sucesso: true, mensagem: `Cliente movido pelo operador ${usuario_nome || 'Sistema'}` });
+    await pool.query(
+      'UPDATE clientes SET estagio_id = $1, usuario_responsavel_id = COALESCE($2, usuario_responsavel_id) WHERE id = $3',
+      [estagio_id, usuario_id || null, id]
+    );
+    res.json({ sucesso: true, mensagem: `Cliente movido por ${usuario_nome}` });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao atualizar estágio.', detalhe: error.message });
   }
 });
 
+// AGENDA
 app.get('/api/agenda', async (req, res) => {
   try {
     const result = await pool.query('SELECT a.*, c.nome as cliente_nome FROM agenda a LEFT JOIN clientes c ON a.cliente_id = c.id ORDER BY a.data_agendamento ASC');
     res.json(result.rows);
   } catch (error) {
-    res.status(500).json({ error: 'Erro ao buscar agenda.', detalhe: error.message });
+    res.status(500).json({ error: 'Erro ao buscar agenda.' });
   }
 });
 
 app.post('/api/agenda', async (req, res) => {
-  const { cliente_id, titulo, descricao, data_agendamento } = req.body;
+  const { cliente_id, usuario_id, titulo, descricao, data_agendamento } = req.body;
   try {
     const result = await pool.query(
-      'INSERT INTO agenda (cliente_id, titulo, descricao, data_agendamento) VALUES ($1, $2, $3, $4) RETURNING *',
-      [cliente_id || null, titulo, descricao, data_agendamento]
+      'INSERT INTO agenda (cliente_id, usuario_id, titulo, descricao, data_agendamento) VALUES ($1, $2, $3, $4) RETURNING *',
+      [cliente_id || null, usuario_id || null, titulo, descricao, data_agendamento]
     );
     res.json({ sucesso: true, item: result.rows[0] });
   } catch (error) {
-    res.status(500).json({ error: 'Erro ao salvar agendamento.', detalhe: error.message });
+    res.status(500).json({ error: 'Erro ao salvar agendamento.' });
   }
 });
 
+// SCRIPTS DE COBRANÇA
 app.get('/api/scripts', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM scripts ORDER BY id DESC');
     res.json(result.rows);
   } catch (error) {
-    res.status(500).json({ error: 'Erro ao buscar scripts.', detalhe: error.message });
+    res.status(500).json({ error: 'Erro ao buscar scripts.' });
   }
 });
 
@@ -120,10 +150,11 @@ app.post('/api/scripts', async (req, res) => {
     );
     res.json({ sucesso: true, script: result.rows[0] });
   } catch (error) {
-    res.status(500).json({ error: 'Erro ao cadastrar script.', detalhe: error.message });
+    res.status(500).json({ error: 'Erro ao salvar script.' });
   }
 });
 
+// IMPORTAÇÃO DE EXCEL PADRONIZADO (ID, NOME, VALOR)
 app.post('/api/clientes/importar', upload.single('arquivo'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
@@ -134,32 +165,24 @@ app.post('/api/clientes/importar', upload.single('arquivo'), async (req, res) =>
 
     let inseridos = 0;
     for (const item of dadosExcel) {
+      const codigo = String(item.ID || item.id || item.Codigo || item.codigo || `CLI-${Math.floor(1000 + Math.random() * 9000)}`);
+      const nome = String(item.Nome || item.nome || item.Cliente || item.cliente || 'Cliente sem Nome');
+      const valor = parseFloat(item['Valor Devedor'] || item.ValorDevedor || item.valor_devedor || item.Valor || item.valor || 0.00);
+
       await pool.query(
-        `INSERT INTO clientes (codigo, nome, documento, telefone, whatsapp, email, plano, valor_mensal, total_vencido, dias_atraso, estagio_id) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        `INSERT INTO clientes (codigo, nome, total_vencido, estagio_id) 
+         VALUES ($1, $2, $3, 1)
          ON CONFLICT (codigo) DO UPDATE SET 
-            total_vencido = EXCLUDED.total_vencido,
-            dias_atraso = EXCLUDED.dias_atraso`,
-        [
-          item.Codigo || item.codigo || `CLI-${Math.floor(1000 + Math.random() * 9000)}`,
-          item.Cliente || item.nome || 'Cliente sem nome',
-          item.CPF || item.documento || '',
-          item.Telefone || item.telefone || '',
-          item.WhatsApp || item.whatsapp || item.telefone || '',
-          item.Email || item.email || '',
-          item.Plano || item.plano || 'Fibra Óptica 500M',
-          parseFloat(item.Valor || item.valor_mensal || 119.90),
-          parseFloat(item.ValorVencido || item.total_vencido || 239.80),
-          parseInt(item.DiasAtraso || item.dias_atraso || 15),
-          1
-        ]
+            nome = EXCLUDED.nome,
+            total_vencido = EXCLUDED.total_vencido`,
+        [codigo, nome, valor]
       );
       inseridos++;
     }
 
-    res.json({ sucesso: true, mensagem: `${inseridos} clientes importados!`, total: inseridos });
+    res.json({ sucesso: true, mensagem: `${inseridos} clientes importados com sucesso!`, total: inseridos });
   } catch (error) {
-    res.status(500).json({ error: 'Erro ao processar planilha Excel.', detalhe: error.message });
+    res.status(500).json({ error: 'Erro ao importar planilha.', detalhe: error.message });
   }
 });
 

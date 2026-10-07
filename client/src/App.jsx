@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Home, Users, RefreshCw, Calendar, 
-  MessageSquare, BarChart3, Upload, Zap, LogOut, ArrowRight, UserCheck, Shield, Trash2, Filter
+  MessageSquare, BarChart3, Upload, Zap, LogOut, ArrowRight, UserCheck, Shield, Trash2, Filter, Eye
 } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 
@@ -29,17 +29,11 @@ export default function App() {
   const [clientes, setClientes] = useState([]);
   const [previaClientes, setPreviaClientes] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
-  const [agenda, setAgenda] = useState([]);
-  const [scripts, setScripts] = useState([]);
   const [arquivo, setArquivo] = useState(null);
   const [carregando, setCarregando] = useState(false);
 
   const [selecionadosExclusao, setSelecionadosExclusao] = useState([]);
-
   const [novoUsuario, setNovoUsuario] = useState({ nome: '', email: '', cargo: 'COBRADOR' });
-  const [novoAgendamento, setNovoAgendamento] = useState({ titulo: '', data_agendamento: '', descricao: '' });
-  const [novoScript, setNovoScript] = useState({ titulo: '', categoria: '1º CONTATO', conteudo: '' });
-
   const [clienteSelecionado, setClienteSelecionado] = useState(null);
 
   const handleLogin = async (e) => {
@@ -62,12 +56,6 @@ export default function App() {
 
       const resUsuarios = await axios.get(`${API_URL}/api/usuarios`);
       setUsuarios(resUsuarios.data || []);
-
-      const resAgenda = await axios.get(`${API_URL}/api/agenda`);
-      setAgenda(resAgenda.data || []);
-
-      const resScripts = await axios.get(`${API_URL}/api/scripts`);
-      setScripts(resScripts.data || []);
     } catch (err) {
       console.log('Conectando...', err.message);
     }
@@ -92,13 +80,13 @@ export default function App() {
     }
   };
 
-  // EXCLUIR CLIENTE DO FUNIL (LIXEIRA)
   const handleExcluirCliente = async (clienteId) => {
     if (!window.confirm('Deseja excluir este cliente do funil?')) return;
     try {
       await axios.delete(`${API_URL}/api/clientes/${clienteId}`);
       setClientes(clientes.filter(c => c.id !== clienteId));
-      alert('Cliente removido do funil!');
+      if (clienteSelecionado?.id === clienteId) setClienteSelecionado(null);
+      alert('Cliente removido!');
     } catch (err) {
       alert('Erro ao excluir cliente.');
     }
@@ -118,7 +106,6 @@ export default function App() {
     }
   };
 
-  // ENVIA O ARQUIVO PARA GERAR A PRÉVIA
   const handleGerarPrevia = async (e) => {
     e.preventDefault();
     if (!arquivo) return alert('Selecione um arquivo Excel (.xlsx)!');
@@ -133,11 +120,9 @@ export default function App() {
       });
       if (res.data && res.data.dados) {
         setPreviaClientes(res.data.dados);
-      } else {
-        alert('Nenhum dado encontrado no arquivo.');
       }
     } catch (err) {
-      alert('Erro ao processar o arquivo Excel. Verifique a planilha.');
+      alert('Erro ao processar arquivo.');
     } finally {
       setCarregando(false);
     }
@@ -145,18 +130,18 @@ export default function App() {
 
   const handleConfirmarImportacaoPrevia = async () => {
     const selecionados = previaClientes.filter(p => p.selecionado);
-    if (selecionados.length === 0) return alert('Selecione ao menos um cliente da prévia.');
+    if (selecionados.length === 0) return alert('Selecione ao menos um cliente.');
 
     setCarregando(true);
     try {
       const res = await axios.post(`${API_URL}/api/clientes/confirmar-importacao`, { clientes: selecionados });
-      alert(res.data.mensagem || 'Importação realizada com sucesso!');
+      alert(res.data.mensagem || 'Importação realizada!');
       setPreviaClientes([]);
       setArquivo(null);
       carregarDados();
       setAbaAtiva('pipeline');
     } catch (err) {
-      alert('Erro ao salvar clientes no banco de dados.');
+      alert('Erro ao salvar no banco.');
     } finally {
       setCarregando(false);
     }
@@ -243,8 +228,8 @@ export default function App() {
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, overflowY: 'auto' }}>
           {[
             { id: 'pipeline', label: 'Pipeline / Funis', icon: RefreshCw },
-            { id: 'dashboard', label: 'Dashboard', icon: Home },
             { id: 'clientes', label: 'Ficha do Cliente', icon: Users },
+            { id: 'dashboard', label: 'Dashboard', icon: Home },
             { id: 'importar', label: 'Importar / Prévia Excel', icon: Upload },
             { id: 'admin', label: 'Administração / Usuários', icon: Shield },
             { id: 'relatorios', label: 'Relatórios', icon: BarChart3 },
@@ -295,7 +280,7 @@ export default function App() {
           </div>
         </header>
 
-        {/* FUNIL KANBAN COM BOTAO DE EXCLUSAO (LIXEIRA) */}
+        {/* FUNIL KANBAN */}
         {abaAtiva === 'pipeline' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, overflow: 'hidden' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: '#fff', padding: '10px 15px', borderRadius: '8px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
@@ -344,7 +329,7 @@ export default function App() {
                       {clientesNoEstagio.map(cli => (
                         <div 
                           key={cli.id} 
-                          onClick={() => setClienteSelecionado(cli)}
+                          onClick={() => { setClienteSelecionado(cli); setAbaAtiva('clientes'); }}
                           style={{ 
                             backgroundColor: '#fff', 
                             padding: '10px 12px', 
@@ -355,7 +340,6 @@ export default function App() {
                           }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div style={{ fontWeight: 'bold', color: '#0f172a', fontSize: '0.85rem' }}>{cli.nome}</div>
-                            {/* BOTAO LIXEIRA DE EXCLUSAO INDIVIDUAL */}
                             <button 
                               onClick={(e) => { e.stopPropagation(); handleExcluirCliente(cli.id); }}
                               title="Excluir do Funil"
@@ -395,7 +379,49 @@ export default function App() {
           </div>
         )}
 
-        {/* TELA DE IMPORTACAO COM GERADOR DE PREVIA */}
+        {/* FICHA COMPLETA DO CLIENTE */}
+        {abaAtiva === 'clientes' && (
+          <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '20px', flex: 1, overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a' }}>📄 Ficha e Análise do Cliente</h2>
+              <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Total de Clientes Cadastrados: <strong>{clientes.length}</strong></span>
+            </div>
+
+            {/* SELEÇÃO RÁPIDA DE CLIENTE */}
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#334155' }}>Selecionar Cliente:</label>
+              <select 
+                value={clienteSelecionado?.id || ''} 
+                onChange={(e) => setClienteSelecionado(clientes.find(c => c.id === Number(e.target.value)))}
+                style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem', minWidth: '300px' }}>
+                {clientes.map(c => (
+                  <option key={c.id} value={c.id}>{c.codigo} - {c.nome} (R$ {Number(c.total_vencido || 0).toFixed(2)})</option>
+                ))}
+              </select>
+            </div>
+
+            {clienteSelecionado ? (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '10px' }}>
+                <div style={{ backgroundColor: '#f8fafc', padding: '18px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <h3 style={{ margin: '0 0 10px 0', fontSize: '1rem', color: '#0284c7' }}>Dados Cadastrais</h3>
+                  <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>ID / Código:</strong> {clienteSelecionado.codigo}</p>
+                  <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>Nome do Cliente:</strong> {clienteSelecionado.nome}</p>
+                  <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>Status Conexão:</strong> {clienteSelecionado.status_conexao || 'Ativo'}</p>
+                </div>
+
+                <div style={{ backgroundColor: '#f8fafc', padding: '18px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <h3 style={{ margin: '0 0 10px 0', fontSize: '1rem', color: '#dc2626' }}>Situação Financeira</h3>
+                  <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>Valor Total Devedor:</strong> <span style={{ color: '#dc2626', fontWeight: 'bold' }}>R$ {Number(clienteSelecionado.total_vencido || 0).toFixed(2)}</span></p>
+                  <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>Dias em Atraso:</strong> {clienteSelecionado.dias_atraso || 30} dias</p>
+                  <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>Estágio Atual no Funil:</strong> {ESTAGIOS.find(e => e.id === Number(clienteSelecionado.estagio_id))?.nome || '1º CONTATO'}</p>
+                  <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>Responsável Atual:</strong> {clienteSelecionado.operador_nome || usuarioLogado.nome}</p>
+                </div>
+              </div>
+            ) : <p style={{ color: '#64748b' }}>Nenhum cliente selecionado.</p>}
+          </div>
+        )}
+
+        {/* IMPORTAÇÃO E PRÉVIA */}
         {abaAtiva === 'importar' && (
           <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '20px', flex: 1, overflowY: 'auto' }}>
             <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a' }}>📥 Importar Lista & Gerar Prévia do Funil</h2>

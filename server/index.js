@@ -37,7 +37,7 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'API Nexus-Cob operacional' });
 });
 
-// LOGIN E USUÁRIOS
+// AUTENTICAÇÃO E LOGIN
 app.post('/api/login', async (req, res) => {
   const { email } = req.body;
   try {
@@ -79,7 +79,7 @@ app.post('/api/usuarios', async (req, res) => {
   }
 });
 
-// CLIENTES E KANBAN
+// LISTA DE CLIENTES E KANBAN
 app.get('/api/clientes', async (req, res) => {
   try {
     const result = await pool.query(`
@@ -112,6 +112,8 @@ app.put('/api/clientes/:id/estagio', async (req, res) => {
 app.delete('/api/clientes/:id', async (req, res) => {
   const { id } = req.params;
   try {
+    await pool.query('DELETE FROM agenda WHERE cliente_id = $1', [id]);
+    await pool.query('DELETE FROM historico_contatos WHERE cliente_id = $1', [id]);
     await pool.query('DELETE FROM clientes WHERE id = $1', [id]);
     res.json({ sucesso: true, mensagem: 'Cliente excluído com sucesso!' });
   } catch (error) {
@@ -119,67 +121,24 @@ app.delete('/api/clientes/:id', async (req, res) => {
   }
 });
 
-// EXCLUSÃO EM MASSA (ADMINISTRADOR)
+// EXCLUSÃO EM MASSA CORRIGIDA (LIMPA DEPENDÊNCIAS ANTES)
 app.post('/api/clientes/excluir-massa', async (req, res) => {
   const { ids } = req.body;
   if (!ids || !Array.isArray(ids) || ids.length === 0) {
     return res.status(400).json({ error: 'Nenhum ID selecionado para exclusão.' });
   }
   try {
+    await pool.query('DELETE FROM agenda WHERE cliente_id = ANY($1::int[])', [ids]);
+    await pool.query('DELETE FROM historico_contatos WHERE cliente_id = ANY($1::int[])', [ids]);
     await pool.query('DELETE FROM clientes WHERE id = ANY($1::int[])', [ids]);
     res.json({ sucesso: true, mensagem: `${ids.length} clientes excluídos com sucesso!` });
   } catch (error) {
+    console.error('Erro ao excluir em massa:', error);
     res.status(500).json({ error: 'Erro ao excluir clientes em massa.', detalhe: error.message });
   }
 });
 
-// AGENDA
-app.get('/api/agenda', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT a.*, c.nome as cliente_nome FROM agenda a LEFT JOIN clientes c ON a.cliente_id = c.id ORDER BY a.data_agendamento ASC');
-    res.json(result.rows);
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao buscar agenda.' });
-  }
-});
-
-app.post('/api/agenda', async (req, res) => {
-  const { cliente_id, usuario_id, titulo, descricao, data_agendamento } = req.body;
-  try {
-    const result = await pool.query(
-      'INSERT INTO agenda (cliente_id, usuario_id, titulo, descricao, data_agendamento) VALUES ($1, $2, $3, $4) RETURNING *',
-      [cliente_id || null, usuario_id || null, titulo, descricao, data_agendamento]
-    );
-    res.json({ sucesso: true, item: result.rows[0] });
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao salvar agendamento.' });
-  }
-});
-
-// SCRIPTS
-app.get('/api/scripts', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM scripts ORDER BY id DESC');
-    res.json(result.rows);
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao buscar scripts.' });
-  }
-});
-
-app.post('/api/scripts', async (req, res) => {
-  const { titulo, categoria, conteudo } = req.body;
-  try {
-    const result = await pool.query(
-      'INSERT INTO scripts (titulo, categoria, conteudo) VALUES ($1, $2, $3) RETURNING *',
-      [titulo, categoria, conteudo]
-    );
-    res.json({ sucesso: true, script: result.rows[0] });
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao salvar script.' });
-  }
-});
-
-// LER PLANILHA E RETORNAR PRÉVIA PARA O FRONT-END
+// LER PLANILHA E RETORNAR PRÉVIA PARA O FRONT
 app.post('/api/clientes/previa', upload.single('arquivo'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
@@ -189,42 +148,45 @@ app.post('/api/clientes/previa', upload.single('arquivo'), async (req, res) => {
     const dadosExcel = xlsx.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: '' });
 
     const listaPrevia = dadosExcel.map((item, index) => {
-      const chaveId = Object.keys(item).find(k => k.trim().toUpperCase() === 'ID' || k.trim().toUpperCase() === 'CODIGO') || Object.keys(item)[0];
-      const chaveNome = Object.keys(item).find(k => k.trim().toUpperCase() === 'NOME' || k.trim().toUpperCase() === 'CLIENTE') || Object.keys(item)[1];
-      const chaveValor = Object.keys(item).find(k => k.trim().toUpperCase().includes('VALOR') || k.trim().toUpperCase().includes('DEVEDOR')) || Object.keys(item)[2];
-      const chaveAtraso = Object.keys(item).find(k => k.trim().toUpperCase().includes('ATRASO') || k.trim().toUpperCase().includes('DIAS')) || '';
-      const chaveStatus = Object.keys(item).find(k => k.trim().toUpperCase().includes('STATUS')) || '';
+      const keys = Object.keys(item);
+      const chaveId = keys.find(k => k.trim().toUpperCase() === 'ID' || k.trim().toUpperCase() === 'CODIGO') || keys[0];
+      const chaveNome = keys.find(k => k.trim().toUpperCase() === 'NOME' || k.trim().toUpperCase() === 'CLIENTE') || keys[1];
+      const chaveValor = keys.find(k => k.trim().toUpperCase().includes('VALOR') || k.trim().toUpperCase().includes('DEVEDOR')) || keys[2];
 
-      let valorBruto = String(item[chaveValor] || '0');
-      let valorFormatado = parseFloat(valorBruto.replace(/R\$/g, '').replace(/\s/g, '').replace(/\./g, '').replace(',', '.')) || 0.00;
+      let valorStr = String(item[chaveValor] || '0');
+      let valorLimpo = parseFloat(valorStr.replace(/R\$/g, '').replace(/\s/g, '').replace(/\./g, '').replace(',', '.')) || 0.00;
 
       return {
         tempId: index + 1,
         codigo: String(item[chaveId] || `CLI-${index + 1}`).trim(),
         nome: String(item[chaveNome] || 'Cliente sem Nome').trim(),
-        total_vencido: valorFormatado,
-        dias_atraso: parseInt(item[chaveAtraso]) || 30,
-        status_conexao: String(item[chaveStatus] || 'Ativo').trim(),
+        total_vencido: valorLimpo,
+        dias_atraso: parseInt(item.DiasAtraso || item.dias_atraso) || 30,
+        status_conexao: String(item.Status || item.status || 'Ativo').trim(),
         selecionado: true
       };
     });
 
     res.json({ sucesso: true, total: listaPrevia.length, dados: listaPrevia });
   } catch (error) {
-    res.status(500).json({ error: 'Erro ao gerar prévia da planilha.', detalhe: error.message });
+    res.status(500).json({ error: 'Erro ao gerar prévia.', detalhe: error.message });
   }
 });
 
-// CONFIRMAR IMPORTAÇÃO SELECIONADA DA PRÉVIA
+// CONFIRMAR IMPORTAÇÃO DA PRÉVIA (CORRIGIDO)
 app.post('/api/clientes/confirmar-importacao', async (req, res) => {
   const { clientes } = req.body;
   if (!clientes || !Array.isArray(clientes) || clientes.length === 0) {
-    return res.status(400).json({ error: 'Nenhum cliente selecionado para importação.' });
+    return res.status(400).json({ error: 'Nenhum cliente selecionado.' });
   }
 
   try {
     let inseridos = 0;
     for (const cli of clientes) {
+      const cod = String(cli.codigo || `CLI-${Math.floor(1000 + Math.random() * 9000)}`);
+      const val = parseFloat(cli.total_vencido) || 0.00;
+      const nom = String(cli.nome || 'Cliente sem nome');
+
       await pool.query(
         `INSERT INTO clientes (codigo, nome, total_vencido, dias_atraso, status_conexao, estagio_id) 
          VALUES ($1, $2, $3, $4, $5, 1)
@@ -233,14 +195,15 @@ app.post('/api/clientes/confirmar-importacao', async (req, res) => {
             total_vencido = EXCLUDED.total_vencido,
             dias_atraso = EXCLUDED.dias_atraso,
             status_conexao = EXCLUDED.status_conexao`,
-        [cli.codigo, cli.nome, cli.total_vencido, cli.dias_atraso || 30, cli.status_conexao || 'Ativo']
+        [cod, nom, val, parseInt(cli.dias_atraso) || 30, cli.status_conexao || 'Ativo']
       );
       inseridos++;
     }
 
-    res.json({ sucesso: true, mensagem: `${inseridos} clientes importados para o Funil com sucesso!` });
+    res.json({ sucesso: true, mensagem: `${inseridos} clientes importados com sucesso!` });
   } catch (error) {
-    res.status(500).json({ error: 'Erro ao salvar prévia no banco.', detalhe: error.message });
+    console.error('Erro no salvamento:', error);
+    res.status(500).json({ error: 'Erro ao salvar clientes no banco de dados.', detalhe: error.message });
   }
 });
 

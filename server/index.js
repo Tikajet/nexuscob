@@ -19,7 +19,7 @@ const pool = new Pool({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
-// GARANTE QUE AS COLUNAS EXISTAM NO BANCO DE DADOS POSTGRESQL
+// MIGRAÇÃO AUTOMÁTICA DO BANCO DE DADOS POSTGRESQL
 async function initDB() {
   try {
     const schemaPath = path.join(__dirname, 'schema.sql');
@@ -28,14 +28,17 @@ async function initDB() {
       await pool.query(sql);
     }
     
-    // Migrações automáticas para garantir compatibilidade
+    // Garante que todas as colunas usadas existam na tabela clientes
     await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS codigo VARCHAR(50);`);
+    await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS nome VARCHAR(255);`);
+    await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS total_vencido NUMERIC(10,2) DEFAULT 0.00;`);
     await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS dias_atraso INT DEFAULT 30;`);
     await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS status_conexao VARCHAR(50) DEFAULT 'Ativo';`);
+    await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS estagio_id INT DEFAULT 1;`);
 
-    console.log('✅ Banco PostgreSQL Nexus-Cob pronto e migrado com sucesso!');
+    console.log('✅ Banco PostgreSQL Nexus-Cob pronto e migrado!');
   } catch (error) {
-    console.error('❌ Erro de inicializacao do BD:', error.message);
+    console.error('❌ Erro na inicializacao do BD:', error.message);
   }
 }
 initDB();
@@ -44,7 +47,7 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'API Nexus-Cob operacional' });
 });
 
-// AUTENTICAÇÃO E LOGIN
+// LOGIN E USUÁRIOS
 app.post('/api/login', async (req, res) => {
   const { email } = req.body;
   try {
@@ -121,7 +124,10 @@ app.post('/api/clientes/manual', async (req, res) => {
 
   try {
     const cod = codigo && String(codigo).trim() !== '' ? String(codigo).trim() : `CLI-${Math.floor(1000 + Math.random() * 9000)}`;
-    const val = parseFloat(total_vencido) || 0.00;
+    
+    // Tratamento de formato numerico (converte virgula em ponto e limpa R$)
+    let valStr = String(total_vencido).replace(/R\$/g, '').replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
+    const val = parseFloat(valStr) || 0.00;
 
     const result = await pool.query(
       `INSERT INTO clientes (codigo, nome, total_vencido, dias_atraso, status_conexao, estagio_id) 
@@ -180,7 +186,7 @@ app.post('/api/clientes/excluir-massa', async (req, res) => {
   }
 });
 
-// GERAR PRÉVIA A PARTIR DO EXCEL
+// GERAR PRÉVIA DA PLANILHA EXCEL
 app.post('/api/clientes/previa', upload.single('arquivo'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
@@ -214,7 +220,7 @@ app.post('/api/clientes/previa', upload.single('arquivo'), async (req, res) => {
   }
 });
 
-// CONFIRMAR IMPORTAÇÃO DA PRÉVIA (SEM REQUERER CONSTRAINT EXCLUSIVA)
+// CONFIRMAR IMPORTAÇÃO DA PRÉVIA
 app.post('/api/clientes/confirmar-importacao', async (req, res) => {
   const { clientes } = req.body;
   if (!clientes || !Array.isArray(clientes) || clientes.length === 0) {

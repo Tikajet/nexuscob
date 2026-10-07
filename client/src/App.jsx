@@ -36,12 +36,11 @@ export default function App() {
   const [novoUsuario, setNovoUsuario] = useState({ nome: '', email: '', cargo: 'COBRADOR' });
   const [clienteSelecionado, setClienteSelecionado] = useState(null);
 
-  // Form de Cadastro Manual de Cliente
   const [formManual, setFormManual] = useState({
     codigo: '',
     nome: '',
     total_vencido: '',
-    opcao_atraso: '30' // 30, 60, 90 ou CANCELADOS
+    opcao_atraso: '30'
   });
 
   const handleLogin = async (e) => {
@@ -126,7 +125,8 @@ export default function App() {
       setFormManual({ codigo: '', nome: '', total_vencido: '', opcao_atraso: '30' });
       carregarDados();
     } catch (err) {
-      alert('Erro ao cadastrar cliente manualmente.');
+      const msg = err.response?.data?.detalhe || err.response?.data?.error || err.message;
+      alert(`Erro ao cadastrar cliente manualmente: ${msg}`);
     }
   };
 
@@ -407,7 +407,6 @@ export default function App() {
         {/* FICHA DO CLIENTE & CADASTRO MANUAL */}
         {abaAtiva === 'clientes' && (
           <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '20px', flex: 1, overflow: 'hidden' }}>
-            {/* FORMULÁRIO DE CADASTRO MANUAL */}
             <form onSubmit={handleCadastrarClienteManual} style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0284c7', fontWeight: 'bold', fontSize: '1rem' }}>
                 <UserPlus size={20} /> Cadastrar Cliente Manual
@@ -417,7 +416,7 @@ export default function App() {
                 <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>ID / Código</label>
                 <input 
                   type="text" 
-                  placeholder="Ex: 101 ou CLI-001" 
+                  placeholder="Ex: 01 ou CLI-001" 
                   value={formManual.codigo} 
                   onChange={e => setFormManual({ ...formManual, codigo: e.target.value })}
                   style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }}
@@ -439,9 +438,8 @@ export default function App() {
               <div>
                 <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Valor Devedor (R$) *</label>
                 <input 
-                  type="number" 
-                  step="0.01" 
-                  placeholder="Ex: 200.00" 
+                  type="text" 
+                  placeholder="Ex: 1872,00" 
                   value={formManual.total_vencido} 
                   onChange={e => setFormManual({ ...formManual, total_vencido: e.target.value })}
                   required
@@ -467,7 +465,6 @@ export default function App() {
               </button>
             </form>
 
-            {/* CONSULTA DA FICHA */}
             <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2 style={{ margin: 0, fontSize: '1.1rem', color: '#0f172a' }}>📄 Análise do Cliente Cadastrado</h2>

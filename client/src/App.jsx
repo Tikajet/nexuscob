@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Home, Users, RefreshCw, Calendar, 
-  MessageSquare, BarChart3, Upload, Zap, LogOut, ArrowRight, UserCheck, Shield, Trash2, Filter
+  MessageSquare, BarChart3, Upload, Zap, LogOut, ArrowRight, UserCheck, Shield, Trash2, Filter, UserPlus
 } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 
@@ -35,6 +35,14 @@ export default function App() {
   const [selecionadosExclusao, setSelecionadosExclusao] = useState([]);
   const [novoUsuario, setNovoUsuario] = useState({ nome: '', email: '', cargo: 'COBRADOR' });
   const [clienteSelecionado, setClienteSelecionado] = useState(null);
+
+  // Form de Cadastro Manual de Cliente
+  const [formManual, setFormManual] = useState({
+    codigo: '',
+    nome: '',
+    total_vencido: '',
+    opcao_atraso: '30' // 30, 60, 90 ou CANCELADOS
+  });
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -86,7 +94,7 @@ export default function App() {
       await axios.delete(`${API_URL}/api/clientes/${clienteId}`);
       setClientes(clientes.filter(c => c.id !== clienteId));
       if (clienteSelecionado?.id === clienteId) setClienteSelecionado(null);
-      alert('Cliente removido!');
+      alert('Cliente removido com sucesso!');
     } catch (err) {
       alert('Erro ao excluir cliente.');
     }
@@ -103,6 +111,22 @@ export default function App() {
       carregarDados();
     } catch (err) {
       alert('Erro ao excluir em massa.');
+    }
+  };
+
+  const handleCadastrarClienteManual = async (e) => {
+    e.preventDefault();
+    if (!formManual.nome || !formManual.total_vencido) {
+      return alert('Preencha o Nome e o Valor Devedor.');
+    }
+
+    try {
+      const res = await axios.post(`${API_URL}/api/clientes/manual`, formManual);
+      alert(res.data.mensagem || 'Cliente cadastrado com sucesso!');
+      setFormManual({ codigo: '', nome: '', total_vencido: '', opcao_atraso: '30' });
+      carregarDados();
+    } catch (err) {
+      alert('Erro ao cadastrar cliente manualmente.');
     }
   };
 
@@ -380,44 +404,106 @@ export default function App() {
           </div>
         )}
 
-        {/* FICHA DO CLIENTE */}
+        {/* FICHA DO CLIENTE & CADASTRO MANUAL */}
         {abaAtiva === 'clientes' && (
-          <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '20px', flex: 1, overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a' }}>📄 Ficha e Análise do Cliente</h2>
-              <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Total de Clientes Cadastrados: <strong>{clientes.length}</strong></span>
-            </div>
-
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#334155' }}>Selecionar Cliente:</label>
-              <select 
-                value={clienteSelecionado?.id || ''} 
-                onChange={(e) => setClienteSelecionado(clientes.find(c => c.id === Number(e.target.value)))}
-                style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem', minWidth: '300px' }}>
-                {clientes.map(c => (
-                  <option key={c.id} value={c.id}>{c.codigo} - {c.nome} (R$ {Number(c.total_vencido || 0).toFixed(2)})</option>
-                ))}
-              </select>
-            </div>
-
-            {clienteSelecionado ? (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '10px' }}>
-                <div style={{ backgroundColor: '#f8fafc', padding: '18px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <h3 style={{ margin: '0 0 10px 0', fontSize: '1rem', color: '#0284c7' }}>Dados Cadastrais</h3>
-                  <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>ID / Código:</strong> {clienteSelecionado.codigo}</p>
-                  <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>Nome do Cliente:</strong> {clienteSelecionado.nome}</p>
-                  <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>Status Conexão:</strong> {clienteSelecionado.status_conexao || 'Ativo'}</p>
-                </div>
-
-                <div style={{ backgroundColor: '#f8fafc', padding: '18px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  <h3 style={{ margin: '0 0 10px 0', fontSize: '1rem', color: '#dc2626' }}>Situação Financeira</h3>
-                  <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>Valor Total Devedor:</strong> <span style={{ color: '#dc2626', fontWeight: 'bold' }}>R$ {Number(clienteSelecionado.total_vencido || 0).toFixed(2)}</span></p>
-                  <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>Dias em Atraso:</strong> {clienteSelecionado.dias_atraso || 30} dias</p>
-                  <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>Estágio Atual no Funil:</strong> {ESTAGIOS.find(e => e.id === Number(clienteSelecionado.estagio_id))?.nome || '1º CONTATO'}</p>
-                  <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>Responsável Atual:</strong> {clienteSelecionado.operador_nome || usuarioLogado.nome}</p>
-                </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '20px', flex: 1, overflow: 'hidden' }}>
+            {/* FORMULÁRIO DE CADASTRO MANUAL */}
+            <form onSubmit={handleCadastrarClienteManual} style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0284c7', fontWeight: 'bold', fontSize: '1rem' }}>
+                <UserPlus size={20} /> Cadastrar Cliente Manual
               </div>
-            ) : <p style={{ color: '#64748b' }}>Nenhum cliente selecionado.</p>}
+
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>ID / Código</label>
+                <input 
+                  type="text" 
+                  placeholder="Ex: 101 ou CLI-001" 
+                  value={formManual.codigo} 
+                  onChange={e => setFormManual({ ...formManual, codigo: e.target.value })}
+                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Nome do Cliente *</label>
+                <input 
+                  type="text" 
+                  placeholder="Nome completo" 
+                  value={formManual.nome} 
+                  onChange={e => setFormManual({ ...formManual, nome: e.target.value })}
+                  required
+                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Valor Devedor (R$) *</label>
+                <input 
+                  type="number" 
+                  step="0.01" 
+                  placeholder="Ex: 200.00" 
+                  value={formManual.total_vencido} 
+                  onChange={e => setFormManual({ ...formManual, total_vencido: e.target.value })}
+                  required
+                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Faixa / Situação do Atraso</label>
+                <select 
+                  value={formManual.opcao_atraso} 
+                  onChange={e => setFormManual({ ...formManual, opcao_atraso: e.target.value })}
+                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }}>
+                  <option value="30">Devedor 30 Dias</option>
+                  <option value="60">Devedor 60 Dias</option>
+                  <option value="90">Devedor 90+ Dias</option>
+                  <option value="CANCELADOS">Cliente Cancelado</option>
+                </select>
+              </div>
+
+              <button type="submit" style={{ padding: '12px', backgroundColor: '#0284c7', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', marginTop: '8px' }}>
+                Salvar e Adicionar ao Funil
+              </button>
+            </form>
+
+            {/* CONSULTA DA FICHA */}
+            <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 style={{ margin: 0, fontSize: '1.1rem', color: '#0f172a' }}>📄 Análise do Cliente Cadastrado</h2>
+                <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Total: <strong>{clientes.length}</strong></span>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#334155' }}>Selecionar Cliente:</label>
+                <select 
+                  value={clienteSelecionado?.id || ''} 
+                  onChange={(e) => setClienteSelecionado(clientes.find(c => c.id === Number(e.target.value)))}
+                  style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem', flex: 1 }}>
+                  {clientes.map(c => (
+                    <option key={c.id} value={c.id}>{c.codigo} - {c.nome} (R$ {Number(c.total_vencido || 0).toFixed(2)})</option>
+                  ))}
+                </select>
+              </div>
+
+              {clienteSelecionado ? (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                  <div style={{ backgroundColor: '#f8fafc', padding: '18px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <h3 style={{ margin: '0 0 10px 0', fontSize: '1rem', color: '#0284c7' }}>Dados Cadastrais</h3>
+                    <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>ID / Código:</strong> {clienteSelecionado.codigo}</p>
+                    <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>Nome do Cliente:</strong> {clienteSelecionado.nome}</p>
+                    <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>Status Conexão:</strong> {clienteSelecionado.status_conexao || 'Ativo'}</p>
+                  </div>
+
+                  <div style={{ backgroundColor: '#f8fafc', padding: '18px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <h3 style={{ margin: '0 0 10px 0', fontSize: '1rem', color: '#dc2626' }}>Situação Financeira</h3>
+                    <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>Valor Total Devedor:</strong> <span style={{ color: '#dc2626', fontWeight: 'bold' }}>R$ {Number(clienteSelecionado.total_vencido || 0).toFixed(2)}</span></p>
+                    <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>Dias em Atraso:</strong> {clienteSelecionado.dias_atraso || 30} dias</p>
+                    <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>Estágio Atual no Funil:</strong> {ESTAGIOS.find(e => e.id === Number(clienteSelecionado.estagio_id))?.nome || '1º CONTATO'}</p>
+                  </div>
+                </div>
+              ) : <p style={{ color: '#64748b' }}>Nenhum cliente cadastrado ainda.</p>}
+            </div>
           </div>
         )}
 

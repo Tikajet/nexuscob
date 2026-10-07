@@ -19,16 +19,23 @@ const pool = new Pool({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
+// GARANTE QUE AS COLUNAS EXISTAM NO BANCO DE DADOS POSTGRESQL
 async function initDB() {
   try {
     const schemaPath = path.join(__dirname, 'schema.sql');
     if (fs.existsSync(schemaPath)) {
       const sql = fs.readFileSync(schemaPath, 'utf8');
       await pool.query(sql);
-      console.log('✅ Banco PostgreSQL Nexus-Cob pronto!');
     }
+    
+    // Migrações automáticas para garantir compatibilidade
+    await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS codigo VARCHAR(50);`);
+    await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS dias_atraso INT DEFAULT 30;`);
+    await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS status_conexao VARCHAR(50) DEFAULT 'Ativo';`);
+
+    console.log('✅ Banco PostgreSQL Nexus-Cob pronto e migrado com sucesso!');
   } catch (error) {
-    console.error('❌ Erro no schema:', error.message);
+    console.error('❌ Erro de inicializacao do BD:', error.message);
   }
 }
 initDB();
@@ -79,7 +86,7 @@ app.post('/api/usuarios', async (req, res) => {
   }
 });
 
-// LISTA DE CLIENTES E KANBAN
+// LISTAR CLIENTES
 app.get('/api/clientes', async (req, res) => {
   try {
     const result = await pool.query(`
@@ -94,6 +101,42 @@ app.get('/api/clientes', async (req, res) => {
   }
 });
 
+// CADASTRO MANUAL DE CLIENTE
+app.post('/api/clientes/manual', async (req, res) => {
+  const { codigo, nome, total_vencido, opcao_atraso } = req.body;
+  if (!nome || !total_vencido) {
+    return res.status(400).json({ error: 'Nome e Valor Devedor são obrigatórios.' });
+  }
+
+  let diasAtraso = 30;
+  let statusConexao = 'Ativo';
+
+  if (opcao_atraso === '30') diasAtraso = 30;
+  else if (opcao_atraso === '60') diasAtraso = 60;
+  else if (opcao_atraso === '90') diasAtraso = 90;
+  else if (opcao_atraso === 'CANCELADOS') {
+    diasAtraso = 120;
+    statusConexao = 'Cancelado';
+  }
+
+  try {
+    const cod = codigo && String(codigo).trim() !== '' ? String(codigo).trim() : `CLI-${Math.floor(1000 + Math.random() * 9000)}`;
+    const val = parseFloat(total_vencido) || 0.00;
+
+    const result = await pool.query(
+      `INSERT INTO clientes (codigo, nome, total_vencido, dias_atraso, status_conexao, estagio_id) 
+       VALUES ($1, $2, $3, $4, $5, 1) RETURNING *`,
+      [cod, String(nome).trim(), val, diasAtraso, statusConexao]
+    );
+
+    res.json({ sucesso: true, mensagem: 'Cliente cadastrado com sucesso!', cliente: result.rows[0] });
+  } catch (error) {
+    console.error('Erro no cadastro manual:', error);
+    res.status(500).json({ error: 'Erro ao cadastrar cliente manualmente.', detalhe: error.message });
+  }
+});
+
+// MOVER ESTÁGIO NO KANBAN
 app.put('/api/clientes/:id/estagio', async (req, res) => {
   const { id } = req.params;
   const { estagio_id, usuario_nome, usuario_id } = req.body;
@@ -133,12 +176,11 @@ app.post('/api/clientes/excluir-massa', async (req, res) => {
     await pool.query('DELETE FROM clientes WHERE id = ANY($1::int[])', [ids]);
     res.json({ sucesso: true, mensagem: `${ids.length} clientes excluídos com sucesso!` });
   } catch (error) {
-    console.error('Erro ao excluir em massa:', error);
     res.status(500).json({ error: 'Erro ao excluir clientes em massa.', detalhe: error.message });
   }
 });
 
-// GERAR PRÉVIA A PARTIR DA PLANILHA EXCEL
+// GERAR PRÉVIA A PARTIR DO EXCEL
 app.post('/api/clientes/previa', upload.single('arquivo'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
@@ -172,7 +214,7 @@ app.post('/api/clientes/previa', upload.single('arquivo'), async (req, res) => {
   }
 });
 
-// CONFIRMAR IMPORTAÇÃO DA PRÉVIA (GRAVAÇÃO ROBUSTA COM UPSERT)
+// CONFIRMAR IMPORTAÇÃO DA PRÉVIA (SEM REQUERER CONSTRAINT EXCLUSIVA)
 app.post('/api/clientes/confirmar-importacao', async (req, res) => {
   const { clientes } = req.body;
   if (!clientes || !Array.isArray(clientes) || clientes.length === 0) {
@@ -189,11 +231,7 @@ app.post('/api/clientes/confirmar-importacao', async (req, res) => {
 
       await pool.query(
         `INSERT INTO clientes (codigo, nome, total_vencido, dias_atraso, estagio_id) 
-         VALUES ($1, $2, $3, $4, 1)
-         ON CONFLICT (codigo) DO UPDATE SET 
-            nome = EXCLUDED.nome,
-            total_vencido = EXCLUDED.total_vencido,
-            dias_atraso = EXCLUDED.dias_atraso`,
+         VALUES ($1, $2, $3, $4, 1)`,
         [cod, nom, val, dias]
       );
       inseridos++;

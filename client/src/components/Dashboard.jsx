@@ -1,90 +1,117 @@
 import React from 'react';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  PieChart, Pie, Cell, Legend, LineChart, Line 
-} from 'recharts';
-import { DollarSign, TrendingUp, CheckCircle2, Clock, Users } from 'lucide-react';
+import { DollarSign, Users, CheckCircle, AlertTriangle, TrendingUp, PieChart } from 'lucide-react';
 
-const dadosRecuperacaoMensal = [
-  { mes: 'Mai', recuperado: 45000, meta: 50000 },
-  { mes: 'Jun', recuperado: 58000, meta: 55000 },
-  { mes: 'Jul', recuperado: 62000, meta: 60000 },
-  { mes: 'Ago', recuperado: 75000, meta: 65000 },
-  { mes: 'Set', recuperado: 89000, meta: 70000 },
-  { mes: 'Out', recuperado: 94500, meta: 75000 },
-];
+export default function Dashboard({ clientes = [] }) {
+  const totalClientes = clientes.length;
 
-const dadosStatusAcordos = [
-  { name: 'Pagos / Quitados', value: 65, color: '#10b981' },
-  { name: 'Em Andamento', value: 25, color: '#3b82f6' },
-  { name: 'Quebrados / Atrasados', value: 10, color: '#ef4444' },
-];
+  const totalDevedor = clientes.reduce((acc, c) => acc + Number(c.total_vencido || 0), 0);
 
-export default function Dashboard() {
+  // Acordos Gerados (Estágio ID 6)
+  const clientesAcordo = clientes.filter(c => Number(c.estagio_id) === 6);
+  const totalAcordos = clientesAcordo.reduce((acc, c) => acc + Number(c.total_vencido || 0), 0);
+
+  // Clientes com Rejeição / Recusa (Estágio ID 7)
+  const clientesRecusa = clientes.filter(c => Number(c.estagio_id) === 7);
+
+  // Distribuição por dias de atraso
+  const devedores30 = clientes.filter(c => Number(c.dias_atraso || 0) <= 30 && String(c.status_conexao).toLowerCase() !== 'cancelado');
+  const devedores60 = clientes.filter(c => Number(c.dias_atraso || 0) > 30 && Number(c.dias_atraso || 0) <= 60 && String(c.status_conexao).toLowerCase() !== 'cancelado');
+  const devedores90 = clientes.filter(c => Number(c.dias_atraso || 0) > 60 && String(c.status_conexao).toLowerCase() !== 'cancelado');
+  const cancelados = clientes.filter(c => String(c.status_conexao).toLowerCase() === 'cancelado');
+
+  const taxaSucesso = totalClientes > 0 ? ((clientesAcordo.length / totalClientes) * 100).toFixed(1) : '0.0';
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      {/* CARDS DE KPI DE TOPO */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '15px' }}>
-        <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '4px solid #10b981' }}>
-          <div style={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 'bold' }}>TOTAL RECUPERADO (MÊS)</div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: '#0f172a', margin: '8px 0' }}>R$ 94.500,00</div>
-          <div style={{ color: '#10b981', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <TrendingUp size={14} /> +12.4% em relação ao mês anterior
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', flex: 1, overflowY: 'auto' }}>
+      <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a' }}>📊 Dashboard Geral do Pipeline de Cobrança</h2>
+
+      {/* CARDS DE RESUMO SUPERIOR */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px' }}>
+        <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ padding: '10px', backgroundColor: '#e0f2fe', borderRadius: '8px', color: '#0284c7' }}>
+            <Users size={24} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 'bold' }}>Total em Carteira</div>
+            <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: '#0f172a' }}>{totalClientes}</div>
           </div>
         </div>
 
-        <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '4px solid #3b82f6' }}>
-          <div style={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 'bold' }}>TAXA DE CONVERSÃO / ACORDOS</div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: '#0f172a', margin: '8px 0' }}>68.5%</div>
-          <div style={{ color: '#3b82f6', fontSize: '0.8rem' }}>Meta mensal: 60.0%</div>
+        <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ padding: '10px', backgroundColor: '#fee2e2', borderRadius: '8px', color: '#dc2626' }}>
+            <DollarSign size={24} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 'bold' }}>Total em Aberto</div>
+            <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: '#dc2626' }}>R$ {totalDevedor.toFixed(2)}</div>
+          </div>
         </div>
 
-        <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '4px solid #f59e0b' }}>
-          <div style={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 'bold' }}>ACORDOS EM ANDAMENTO</div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: '#0f172a', margin: '8px 0' }}>R$ 38.200,00</div>
-          <div style={{ color: '#d97706', fontSize: '0.8rem' }}>42 clientes em parcelamento</div>
+        <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ padding: '10px', backgroundColor: '#d1fae5', borderRadius: '8px', color: '#059669' }}>
+            <CheckCircle size={24} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 'bold' }}>Acordos Recorrentes</div>
+            <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: '#059669' }}>R$ {totalAcordos.toFixed(2)}</div>
+          </div>
         </div>
 
-        <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderLeft: '4px solid #8b5cf6' }}>
-          <div style={{ color: '#64748b', fontSize: '0.85rem', fontWeight: 'bold' }}>TICKET MÉDIO DE ACORDO</div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: '#0f172a', margin: '8px 0' }}>R$ 1.150,00</div>
-          <div style={{ color: '#8b5cf6', fontSize: '0.8rem' }}>Média de 3.2 parcelas</div>
+        <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ padding: '10px', backgroundColor: '#fef3c7', borderRadius: '8px', color: '#d97706' }}>
+            <TrendingUp size={24} />
+          </div>
+          <div>
+            <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 'bold' }}>Taxa de Eficiência</div>
+            <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: '#d97706' }}>{taxaSucesso}%</div>
+          </div>
         </div>
       </div>
 
-      {/* ÁREA DE GRÁFICOS */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '20px' }}>
-        {/* GRÁFICO 1: EVOLUÇÃO DE RECUPERAÇÃO MENSAL */}
-        <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-          <h3 style={{ margin: '0 0 15px 0', fontSize: '1.1rem', color: '#0f172a' }}>Evolução de Valores Recuperados (R$)</h3>
-          <div style={{ width: '100%', height: 300 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={dadosRecuperacaoMensal}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="mes" />
-                <YAxis />
-                <Tooltip formatter={(value) => `R$ ${value.toLocaleString('pt-BR')}`} />
-                <Bar dataKey="recuperado" fill="#0284c7" name="Valor Recuperado" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+      {/* BLOCO SEGUNDÁRIO DE DISTRIBUIÇÃO */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+        {/* FAIXAS DE ATRASO */}
+        <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <h3 style={{ margin: 0, fontSize: '1rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <PieChart size={18} color="#0284c7" /> Distribuição por Perfil de Atraso
+          </h3>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+              <span>Devedores 30 Dias:</span>
+              <strong>{devedores30.length} clientes (R$ {devedores30.reduce((a,c) => a + Number(c.total_vencido||0), 0).toFixed(2)})</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+              <span>Devedores 60 Dias:</span>
+              <strong>{devedores60.length} clientes (R$ {devedores60.reduce((a,c) => a + Number(c.total_vencido||0), 0).toFixed(2)})</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+              <span>Devedores 90+ Dias:</span>
+              <strong>{devedores90.length} clientes (R$ {devedores90.reduce((a,c) => a + Number(c.total_vencido||0), 0).toFixed(2)})</strong>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', color: '#ef4444' }}>
+              <span>Clientes Cancelados:</span>
+              <strong>{cancelados.length} clientes (R$ {cancelados.reduce((a,c) => a + Number(c.total_vencido||0), 0).toFixed(2)})</strong>
+            </div>
           </div>
         </div>
 
-        {/* GRÁFICO 2: DISTRIBUIÇÃO DE STATUS DOS ACORDOS */}
-        <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-          <h3 style={{ margin: '0 0 15px 0', fontSize: '1.1rem', color: '#0f172a' }}>Status dos Acordos (%)</h3>
-          <div style={{ width: '100%', height: 300 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={dadosStatusAcordos} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="value">
-                  {dadosStatusAcordos.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => `${value}%`} />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
+        {/* STATUS DAS RECUSAS E ACORDOS */}
+        <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+          <h3 style={{ margin: 0, fontSize: '1rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AlertTriangle size={18} color="#eab308" /> Status de Negociações
+          </h3>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ padding: '12px', backgroundColor: '#f0fdf4', borderLeft: '4px solid #10b981', borderRadius: '4px' }}>
+              <div style={{ fontWeight: 'bold', fontSize: '0.85rem', color: '#166534' }}>Acordos Fechados</div>
+              <div style={{ fontSize: '0.8rem', color: '#15803d' }}>{clientesAcordo.length} clientes fecharam proposta de acordo.</div>
+            </div>
+
+            <div style={{ padding: '12px', backgroundColor: '#fef2f2', borderLeft: '4px solid #ef4444', borderRadius: '4px' }}>
+              <div style={{ fontWeight: 'bold', fontSize: '0.85rem', color: '#991b1b' }}>Recusas e Insucessos</div>
+              <div style={{ fontSize: '0.8rem', color: '#b91c1c' }}>{clientesRecusa.length} clientes recusaram ou não aceitaram propostas.</div>
+            </div>
           </div>
         </div>
       </div>

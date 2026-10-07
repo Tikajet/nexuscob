@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Home, Users, RefreshCw, Calendar, 
-  MessageSquare, BarChart3, Upload, Zap, LogOut, ArrowRight, UserCheck, Shield, Trash2, Filter, UserPlus
+  MessageSquare, BarChart3, Upload, Zap, LogOut, ArrowRight, UserCheck, Shield, Trash2, Filter, UserPlus, Printer
 } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 
@@ -25,6 +25,11 @@ export default function App() {
 
   const [abaAtiva, setAbaAtiva] = useState('pipeline');
   const [filtroAtraso, setFiltroAtraso] = useState('TODOS');
+
+  // Filtros de Relatório
+  const [filtroRelatorioMes, setFiltroRelatorioMes] = useState('TODOS');
+  const [dataInicio, setDataInicio] = useState('');
+  const [dataFim, setDataFim] = useState('');
 
   const [clientes, setClientes] = useState([]);
   const [previaClientes, setPreviaClientes] = useState([]);
@@ -195,6 +200,22 @@ export default function App() {
     return true;
   });
 
+  // FILTRAGEM DE RELATÓRIO POR PERÍODO
+  const clientesRelatorio = clientes.filter(c => {
+    if (!c.criado_em) return true;
+    const dataCriacao = new Date(c.criado_em);
+
+    if (dataInicio && dataCriacao < new Date(dataInicio)) return false;
+    if (dataFim && dataCriacao > new Date(dataFim + 'T23:59:59')) return false;
+
+    if (filtroRelatorioMes !== 'TODOS') {
+      const mesCriacao = dataCriacao.getMonth() + 1;
+      if (mesCriacao !== parseInt(filtroRelatorioMes)) return false;
+    }
+
+    return true;
+  });
+
   if (!usuarioLogado) {
     return (
       <div style={{ width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a', fontFamily: 'system-ui, sans-serif' }}>
@@ -257,7 +278,7 @@ export default function App() {
             { id: 'dashboard', label: 'Dashboard', icon: Home },
             { id: 'importar', label: 'Importar / Prévia Excel', icon: Upload },
             { id: 'admin', label: 'Administração / Usuários', icon: Shield },
-            { id: 'relatorios', label: 'Relatórios', icon: BarChart3 },
+            { id: 'relatorios', label: 'Relatórios / Período', icon: BarChart3 },
           ].map((item) => {
             const Icon = item.icon;
             const ativo = abaAtiva === item.id;
@@ -404,7 +425,94 @@ export default function App() {
           </div>
         )}
 
-        {/* FICHA DO CLIENTE & CADASTRO MANUAL */}
+        {/* DASHBOARD INTEGRADO */}
+        {abaAtiva === 'dashboard' && <Dashboard clientes={clientes} />}
+
+        {/* RELATÓRIOS COM FILTRO POR MES E PERIODO */}
+        {abaAtiva === 'relatorios' && (
+          <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '20px', flex: 1, overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a' }}>📈 Relatório de Cobrança por Período</h2>
+              <button onClick={() => window.print()} style={{ padding: '8px 14px', backgroundColor: '#0284c7', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Printer size={16} /> Imprimir Relatório
+              </button>
+            </div>
+
+            {/* BARRA DE FILTROS DE RELATÓRIO */}
+            <div style={{ display: 'flex', gap: '15px', alignItems: 'center', backgroundColor: '#f8fafc', padding: '15px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569', display: 'block' }}>Filtrar por Mês:</label>
+                <select 
+                  value={filtroRelatorioMes} 
+                  onChange={e => setFiltroRelatorioMes(e.target.value)}
+                  style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}>
+                  <option value="TODOS">Todos os Meses</option>
+                  <option value="10">Outubro / 2026</option>
+                  <option value="9">Setembro / 2026</option>
+                  <option value="8">Agosto / 2026</option>
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569', display: 'block' }}>Data Início:</label>
+                <input 
+                  type="date" 
+                  value={dataInicio} 
+                  onChange={e => setDataInicio(e.target.value)} 
+                  style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }} 
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569', display: 'block' }}>Data Fim:</label>
+                <input 
+                  type="date" 
+                  value={dataFim} 
+                  onChange={e => setDataFim(e.target.value)} 
+                  style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }} 
+                />
+              </div>
+
+              {(dataInicio || dataFim || filtroRelatorioMes !== 'TODOS') && (
+                <button 
+                  onClick={() => { setDataInicio(''); setDataFim(''); setFiltroRelatorioMes('TODOS'); }}
+                  style={{ padding: '8px 12px', backgroundColor: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '0.8rem', alignSelf: 'flex-end' }}>
+                  Limpar Filtros
+                </button>
+              )}
+            </div>
+
+            {/* TABELA DE RESULTADOS DO RELATÓRIO */}
+            <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                <thead style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                  <tr>
+                    <th style={{ padding: '10px', textAlign: 'left' }}>ID / Código</th>
+                    <th style={{ padding: '10px', textAlign: 'left' }}>Nome do Cliente</th>
+                    <th style={{ padding: '10px', textAlign: 'left' }}>Valor Devedor</th>
+                    <th style={{ padding: '10px', textAlign: 'left' }}>Dias Atraso</th>
+                    <th style={{ padding: '10px', textAlign: 'left' }}>Estágio Atual</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clientesRelatorio.map(c => (
+                    <tr key={c.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                      <td style={{ padding: '10px', fontWeight: 'bold' }}>{c.codigo}</td>
+                      <td style={{ padding: '10px' }}>{c.nome}</td>
+                      <td style={{ padding: '10px', color: '#dc2626', fontWeight: 'bold' }}>R$ {Number(c.total_vencido || 0).toFixed(2)}</td>
+                      <td style={{ padding: '10px' }}>{c.dias_atraso || 30} dias</td>
+                      <td style={{ padding: '10px', fontWeight: 'bold', color: '#0284c7' }}>
+                        {ESTAGIOS.find(e => e.id === Number(c.estagio_id))?.nome || '1º CONTATO'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* FICHA DO CLIENTE */}
         {abaAtiva === 'clientes' && (
           <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '20px', flex: 1, overflow: 'hidden' }}>
             <form onSubmit={handleCadastrarClienteManual} style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -673,8 +781,6 @@ export default function App() {
             </div>
           </div>
         )}
-
-        {abaAtiva === 'dashboard' && <Dashboard />}
       </main>
     </div>
   );

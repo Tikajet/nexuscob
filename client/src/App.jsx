@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Home, Users, RefreshCw, Calendar, 
-  MessageSquare, BarChart3, Upload, Zap, LogOut, ArrowRight, UserCheck, Shield, Trash2, CheckSquare, Square, Filter
+  MessageSquare, BarChart3, Upload, Zap, LogOut, ArrowRight, UserCheck, Shield, Trash2, Filter
 } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 
@@ -24,7 +24,7 @@ export default function App() {
   const [senhaLogin, setSenhaLogin] = useState('');
 
   const [abaAtiva, setAbaAtiva] = useState('pipeline');
-  const [filtroAtraso, setFiltroAtraso] = useState('TODOS'); // TODOS, 30, 60, 90, CANCELADOS
+  const [filtroAtraso, setFiltroAtraso] = useState('TODOS');
 
   const [clientes, setClientes] = useState([]);
   const [previaClientes, setPreviaClientes] = useState([]);
@@ -34,10 +34,8 @@ export default function App() {
   const [arquivo, setArquivo] = useState(null);
   const [carregando, setCarregando] = useState(false);
 
-  // Seleção Múltipla para Exclusão em Massa (Admin)
   const [selecionadosExclusao, setSelecionadosExclusao] = useState([]);
 
-  // Formulários
   const [novoUsuario, setNovoUsuario] = useState({ nome: '', email: '', cargo: 'COBRADOR' });
   const [novoAgendamento, setNovoAgendamento] = useState({ titulo: '', data_agendamento: '', descricao: '' });
   const [novoScript, setNovoScript] = useState({ titulo: '', categoria: '1º CONTATO', conteudo: '' });
@@ -60,14 +58,6 @@ export default function App() {
       if (resClientes.data && resClientes.data.length > 0) {
         setClientes(resClientes.data);
         if (!clienteSelecionado) setClienteSelecionado(resClientes.data[0]);
-      } else {
-        const fallback = [
-          { id: 1, codigo: 'CLI-1001', nome: 'Carlos Eduardo Santos', total_vencido: 239.80, dias_atraso: 34, status_conexao: 'Ativo', estagio_id: 1, operador_nome: 'JULIANA' },
-          { id: 2, codigo: 'CLI-1002', nome: 'Mariana Oliveira', total_vencido: 119.90, dias_atraso: 62, status_conexao: 'Ativo', estagio_id: 4, operador_nome: 'RODRIGO' },
-          { id: 3, codigo: 'CLI-1003', nome: 'Roberto Alves', total_vencido: 350.00, dias_atraso: 95, status_conexao: 'Cancelado', estagio_id: 6, operador_nome: 'JULIANA' }
-        ];
-        setClientes(fallback);
-        if (!clienteSelecionado) setClienteSelecionado(fallback[0]);
       }
 
       const resUsuarios = await axios.get(`${API_URL}/api/usuarios`);
@@ -98,23 +88,25 @@ export default function App() {
       });
       setClientes(clientes.map(c => c.id === clienteId ? { ...c, estagio_id: novoEstagioId, operador_nome: usuarioLogado?.nome } : c));
     } catch (err) {
-      alert('Erro ao mover estagio.');
+      alert('Erro ao mover estágio.');
     }
   };
 
+  // EXCLUIR CLIENTE DO FUNIL (LIXEIRA)
   const handleExcluirCliente = async (clienteId) => {
-    if (!window.confirm('Tem certeza que deseja excluir este cliente do funil?')) return;
+    if (!window.confirm('Deseja excluir este cliente do funil?')) return;
     try {
       await axios.delete(`${API_URL}/api/clientes/${clienteId}`);
       setClientes(clientes.filter(c => c.id !== clienteId));
+      alert('Cliente removido do funil!');
     } catch (err) {
       alert('Erro ao excluir cliente.');
     }
   };
 
   const handleExcluirEmMassa = async () => {
-    if (selecionadosExclusao.length === 0) return alert('Selecione pelo menos um cliente para excluir.');
-    if (!window.confirm(`Tem certeza que deseja excluir ${selecionadosExclusao.length} clientes em massa?`)) return;
+    if (selecionadosExclusao.length === 0) return alert('Selecione pelo menos um cliente.');
+    if (!window.confirm(`Deseja excluir ${selecionadosExclusao.length} clientes selecionados?`)) return;
 
     try {
       await axios.post(`${API_URL}/api/clientes/excluir-massa`, { ids: selecionadosExclusao });
@@ -122,14 +114,14 @@ export default function App() {
       setSelecionadosExclusao([]);
       carregarDados();
     } catch (err) {
-      alert('Erro ao excluir clientes em massa.');
+      alert('Erro ao excluir em massa.');
     }
   };
 
-  // GERAR PRÉVIA DA PLANILHA ENVIADA
+  // ENVIA O ARQUIVO PARA GERAR A PRÉVIA
   const handleGerarPrevia = async (e) => {
     e.preventDefault();
-    if (!arquivo) return alert('Selecione uma planilha Excel (.xlsx)!');
+    if (!arquivo) return alert('Selecione um arquivo Excel (.xlsx)!');
 
     const formData = new FormData();
     formData.append('arquivo', arquivo);
@@ -139,9 +131,13 @@ export default function App() {
       const res = await axios.post(`${API_URL}/api/clientes/previa`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      setPreviaClientes(res.data.dados);
+      if (res.data && res.data.dados) {
+        setPreviaClientes(res.data.dados);
+      } else {
+        alert('Nenhum dado encontrado no arquivo.');
+      }
     } catch (err) {
-      alert('Erro ao ler planilha.');
+      alert('Erro ao processar o arquivo Excel. Verifique a planilha.');
     } finally {
       setCarregando(false);
     }
@@ -154,13 +150,13 @@ export default function App() {
     setCarregando(true);
     try {
       const res = await axios.post(`${API_URL}/api/clientes/confirmar-importacao`, { clientes: selecionados });
-      alert(res.data.mensagem || 'Importação realizada!');
+      alert(res.data.mensagem || 'Importação realizada com sucesso!');
       setPreviaClientes([]);
       setArquivo(null);
       carregarDados();
       setAbaAtiva('pipeline');
     } catch (err) {
-      alert('Erro ao confirmar importação.');
+      alert('Erro ao salvar clientes no banco de dados.');
     } finally {
       setCarregando(false);
     }
@@ -170,7 +166,7 @@ export default function App() {
     e.preventDefault();
     try {
       await axios.post(`${API_URL}/api/usuarios`, novoUsuario);
-      alert('Usuário cadastrado!');
+      alert('Usuário cadastrado com sucesso!');
       setNovoUsuario({ nome: '', email: '', cargo: 'COBRADOR' });
       carregarDados();
     } catch (err) {
@@ -178,35 +174,6 @@ export default function App() {
     }
   };
 
-  const handleCriarAgendamento = async (e) => {
-    e.preventDefault();
-    try {
-      await axios.post(`${API_URL}/api/agenda`, {
-        cliente_id: clienteSelecionado?.id,
-        usuario_id: usuarioLogado?.id,
-        ...novoAgendamento
-      });
-      alert('Agendamento salvo!');
-      setNovoAgendamento({ titulo: '', data_agendamento: '', descricao: '' });
-      carregarDados();
-    } catch (err) {
-      alert('Erro ao agendar.');
-    }
-  };
-
-  const handleCriarScript = async (e) => {
-    e.preventDefault();
-    try {
-      await axios.post(`${API_URL}/api/scripts`, novoScript);
-      alert('Script salvo!');
-      setNovoScript({ titulo: '', categoria: '1º CONTATO', conteudo: '' });
-      carregarDados();
-    } catch (err) {
-      alert('Erro ao salvar script.');
-    }
-  };
-
-  // FILTRAR CLIENTES DO FUNIL POR FAIXA DE ATRASO
   const clientesFiltrados = clientes.filter(c => {
     const dias = Number(c.dias_atraso || 0);
     const status = String(c.status_conexao || '').toLowerCase();
@@ -231,7 +198,7 @@ export default function App() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div>
-              <label style={{ color: '#cbd5e1', fontSize: '0.8rem', fontWeight: 'bold' }}>E-mail do Usuário</label>
+              <label style={{ color: '#cbd5e1', fontSize: '0.8rem', fontWeight: 'bold' }}>E-mail</label>
               <input 
                 type="email" 
                 placeholder="admin@provedor.com" 
@@ -264,7 +231,6 @@ export default function App() {
 
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100vh', fontFamily: 'system-ui, sans-serif', backgroundColor: '#f1f5f9', overflow: 'hidden', margin: 0, padding: 0 }}>
-      {/* SIDEBAR NAVEGAÇÃO */}
       <aside style={{ width: '240px', minWidth: '240px', backgroundColor: '#0f172a', color: '#f8fafc', padding: '18px 12px', display: 'flex', flexDirection: 'column', gap: '15px', boxSizing: 'border-box' }}>
         <div style={{ padding: '0 8px 12px 8px', borderBottom: '1px solid #1e293b' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.3rem', fontWeight: 'bold', color: '#38bdf8' }}>
@@ -279,8 +245,6 @@ export default function App() {
             { id: 'pipeline', label: 'Pipeline / Funis', icon: RefreshCw },
             { id: 'dashboard', label: 'Dashboard', icon: Home },
             { id: 'clientes', label: 'Ficha do Cliente', icon: Users },
-            { id: 'tarefas', label: 'Agenda Particular', icon: Calendar },
-            { id: 'scripts', label: 'Scripts Padronizados', icon: MessageSquare },
             { id: 'importar', label: 'Importar / Prévia Excel', icon: Upload },
             { id: 'admin', label: 'Administração / Usuários', icon: Shield },
             { id: 'relatorios', label: 'Relatórios', icon: BarChart3 },
@@ -323,7 +287,6 @@ export default function App() {
         </div>
       </aside>
 
-      {/* ÁREA CENTRALIZADA */}
       <main style={{ flex: 1, padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: '16px', overflow: 'hidden', boxSizing: 'border-box' }}>
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', padding: '12px 18px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
           <h1 style={{ margin: 0, fontSize: '1.15rem', color: '#0f172a', fontWeight: 'bold' }}>NEXUS COB — Gestão Inteligente</h1>
@@ -332,10 +295,9 @@ export default function App() {
           </div>
         </header>
 
-        {/* 1. PIPELINE / KANBAN COM FILTROS DE ATRASO */}
+        {/* FUNIL KANBAN COM BOTAO DE EXCLUSAO (LIXEIRA) */}
         {abaAtiva === 'pipeline' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, overflow: 'hidden' }}>
-            {/* BARRA DE FILTROS RÁPIDOS POR FAIXA DE DEVEDORES */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: '#fff', padding: '10px 15px', borderRadius: '8px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
               <span style={{ fontSize: '0.82rem', fontWeight: 'bold', color: '#475569', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Filter size={16} color="#0284c7" /> Filtrar Lista:
@@ -389,17 +351,16 @@ export default function App() {
                             borderRadius: '6px', 
                             boxShadow: '0 1px 2px rgba(0,0,0,0.06)', 
                             borderLeft: `4px solid ${estagio.cor}`,
-                            cursor: 'pointer',
-                            position: 'relative'
+                            cursor: 'pointer'
                           }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <div style={{ fontWeight: 'bold', color: '#0f172a', fontSize: '0.85rem' }}>{cli.nome}</div>
-                            {/* BOTAO DE EXCLUIR NO FUNIL */}
+                            {/* BOTAO LIXEIRA DE EXCLUSAO INDIVIDUAL */}
                             <button 
                               onClick={(e) => { e.stopPropagation(); handleExcluirCliente(cli.id); }}
                               title="Excluir do Funil"
-                              style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '2px' }}>
-                              <Trash2 size={14} />
+                              style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}>
+                              <Trash2 size={16} />
                             </button>
                           </div>
 
@@ -434,16 +395,16 @@ export default function App() {
           </div>
         )}
 
-        {/* 2. IMPORTAÇÃO COM PRÉVIA / FILTRO ANTES DE MANDAR AO FUNIL */}
+        {/* TELA DE IMPORTACAO COM GERADOR DE PREVIA */}
         {abaAtiva === 'importar' && (
           <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '20px', flex: 1, overflowY: 'auto' }}>
-            <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a' }}>📥 Importar Lista & Prévia de Envio ao Funil</h2>
+            <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a' }}>📥 Importar Lista & Gerar Prévia do Funil</h2>
 
             {previaClientes.length === 0 ? (
               <form onSubmit={handleGerarPrevia} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px', padding: '40px 0' }}>
                 <Upload size={48} color="#0284c7" />
                 <p style={{ color: '#64748b', fontSize: '0.9rem', maxWidth: '500px', textAlign: 'center' }}>
-                  Carregue sua planilha (.xlsx ou .csv). O sistema gerará uma <strong>prévia completa</strong> para você selecionar e filtrar exatamente os contatos que deseja enviar ao Funil.
+                  Selecione sua planilha Excel (.xlsx ou .csv). O sistema gerará uma <strong>prévia completa</strong> para você revisar antes de enviar para o Funil.
                 </p>
                 <input 
                   type="file" 
@@ -455,18 +416,18 @@ export default function App() {
                   type="submit" 
                   disabled={carregando}
                   style={{ padding: '12px 24px', backgroundColor: '#0284c7', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem' }}>
-                  {carregando ? 'Lendo Planilha...' : 'Gerar Prévia dos Contatos'}
+                  {carregando ? 'Processando Planilha...' : 'Gerar Prévia dos Contatos'}
                 </button>
               </form>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#334155' }}>
-                    Foram encontrados <strong>{previaClientes.length}</strong> registros na planilha.
+                    Planilha lida com sucesso! Total de <strong>{previaClientes.length}</strong> contatos encontrados.
                   </span>
                   <div style={{ display: 'flex', gap: '10px' }}>
                     <button onClick={() => setPreviaClientes([])} style={{ padding: '8px 14px', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer' }}>
-                      Cancelar / Nova Planilha
+                      Cancelar
                     </button>
                     <button onClick={handleConfirmarImportacaoPrevia} style={{ padding: '8px 18px', backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
                       Confirmar e Enviar {previaClientes.filter(p => p.selecionado).length} Contatos ao Funil
@@ -474,7 +435,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* TABELA DE PRÉVIA */}
                 <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                     <thead style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
@@ -501,7 +461,7 @@ export default function App() {
                           </td>
                           <td style={{ padding: '10px', fontWeight: 'bold' }}>{item.codigo}</td>
                           <td style={{ padding: '10px' }}>{item.nome}</td>
-                          <td style={{ padding: '10px', color: '#dc2626', fontWeight: 'bold' }}>R$ {item.total_vencido.toFixed(2)}</td>
+                          <td style={{ padding: '10px', color: '#dc2626', fontWeight: 'bold' }}>R$ {Number(item.total_vencido || 0).toFixed(2)}</td>
                           <td style={{ padding: '10px' }}>{item.dias_atraso} dias</td>
                         </tr>
                       ))}
@@ -513,7 +473,6 @@ export default function App() {
           </div>
         )}
 
-        {/* 3. ADMINISTRAÇÃO E EXCLUSÃO EM MASSA DE CLIENTES */}
         {abaAtiva === 'admin' && (
           <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: '20px', flex: 1, overflow: 'hidden' }}>
             <form onSubmit={handleCadastrarUsuario} style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -549,7 +508,7 @@ export default function App() {
 
             <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '15px', overflowY: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ margin: 0, fontSize: '1rem', color: '#0f172a' }}>Gestão de Listas & Exclusão em Massa (Admin)</h3>
+                <h3 style={{ margin: 0, fontSize: '1rem', color: '#0f172a' }}>Exclusão em Massa de Listas (Admin)</h3>
                 {selecionadosExclusao.length > 0 && (
                   <button onClick={handleExcluirEmMassa} style={{ padding: '8px 14px', backgroundColor: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <Trash2 size={16} /> Excluir {selecionadosExclusao.length} Selecionados
@@ -557,7 +516,6 @@ export default function App() {
                 )}
               </div>
 
-              {/* LISTAGEM DE CLIENTES PARA EXCLUSÃO EM MASSA */}
               <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                   <thead style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
@@ -577,7 +535,6 @@ export default function App() {
                       <th style={{ padding: '10px', textAlign: 'left' }}>ID / Código</th>
                       <th style={{ padding: '10px', textAlign: 'left' }}>Nome do Cliente</th>
                       <th style={{ padding: '10px', textAlign: 'left' }}>Valor Devedor</th>
-                      <th style={{ padding: '10px', textAlign: 'left' }}>Operador</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -599,33 +556,12 @@ export default function App() {
                         <td style={{ padding: '10px', fontWeight: 'bold' }}>{c.codigo}</td>
                         <td style={{ padding: '10px' }}>{c.nome}</td>
                         <td style={{ padding: '10px', color: '#dc2626', fontWeight: 'bold' }}>R$ {Number(c.total_vencido || 0).toFixed(2)}</td>
-                        <td style={{ padding: '10px' }}>{c.operador_nome || 'N/A'}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             </div>
-          </div>
-        )}
-
-        {abaAtiva === 'clientes' && (
-          <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', flex: 1, overflowY: 'auto' }}>
-            <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a' }}>📄 Ficha do Cliente</h2>
-            {clienteSelecionado ? (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginTop: '15px' }}>
-                <div style={{ backgroundColor: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                  <h3 style={{ margin: '0 0 10px 0', fontSize: '1rem', color: '#0284c7' }}>Dados Cadastrais</h3>
-                  <p style={{ margin: '6px 0', fontSize: '0.9rem' }}><strong>ID / Código:</strong> {clienteSelecionado.codigo}</p>
-                  <p style={{ margin: '6px 0', fontSize: '0.9rem' }}><strong>Nome Completo:</strong> {clienteSelecionado.nome}</p>
-                </div>
-                <div style={{ backgroundColor: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                  <h3 style={{ margin: '0 0 10px 0', fontSize: '1rem', color: '#dc2626' }}>Situação Financeira</h3>
-                  <p style={{ margin: '6px 0', fontSize: '0.9rem' }}><strong>Valor Total Devedor:</strong> R$ {Number(clienteSelecionado.total_vencido || 0).toFixed(2)}</p>
-                  <p style={{ margin: '6px 0', fontSize: '0.9rem' }}><strong>Dias Atraso:</strong> {clienteSelecionado.dias_atraso || 0} dias</p>
-                </div>
-              </div>
-            ) : <p style={{ color: '#64748b' }}>Selecione um cliente no Kanban.</p>}
           </div>
         )}
 

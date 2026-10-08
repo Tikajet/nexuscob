@@ -30,6 +30,7 @@ async function initDB() {
     
     await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS codigo VARCHAR(50);`);
     await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS nome VARCHAR(255);`);
+    await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS telefone VARCHAR(50);`);
     await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS total_vencido NUMERIC(10,2) DEFAULT 0.00;`);
     await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS dias_atraso INT DEFAULT 30;`);
     await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS status_conexao VARCHAR(50) DEFAULT 'Ativo';`);
@@ -62,7 +63,18 @@ async function initDB() {
       );
     `);
 
-    console.log('✅ Banco PostgreSQL Nexus-Cob pronto!');
+    // Tabela de Historico de Atendimentos (CRM)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS historico_contatos (
+        id SERIAL PRIMARY KEY,
+        cliente_id INT NOT NULL,
+        usuario_nome VARCHAR(255),
+        observacao TEXT NOT NULL,
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    console.log('✅ Banco PostgreSQL Nexus-Cob pronto com modulo CRM!');
   } catch (error) {
     console.error('❌ Erro na inicializacao do BD:', error.message);
   }
@@ -138,7 +150,6 @@ app.post('/api/usuarios', async (req, res) => {
   }
 });
 
-// ROTA PARA ALTERAR SENHA DO USUÁRIO
 app.put('/api/usuarios/:id/senha', async (req, res) => {
   const { id } = req.params;
   const { novaSenha } = req.body;
@@ -198,6 +209,33 @@ app.delete('/api/agenda/:id', async (req, res) => {
   }
 });
 
+// HISTÓRICO DE ATENDIMENTOS (CRM)
+app.get('/api/clientes/:id/historico', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query('SELECT * FROM historico_contatos WHERE cliente_id = $1 ORDER BY id DESC', [id]);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao buscar histórico do cliente.' });
+  }
+});
+
+app.post('/api/clientes/:id/historico', async (req, res) => {
+  const { id } = req.params;
+  const { usuario_nome, observacao } = req.body;
+  if (!observacao) return res.status(400).json({ error: 'Observação é obrigatória.' });
+
+  try {
+    const result = await pool.query(
+      'INSERT INTO historico_contatos (cliente_id, usuario_nome, observacao) VALUES ($1, $2, $3) RETURNING *',
+      [id, usuario_nome || 'OPERADOR', observacao]
+    );
+    res.json({ sucesso: true, historico: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao registrar histórico.' });
+  }
+});
+
 // ROUTING DE SCRIPTS DE MENSAGEM
 app.get('/api/scripts', async (req, res) => {
   try {
@@ -251,7 +289,7 @@ app.get('/api/clientes', async (req, res) => {
 
 // CADASTRO MANUAL
 app.post('/api/clientes/manual', async (req, res) => {
-  const { codigo, nome, total_vencido, opcao_atraso } = req.body;
+  const { codigo, nome, telefone, total_vencido, opcao_atraso } = req.body;
   if (!nome || !total_vencido) {
     return res.status(400).json({ error: 'Nome e Valor Devedor são obrigatórios.' });
   }
@@ -272,9 +310,9 @@ app.post('/api/clientes/manual', async (req, res) => {
     const val = formatarValorExcel(total_vencido);
 
     const result = await pool.query(
-      `INSERT INTO clientes (codigo, nome, total_vencido, dias_atraso, status_conexao, estagio_id, atualizado_em) 
-       VALUES ($1, $2, $3, $4, $5, 1, CURRENT_TIMESTAMP) RETURNING *`,
-      [cod, String(nome).trim(), val, diasAtraso, statusConexao]
+      `INSERT INTO clientes (codigo, nome, telefone, total_vencido, dias_atraso, status_conexao, estagio_id, atualizado_em) 
+       VALUES ($1, $2, $3, $4, $5, $6, 1, CURRENT_TIMESTAMP) RETURNING *`,
+      [cod, String(nome).trim(), telefone || '', val, diasAtraso, statusConexao]
     );
 
     res.json({ sucesso: true, mensagem: 'Cliente cadastrado com sucesso!', cliente: result.rows[0] });
@@ -283,7 +321,7 @@ app.post('/api/clientes/manual', async (req, res) => {
   }
 });
 
-// MOVER ESTÁGIO (SALVA A HORA DA MOVIMENTAÇÃO)
+// MOVER ESTÁGIO
 app.put('/api/clientes/:id/estagio', async (req, res) => {
   const { id } = req.params;
   const { estagio_id, usuario_nome, usuario_id } = req.body;
@@ -327,7 +365,7 @@ app.post('/api/clientes/excluir-massa', async (req, res) => {
   }
 });
 
-// GERAR PRÉVIA DA PLANILHA EXCEL
+// PRÉVIA DA PLANILHA EXCEL
 app.post('/api/clientes/previa', upload.single('arquivo'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
@@ -341,6 +379,7 @@ app.post('/api/clientes/previa', upload.single('arquivo'), async (req, res) => {
       const chaveId = keys.find(k => k.trim().toUpperCase() === 'ID' || k.trim().toUpperCase() === 'CODIGO') || keys[0];
       const chaveNome = keys.find(k => k.trim().toUpperCase() === 'NOME' || k.trim().toUpperCase() === 'CLIENTE') || keys[1];
       const chaveValor = keys.find(k => k.trim().toUpperCase().includes('VALOR') || k.trim().toUpperCase().includes('DEVEDOR')) || keys[2];
+      const chaveTel = keys.find(k => k.trim().toUpperCase().includes('TEL') || k.trim().toUpperCase().includes('CEL')) || '';
 
       const valorLimpo = formatarValorExcel(item[chaveValor]);
 
@@ -348,6 +387,7 @@ app.post('/api/clientes/previa', upload.single('arquivo'), async (req, res) => {
         tempId: index + 1,
         codigo: String(item[chaveId] || `CLI-${index + 1}`).trim(),
         nome: String(item[chaveNome] || 'Cliente sem Nome').trim(),
+        telefone: chaveTel ? String(item[chaveTel]).trim() : '',
         total_vencido: valorLimpo,
         opcao_atraso: '30',
         selecionado: true
@@ -373,6 +413,7 @@ app.post('/api/clientes/confirmar-importacao', async (req, res) => {
       const cod = String(cli.codigo || `CLI-${Math.floor(1000 + Math.random() * 9000)}`);
       const val = formatarValorExcel(cli.total_vencido);
       const nom = String(cli.nome || 'Cliente sem nome');
+      const tel = String(cli.telefone || '');
 
       let diasAtraso = 30;
       let statusConexao = 'Ativo';
@@ -386,9 +427,9 @@ app.post('/api/clientes/confirmar-importacao', async (req, res) => {
       }
 
       await pool.query(
-        `INSERT INTO clientes (codigo, nome, total_vencido, dias_atraso, status_conexao, estagio_id, atualizado_em) 
-         VALUES ($1, $2, $3, $4, $5, 1, CURRENT_TIMESTAMP)`,
-        [cod, nom, val, diasAtraso, statusConexao]
+        `INSERT INTO clientes (codigo, nome, telefone, total_vencido, dias_atraso, status_conexao, estagio_id, atualizado_em) 
+         VALUES ($1, $2, $3, $4, $5, $6, 1, CURRENT_TIMESTAMP)`,
+        [cod, nom, tel, val, diasAtraso, statusConexao]
       );
       inseridos++;
     }

@@ -26,53 +26,51 @@ export default function Dashboard({ clientes = [] }) {
 
   const taxaSucesso = totalClientes > 0 ? ((clientesAcordo.length / totalClientes) * 100).toFixed(1) : '0.0';
 
-  // Função para formatar Moeda BRL (Ex: R$ 16.758,54)
   const formatarMoeda = (valor) => {
     return Number(valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
-  // Mapeamento dos 7 Estágios para o gráfico visual
   const estagiosNomes = [
-    { id: 1, nome: '1º Contato', cor: '#3b82f6' },
-    { id: 2, nome: '2ª Tentativa', cor: '#f59e0b' },
-    { id: 3, nome: '3ª Tentativa', cor: '#ea580c' },
+    { id: 1, nome: '1º Contato', cor: '#1D3557' },
+    { id: 2, nome: '2ª Tentativa', cor: '#457B9D' },
+    { id: 3, nome: '3ª Tentativa', cor: '#E63946' },
     { id: 4, nome: 'Contato Realizado', cor: '#0284c7' },
     { id: 5, nome: 'Promessa Pagto', cor: '#8b5cf6' },
     { id: 6, nome: 'Acordo Gerado', cor: '#10b981' },
-    { id: 7, nome: 'Rejeitado / Recusa', cor: '#ef4444' }
+    { id: 7, nome: 'Rejeitado / Recusa', cor: '#E63946' }
   ];
 
   const maxClientesEstagio = Math.max(...estagiosNomes.map(e => clientes.filter(c => Number(c.estagio_id) === e.id).length), 1);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', flex: 1, overflowY: 'auto' }}>
-      <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <BarChart3 size={22} color="#0284c7" /> Dashboard Geral do Pipeline de Cobrança
+      <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#0B1E36', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <BarChart3 size={22} color="#1D3557" /> Dashboard Geral do Pipeline de Cobrança — PINHAISNET
       </h2>
 
-      {/* CARDS DE RESUMO SUPERIOR */}
+      {/* CARDS SUPERIORES COM AZUL E VERMELHO PINHAISNET */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px' }}>
-        <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ padding: '10px', backgroundColor: '#e0f2fe', borderRadius: '8px', color: '#0284c7' }}>
+        <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: '12px', borderTop: '4px solid #1D3557' }}>
+          <div style={{ padding: '10px', backgroundColor: '#f0f4f8', borderRadius: '8px', color: '#1D3557' }}>
             <Users size={24} />
           </div>
           <div>
             <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 'bold' }}>Total em Carteira</div>
-            <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: '#0f172a' }}>{totalClientes} contatos</div>
+            <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: '#0B1E36' }}>{totalClientes} contatos</div>
           </div>
         </div>
 
-        <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ padding: '10px', backgroundColor: '#fee2e2', borderRadius: '8px', color: '#dc2626' }}>
+        <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: '12px', borderTop: '4px solid #E63946' }}>
+          <div style={{ padding: '10px', backgroundColor: '#fde8e8', borderRadius: '8px', color: '#E63946' }}>
             <DollarSign size={24} />
           </div>
           <div>
             <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 'bold' }}>Total em Aberto</div>
-            <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#dc2626' }}>{formatarMoeda(totalDevedor)}</div>
+            <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#E63946' }}>{formatarMoeda(totalDevedor)}</div>
           </div>
         </div>
 
-        <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: '12px', borderTop: '4px solid #10b981' }}>
           <div style={{ padding: '10px', backgroundColor: '#d1fae5', borderRadius: '8px', color: '#059669' }}>
             <CheckCircle size={24} />
           </div>
@@ -82,32 +80,31 @@ export default function Dashboard({ clientes = [] }) {
           </div>
         </div>
 
-        <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{ padding: '10px', backgroundColor: '#fef3c7', borderRadius: '8px', color: '#d97706' }}>
+        <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: '12px', borderTop: '4px solid #457B9D' }}>
+          <div style={{ padding: '10px', backgroundColor: '#e0f2fe', borderRadius: '8px', color: '#457B9D' }}>
             <TrendingUp size={24} />
           </div>
           <div>
             <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 'bold' }}>Taxa de Eficiência</div>
-            <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: '#d97706' }}>{taxaSucesso}%</div>
+            <div style={{ fontSize: '1.3rem', fontWeight: 'bold', color: '#1D3557' }}>{taxaSucesso}%</div>
           </div>
         </div>
       </div>
 
-      {/* BLOCO SEGUNDÁRIO DE GRÁFICOS E DISTRIBUIÇÃO */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
         
-        {/* GRÁFICO DE DISTRIBUIÇÃO POR PERFIL DE ATRASO */}
+        {/* DISTRIBUIÇÃO */}
         <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-          <h3 style={{ margin: 0, fontSize: '1rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <PieChart size={18} color="#0284c7" /> Distribuição por Perfil de Atraso
+          <h3 style={{ margin: 0, fontSize: '1rem', color: '#0B1E36', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <PieChart size={18} color="#1D3557" /> Distribuição por Perfil de Atraso
           </h3>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             {[
-              { label: 'Devedores 30 Dias', qtd: devedores30.length, val: val30, cor: '#0284c7' },
-              { label: 'Devedores 60 Dias', qtd: devedores60.length, val: val60, cor: '#f59e0b' },
-              { label: 'Devedores 90+ Dias', qtd: devedores90.length, val: val90, cor: '#ea580c' },
-              { label: 'Clientes Cancelados', qtd: cancelados.length, val: valCanc, cor: '#ef4444' }
+              { label: 'Devedores 30 Dias', qtd: devedores30.length, val: val30, cor: '#1D3557' },
+              { label: 'Devedores 60 Dias', qtd: devedores60.length, val: val60, cor: '#457B9D' },
+              { label: 'Devedores 90+ Dias', qtd: devedores90.length, val: val90, cor: '#E63946' },
+              { label: 'Clientes Cancelados', qtd: cancelados.length, val: valCanc, cor: '#A8DADC' }
             ].map((f, index) => {
               const pct = totalClientes > 0 ? (f.qtd / totalClientes) * 100 : 0;
               return (
@@ -116,7 +113,6 @@ export default function Dashboard({ clientes = [] }) {
                     <span style={{ fontWeight: 'bold', color: '#334155' }}>{f.label}:</span>
                     <span style={{ color: '#0f172a', fontWeight: 'bold' }}>{f.qtd} clientes <span style={{ color: '#64748b', fontWeight: 'normal' }}>({formatarMoeda(f.val)})</span></span>
                   </div>
-                  {/* BARRA VISUAL */}
                   <div style={{ width: '100%', height: '10px', backgroundColor: '#f1f5f9', borderRadius: '5px', overflow: 'hidden' }}>
                     <div style={{ width: `${pct}%`, height: '100%', backgroundColor: f.cor, borderRadius: '5px', transition: 'width 0.5s ease' }}></div>
                   </div>
@@ -126,10 +122,10 @@ export default function Dashboard({ clientes = [] }) {
           </div>
         </div>
 
-        {/* STATUS DAS NEGOCIAÇÕES */}
+        {/* RESUMO */}
         <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-          <h3 style={{ margin: 0, fontSize: '1rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <AlertTriangle size={18} color="#eab308" /> Resumo de Negociações
+          <h3 style={{ margin: 0, fontSize: '1rem', color: '#0B1E36', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <AlertTriangle size={18} color="#E63946" /> Resumo de Negociações
           </h3>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -140,20 +136,20 @@ export default function Dashboard({ clientes = [] }) {
               </div>
             </div>
 
-            <div style={{ padding: '14px', backgroundColor: '#fef2f2', borderLeft: '4px solid #ef4444', borderRadius: '6px' }}>
-              <div style={{ fontWeight: 'bold', fontSize: '0.9rem', color: '#991b1b' }}>Recusas e Insucessos</div>
-              <div style={{ fontSize: '0.85rem', color: '#b91c1c', marginTop: '2px' }}>
-                <strong>{clientesRecusa.length} clientes</strong> recusaram ou não aceitaram propostas de negociação.
+            <div style={{ padding: '14px', backgroundColor: '#fde8e8', borderLeft: '4px solid #E63946', borderRadius: '6px' }}>
+              <div style={{ fontWeight: 'bold', fontSize: '0.9rem', color: '#E63946' }}>Recusas e Insucessos</div>
+              <div style={{ fontSize: '0.85rem', color: '#991b1b', marginTop: '2px' }}>
+                <strong>{clientesRecusa.length} clientes</strong> recusaram ou não aceitaram propostas.
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* GRÁFICO VISUAL DO FUNIL DE VENDAS (TODOS OS ESTÁGIOS) */}
+      {/* FUNIL GRÁFICO */}
       <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-        <h3 style={{ margin: 0, fontSize: '1rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <BarChart3 size={18} color="#0284c7" /> Volume de Clientes por Estágio do Funil
+        <h3 style={{ margin: 0, fontSize: '1rem', color: '#0B1E36', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <BarChart3 size={18} color="#1D3557" /> Volume de Clientes por Estágio do Funil
         </h3>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '10px', alignItems: 'flex-end', minHeight: '160px', padding: '10px 0' }}>

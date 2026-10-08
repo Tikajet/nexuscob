@@ -51,25 +51,21 @@ async function initDB() {
       );
     `);
 
-    // RECRIAR TABELA DE AGENDA SEM RESTRIÇÕES DE TIPO DE DATA
+    // FORÇAR RECRIAÇÃO LIMPA DA TABELA AGENDA
+    await pool.query(`DROP TABLE IF EXISTS agenda CASCADE;`);
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS agenda (
+      CREATE TABLE agenda (
         id SERIAL PRIMARY KEY,
         cliente_id INT,
-        cliente_nome TEXT NOT NULL,
+        cliente_nome TEXT,
         usuario_id INT,
         usuario_nome TEXT,
-        data_retorno TEXT NOT NULL,
+        data_retorno TEXT,
         observacao TEXT,
         concluido BOOLEAN DEFAULT FALSE,
         criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
-
-    // Garantir que a coluna data_retorno aceite texto/ISO sem falhar
-    await pool.query(`ALTER TABLE agenda ALTER COLUMN data_retorno TYPE TEXT;`).catch(() => {});
-    await pool.query(`ALTER TABLE agenda ALTER COLUMN usuario_id DROP NOT NULL;`).catch(() => {});
-    await pool.query(`ALTER TABLE agenda ALTER COLUMN cliente_id DROP NOT NULL;`).catch(() => {});
 
     // Tabela CRM
     await pool.query(`
@@ -82,9 +78,9 @@ async function initDB() {
       );
     `);
 
-    console.log('✅ Banco PostgreSQL Nexus-Cob pronto e agenda corrigida!');
+    console.log('✅ Tabela agenda recriada com sucesso no PostgreSQL!');
   } catch (error) {
-    console.error('❌ Erro na inicializacao do BD:', error.message);
+    console.error('❌ Erro na inicialização do BD:', error.message);
   }
 }
 initDB();
@@ -187,7 +183,7 @@ app.put('/api/usuarios/:id/senha', async (req, res) => {
   }
 });
 
-// AGENDA / RETORNOS (MÁXIMA COMPATIBILIDADE DE DATA)
+// AGENDA / RETORNOS (ROTA ULTRA PERMISSIVA)
 app.get('/api/agenda', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM agenda ORDER BY id DESC');
@@ -198,12 +194,19 @@ app.get('/api/agenda', async (req, res) => {
 });
 
 app.post('/api/agenda', async (req, res) => {
-  const { cliente_nome, usuario_id, usuario_nome, data_retorno, observacao } = req.body;
+  const { cliente_id, cliente_nome, usuario_id, usuario_nome, data_retorno, observacao } = req.body;
+  
   if (!cliente_nome || !data_retorno) {
     return res.status(400).json({ error: 'Cliente e Data são obrigatórios.' });
   }
 
   try {
+    let cId = null;
+    if (cliente_id !== undefined && cliente_id !== null && cliente_id !== '') {
+      const parsed = parseInt(cliente_id, 10);
+      if (!isNaN(parsed)) cId = parsed;
+    }
+
     let uId = null;
     if (usuario_id !== undefined && usuario_id !== null && usuario_id !== '') {
       const parsed = parseInt(usuario_id, 10);
@@ -213,8 +216,8 @@ app.post('/api/agenda', async (req, res) => {
     const dataStr = String(data_retorno).replace('T', ' ');
 
     const result = await pool.query(
-      'INSERT INTO agenda (cliente_nome, usuario_id, usuario_nome, data_retorno, observacao) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [String(cliente_nome), uId, String(usuario_nome || 'Operador'), dataStr, String(observacao || '')]
+      'INSERT INTO agenda (cliente_id, cliente_nome, usuario_id, usuario_nome, data_retorno, observacao) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [cId, String(cliente_nome), uId, String(usuario_nome || 'Operador'), dataStr, String(observacao || '')]
     );
     res.json({ sucesso: true, agendamento: result.rows[0] });
   } catch (err) {

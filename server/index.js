@@ -51,22 +51,23 @@ async function initDB() {
       );
     `);
 
-    // Tabela de Agenda - Garantindo colunas flexíveis
+    // RECRIAR TABELA DE AGENDA SEM RESTRIÇÕES DE TIPO DE DATA
     await pool.query(`
       CREATE TABLE IF NOT EXISTS agenda (
         id SERIAL PRIMARY KEY,
         cliente_id INT,
-        cliente_nome VARCHAR(255) NOT NULL,
+        cliente_nome TEXT NOT NULL,
         usuario_id INT,
-        usuario_nome VARCHAR(255),
-        data_retorno TIMESTAMP NOT NULL,
+        usuario_nome TEXT,
+        data_retorno TEXT NOT NULL,
         observacao TEXT,
         concluido BOOLEAN DEFAULT FALSE,
         criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
-    // Remover restrições NOT NULL se existirem
+    // Garantir que a coluna data_retorno aceite texto/ISO sem falhar
+    await pool.query(`ALTER TABLE agenda ALTER COLUMN data_retorno TYPE TEXT;`).catch(() => {});
     await pool.query(`ALTER TABLE agenda ALTER COLUMN usuario_id DROP NOT NULL;`).catch(() => {});
     await pool.query(`ALTER TABLE agenda ALTER COLUMN cliente_id DROP NOT NULL;`).catch(() => {});
 
@@ -81,7 +82,7 @@ async function initDB() {
       );
     `);
 
-    console.log('✅ Banco PostgreSQL Nexus-Cob pronto e corrigido!');
+    console.log('✅ Banco PostgreSQL Nexus-Cob pronto e agenda corrigida!');
   } catch (error) {
     console.error('❌ Erro na inicializacao do BD:', error.message);
   }
@@ -186,10 +187,10 @@ app.put('/api/usuarios/:id/senha', async (req, res) => {
   }
 });
 
-// AGENDA / RETORNOS (TRATAMENTO ROBUSTO)
+// AGENDA / RETORNOS (MÁXIMA COMPATIBILIDADE DE DATA)
 app.get('/api/agenda', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM agenda ORDER BY data_retorno ASC');
+    const result = await pool.query('SELECT * FROM agenda ORDER BY id DESC');
     res.json(result.rows);
   } catch (err) {
     res.status(500).json({ error: 'Erro ao buscar agendamentos.' });
@@ -209,9 +210,11 @@ app.post('/api/agenda', async (req, res) => {
       if (!isNaN(parsed)) uId = parsed;
     }
 
+    const dataStr = String(data_retorno).replace('T', ' ');
+
     const result = await pool.query(
       'INSERT INTO agenda (cliente_nome, usuario_id, usuario_nome, data_retorno, observacao) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [cliente_nome, uId, usuario_nome || 'A definir', data_retorno, observacao || '']
+      [String(cliente_nome), uId, String(usuario_nome || 'Operador'), dataStr, String(observacao || '')]
     );
     res.json({ sucesso: true, agendamento: result.rows[0] });
   } catch (err) {

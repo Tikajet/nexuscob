@@ -1,5 +1,5 @@
 import React from 'react';
-import { DollarSign, Users, CheckCircle, AlertTriangle, TrendingUp, PieChart, BarChart3 } from 'lucide-react';
+import { DollarSign, Users, CheckCircle, AlertTriangle, TrendingUp, PieChart, BarChart3, CheckCircle2 } from 'lucide-react';
 
 export default function Dashboard({ clientes = [] }) {
   const totalClientes = clientes.length;
@@ -8,9 +8,13 @@ export default function Dashboard({ clientes = [] }) {
 
   // Acordos Gerados (Estágio ID 6)
   const clientesAcordo = clientes.filter(c => Number(c.estagio_id) === 6);
-  const totalAcordos = clientesAcordo.reduce((acc, c) => acc + Number(c.total_vencido || 0), 0);
+  const totalAcordos = clientesAcordo.reduce((acc, c) => acc + Number(c.valor_acordo || c.total_vencido || 0), 0);
 
-  // Clientes com Rejeição / Recusa (Estágio ID 7)
+  // Acordos Pagos (Estágio ID 8)
+  const clientesPagos = clientes.filter(c => Number(c.estagio_id) === 8);
+  const totalPagos = clientesPagos.reduce((acc, c) => acc + Number(c.valor_acordo || c.total_vencido || 0), 0);
+
+  // Rejeições (Estágio ID 7)
   const clientesRecusa = clientes.filter(c => Number(c.estagio_id) === 7);
 
   // Distribuição por dias de atraso
@@ -24,7 +28,7 @@ export default function Dashboard({ clientes = [] }) {
   const val90 = devedores90.reduce((a,c) => a + Number(c.total_vencido||0), 0);
   const valCanc = cancelados.reduce((a,c) => a + Number(c.total_vencido||0), 0);
 
-  const taxaSucesso = totalClientes > 0 ? ((clientesAcordo.length / totalClientes) * 100).toFixed(1) : '0.0';
+  const taxaSucesso = totalClientes > 0 ? (((clientesAcordo.length + clientesPagos.length) / totalClientes) * 100).toFixed(1) : '0.0';
 
   const formatarMoeda = (valor) => {
     return Number(valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -36,7 +40,8 @@ export default function Dashboard({ clientes = [] }) {
     { id: 3, nome: '3ª Tentativa', cor: '#E63946' },
     { id: 4, nome: 'Contato Realizado', cor: '#0284c7' },
     { id: 5, nome: 'Promessa Pagto', cor: '#8b5cf6' },
-    { id: 6, nome: 'Acordo Gerado', cor: '#10b981' },
+    { id: 6, nome: 'Acordo Gerado', cor: '#f59e0b' },
+    { id: 8, nome: 'Acordo Pago', cor: '#10b981' },
     { id: 7, nome: 'Rejeitado / Recusa', cor: '#E63946' }
   ];
 
@@ -48,7 +53,7 @@ export default function Dashboard({ clientes = [] }) {
         <BarChart3 size={22} color="#1D3557" /> Dashboard Geral do Pipeline de Cobrança — PINHAISNET
       </h2>
 
-      {/* CARDS SUPERIORES COM AZUL E VERMELHO PINHAISNET */}
+      {/* CARDS SUPERIORES */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '15px' }}>
         <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: '12px', borderTop: '4px solid #1D3557' }}>
           <div style={{ padding: '10px', backgroundColor: '#f0f4f8', borderRadius: '8px', color: '#1D3557' }}>
@@ -72,11 +77,11 @@ export default function Dashboard({ clientes = [] }) {
 
         <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', alignItems: 'center', gap: '12px', borderTop: '4px solid #10b981' }}>
           <div style={{ padding: '10px', backgroundColor: '#d1fae5', borderRadius: '8px', color: '#059669' }}>
-            <CheckCircle size={24} />
+            <CheckCircle2 size={24} />
           </div>
           <div>
-            <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 'bold' }}>Acordos Gerados</div>
-            <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#059669' }}>{formatarMoeda(totalAcordos)}</div>
+            <div style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 'bold' }}>Total Recebido (Pagos)</div>
+            <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#059669' }}>{formatarMoeda(totalPagos)}</div>
           </div>
         </div>
 
@@ -92,8 +97,6 @@ export default function Dashboard({ clientes = [] }) {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-        
-        {/* DISTRIBUIÇÃO */}
         <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '15px' }}>
           <h3 style={{ margin: 0, fontSize: '1rem', color: '#0B1E36', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <PieChart size={18} color="#1D3557" /> Distribuição por Perfil de Atraso
@@ -122,24 +125,30 @@ export default function Dashboard({ clientes = [] }) {
           </div>
         </div>
 
-        {/* RESUMO */}
         <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '15px' }}>
           <h3 style={{ margin: 0, fontSize: '1rem', color: '#0B1E36', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <AlertTriangle size={18} color="#E63946" /> Resumo de Negociações
           </h3>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-            <div style={{ padding: '14px', backgroundColor: '#f0fdf4', borderLeft: '4px solid #10b981', borderRadius: '6px' }}>
-              <div style={{ fontWeight: 'bold', fontSize: '0.9rem', color: '#166534' }}>Acordos Fechados</div>
-              <div style={{ fontSize: '0.85rem', color: '#15803d', marginTop: '2px' }}>
-                <strong>{clientesAcordo.length} clientes</strong> fecharam proposta gerando <strong>{formatarMoeda(totalAcordos)}</strong>.
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ padding: '12px', backgroundColor: '#f0fdf4', borderLeft: '4px solid #10b981', borderRadius: '6px' }}>
+              <div style={{ fontWeight: 'bold', fontSize: '0.88rem', color: '#166534' }}>Acordos Pagos (Recuperados)</div>
+              <div style={{ fontSize: '0.82rem', color: '#15803d', marginTop: '2px' }}>
+                <strong>{clientesPagos.length} clientes</strong> quitaram pendências somando <strong>{formatarMoeda(totalPagos)}</strong>.
               </div>
             </div>
 
-            <div style={{ padding: '14px', backgroundColor: '#fde8e8', borderLeft: '4px solid #E63946', borderRadius: '6px' }}>
-              <div style={{ fontWeight: 'bold', fontSize: '0.9rem', color: '#E63946' }}>Recusas e Insucessos</div>
-              <div style={{ fontSize: '0.85rem', color: '#991b1b', marginTop: '2px' }}>
-                <strong>{clientesRecusa.length} clientes</strong> recusaram ou não aceitaram propostas.
+            <div style={{ padding: '12px', backgroundColor: '#fef3c7', borderLeft: '4px solid #f59e0b', borderRadius: '6px' }}>
+              <div style={{ fontWeight: 'bold', fontSize: '0.88rem', color: '#92400e' }}>Acordos Gerados (Em aberto)</div>
+              <div style={{ fontSize: '0.82rem', color: '#b45309', marginTop: '2px' }}>
+                <strong>{clientesAcordo.length} clientes</strong> fecharam proposta somando <strong>{formatarMoeda(totalAcordos)}</strong>.
+              </div>
+            </div>
+
+            <div style={{ padding: '12px', backgroundColor: '#fde8e8', borderLeft: '4px solid #E63946', borderRadius: '6px' }}>
+              <div style={{ fontWeight: 'bold', fontSize: '0.88rem', color: '#E63946' }}>Recusas e Insucessos</div>
+              <div style={{ fontSize: '0.82rem', color: '#991b1b', marginTop: '2px' }}>
+                <strong>{clientesRecusa.length} clientes</strong> recusaram proposta de negociação.
               </div>
             </div>
           </div>
@@ -152,7 +161,7 @@ export default function Dashboard({ clientes = [] }) {
           <BarChart3 size={18} color="#1D3557" /> Volume de Clientes por Estágio do Funil
         </h3>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '10px', alignItems: 'flex-end', minHeight: '160px', padding: '10px 0' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: '8px', alignItems: 'flex-end', minHeight: '160px', padding: '10px 0' }}>
           {estagiosNomes.map(estagio => {
             const qtd = clientes.filter(c => Number(c.estagio_id) === estagio.id).length;
             const alturaPct = maxClientesEstagio > 0 ? (qtd / maxClientesEstagio) * 100 : 0;
@@ -160,8 +169,8 @@ export default function Dashboard({ clientes = [] }) {
             return (
               <div key={estagio.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px', height: '100%', justifyContent: 'flex-end' }}>
                 <span style={{ fontSize: '0.78rem', fontWeight: 'bold', color: '#0f172a' }}>{qtd}</span>
-                <div style={{ width: '100%', maxWidth: '35px', height: `${Math.max(alturaPct, 6)}%`, backgroundColor: estagio.cor, borderRadius: '4px 4px 0 0', transition: 'height 0.4s ease' }}></div>
-                <span style={{ fontSize: '0.68rem', color: '#475569', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
+                <div style={{ width: '100%', maxWidth: '32px', height: `${Math.max(alturaPct, 6)}%`, backgroundColor: estagio.cor, borderRadius: '4px 4px 0 0', transition: 'height 0.4s ease' }}></div>
+                <span style={{ fontSize: '0.65rem', color: '#475569', textAlign: 'center', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
                   {estagio.nome}
                 </span>
               </div>

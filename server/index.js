@@ -32,9 +32,12 @@ async function initDB() {
     await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS nome VARCHAR(255);`);
     await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS telefone VARCHAR(50);`);
     await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS total_vencido NUMERIC(10,2) DEFAULT 0.00;`);
+    await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS valor_acordo NUMERIC(10,2) DEFAULT 0.00;`);
+    await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS parcelas_acordo INT DEFAULT 1;`);
     await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS dias_atraso INT DEFAULT 30;`);
     await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS status_conexao VARCHAR(50) DEFAULT 'Ativo';`);
     await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS estagio_id INT DEFAULT 1;`);
+    await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS usuario_responsavel_id INT;`);
     await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP;`);
 
     // Tabela de scripts
@@ -48,12 +51,12 @@ async function initDB() {
       );
     `);
 
-    // Tabela de Agenda / Retornos de Cobrança
+    // Tabela de Agenda
     await pool.query(`
       CREATE TABLE IF NOT EXISTS agenda (
         id SERIAL PRIMARY KEY,
         cliente_id INT,
-        cliente_nome VARCHAR(255),
+        cliente_nome VARCHAR(255) NOT NULL,
         usuario_id INT,
         usuario_nome VARCHAR(255),
         data_retorno TIMESTAMP NOT NULL,
@@ -63,7 +66,7 @@ async function initDB() {
       );
     `);
 
-    // Tabela de Historico de Atendimentos (CRM)
+    // Tabela CRM
     await pool.query(`
       CREATE TABLE IF NOT EXISTS historico_contatos (
         id SERIAL PRIMARY KEY,
@@ -74,29 +77,23 @@ async function initDB() {
       );
     `);
 
-    console.log('✅ Banco PostgreSQL Nexus-Cob pronto com modulo CRM!');
+    console.log('✅ Banco PostgreSQL Nexus-Cob pronto!');
   } catch (error) {
     console.error('❌ Erro na inicializacao do BD:', error.message);
   }
 }
 initDB();
 
-// FUNÇÃO UNIVERSAL DE TRATAMENTO DE MOEDA DO EXCEL
 function formatarValorExcel(val) {
   if (val === null || val === undefined || val === '') return 0.00;
-  
-  if (typeof val === 'number') {
-    return parseFloat(val.toFixed(2));
-  }
+  if (typeof val === 'number') return parseFloat(val.toFixed(2));
 
   let str = String(val).replace(/R\$/g, '').trim();
-
   if (str.includes('.') && str.includes(',')) {
     str = str.replace(/\./g, '').replace(',', '.');
   } else if (str.includes(',')) {
     str = str.replace(',', '.');
   }
-
   return parseFloat(str) || 0.00;
 }
 
@@ -104,23 +101,18 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'API Nexus-Cob operacional' });
 });
 
-// LOGIN E USUÁRIOS (PERMISSIVO E FLEXÍVEL)
+// LOGIN E USUÁRIOS
 app.post('/api/login', async (req, res) => {
   const { email, senha } = req.body;
   try {
     const userRes = await pool.query('SELECT * FROM usuarios WHERE email = $1', [email]);
-    
     if (userRes.rows.length > 0) {
       const user = userRes.rows[0];
-      // Se tiver senha cadastrada e for diferente, mas permitir se for a senha digitada ou padrao 123456/admin
       if (user.senha_hash && user.senha_hash !== senha && senha !== '123456' && senha !== 'admin') {
-        // Atualiza a senha para a nova informada
         await pool.query('UPDATE usuarios SET senha_hash = $1 WHERE id = $2', [senha || '123456', user.id]);
       }
       return res.json({ sucesso: true, usuario: user });
     }
-
-    // Se o usuário não existir, cria automaticamente como ADMINISTRADOR
     const nome = email.split('@')[0].toUpperCase();
     const cargo = (email.includes('admin') || email.includes('pinhaisnet')) ? 'ADMINISTRADOR' : 'COBRADOR';
     const newRes = await pool.query(
@@ -129,16 +121,7 @@ app.post('/api/login', async (req, res) => {
     );
     res.json({ sucesso: true, usuario: newRes.rows[0] });
   } catch (err) {
-    // Fallback de emergencia se houver falha de banco
-    res.json({ 
-      sucesso: true, 
-      usuario: { 
-        id: 1, 
-        nome: email.split('@')[0].toUpperCase(), 
-        email, 
-        cargo: 'ADMINISTRADOR' 
-      } 
-    });
+    res.json({ sucesso: true, usuario: { id: 1, nome: email.split('@')[0].toUpperCase(), email, cargo: 'ADMINISTRADOR' } });
   }
 });
 
@@ -164,11 +147,33 @@ app.post('/api/usuarios', async (req, res) => {
   }
 });
 
+app.put('/api/usuarios/:id', async (req, res) => {
+  const { id } = req.params;
+  const { nome, email, cargo } = req.body;
+  try {
+    const result = await pool.query(
+      'UPDATE usuarios SET nome = $1, email = $2, cargo = $3 WHERE id = $4 RETURNING id, nome, email, cargo',
+      [nome, email, cargo, id]
+    );
+    res.json({ sucesso: true, usuario: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao editar usuário.' });
+  }
+});
+
+app.delete('/api/usuarios/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM usuarios WHERE id = $1', [id]);
+    res.json({ sucesso: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao excluir usuário.' });
+  }
+});
+
 app.put('/api/usuarios/:id/senha', async (req, res) => {
   const { id } = req.params;
   const { novaSenha } = req.body;
-  if (!novaSenha) return res.status(400).json({ error: 'Nova senha é obrigatória.' });
-
   try {
     await pool.query('UPDATE usuarios SET senha_hash = $1 WHERE id = $2', [novaSenha, id]);
     res.json({ sucesso: true, mensagem: 'Senha alterada com sucesso!' });
@@ -177,7 +182,7 @@ app.put('/api/usuarios/:id/senha', async (req, res) => {
   }
 });
 
-// ROUTING DE AGENDA / COMPROMISSOS
+// AGENDA / RETORNOS
 app.get('/api/agenda', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM agenda ORDER BY data_retorno ASC');
@@ -193,13 +198,15 @@ app.post('/api/agenda', async (req, res) => {
     return res.status(400).json({ error: 'Cliente e Data são obrigatórios.' });
   }
   try {
+    const uId = usuario_id ? parseInt(usuario_id) : null;
     const result = await pool.query(
       'INSERT INTO agenda (cliente_nome, usuario_id, usuario_nome, data_retorno, observacao) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [cliente_nome, usuario_id || null, usuario_nome || 'A definir', data_retorno, observacao || '']
+      [cliente_nome, uId, usuario_nome || 'A definir', data_retorno, observacao || '']
     );
     res.json({ sucesso: true, agendamento: result.rows[0] });
   } catch (err) {
-    res.status(500).json({ error: 'Erro ao salvar agendamento.' });
+    console.error('Erro no agendamento:', err);
+    res.status(500).json({ error: 'Erro ao salvar agendamento.', detalhe: err.message });
   }
 });
 
@@ -223,7 +230,7 @@ app.delete('/api/agenda/:id', async (req, res) => {
   }
 });
 
-// HISTÓRICO DE ATENDIMENTOS (CRM)
+// CRM HISTÓRICO
 app.get('/api/clientes/:id/historico', async (req, res) => {
   const { id } = req.params;
   try {
@@ -237,8 +244,6 @@ app.get('/api/clientes/:id/historico', async (req, res) => {
 app.post('/api/clientes/:id/historico', async (req, res) => {
   const { id } = req.params;
   const { usuario_nome, observacao } = req.body;
-  if (!observacao) return res.status(400).json({ error: 'Observação é obrigatória.' });
-
   try {
     const result = await pool.query(
       'INSERT INTO historico_contatos (cliente_id, usuario_nome, observacao) VALUES ($1, $2, $3) RETURNING *',
@@ -250,7 +255,7 @@ app.post('/api/clientes/:id/historico', async (req, res) => {
   }
 });
 
-// ROUTING DE SCRIPTS DE MENSAGEM
+// SCRIPTS
 app.get('/api/scripts', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM scripts ORDER BY id DESC');
@@ -262,9 +267,6 @@ app.get('/api/scripts', async (req, res) => {
 
 app.post('/api/scripts', async (req, res) => {
   const { titulo, categoria, conteudo } = req.body;
-  if (!titulo || !conteudo) {
-    return res.status(400).json({ error: 'Título e Conteúdo são obrigatórios.' });
-  }
   try {
     const result = await pool.query(
       'INSERT INTO scripts (titulo, categoria, conteudo) VALUES ($1, $2, $3) RETURNING *',
@@ -286,7 +288,7 @@ app.delete('/api/scripts/:id', async (req, res) => {
   }
 });
 
-// LISTAR CLIENTES
+// CLIENTES
 app.get('/api/clientes', async (req, res) => {
   try {
     const result = await pool.query(`
@@ -301,13 +303,8 @@ app.get('/api/clientes', async (req, res) => {
   }
 });
 
-// CADASTRO MANUAL
 app.post('/api/clientes/manual', async (req, res) => {
   const { codigo, nome, telefone, total_vencido, opcao_atraso } = req.body;
-  if (!nome || !total_vencido) {
-    return res.status(400).json({ error: 'Nome e Valor Devedor são obrigatórios.' });
-  }
-
   let diasAtraso = 30;
   let statusConexao = 'Ativo';
 
@@ -335,14 +332,39 @@ app.post('/api/clientes/manual', async (req, res) => {
   }
 });
 
-// MOVER ESTÁGIO
+app.put('/api/clientes/:id', async (req, res) => {
+  const { id } = req.params;
+  const { codigo, nome, telefone, total_vencido, status_conexao } = req.body;
+  try {
+    const val = formatarValorExcel(total_vencido);
+    const result = await pool.query(
+      `UPDATE clientes SET codigo = $1, nome = $2, telefone = $3, total_vencido = $4, status_conexao = $5, atualizado_em = CURRENT_TIMESTAMP WHERE id = $6 RETURNING *`,
+      [codigo, nome, telefone, val, status_conexao, id]
+    );
+    res.json({ sucesso: true, cliente: result.rows[0] });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao editar cliente.' });
+  }
+});
+
+// MOVER ESTÁGIO + SALVAR DADOS DO ACORDO
 app.put('/api/clientes/:id/estagio', async (req, res) => {
   const { id } = req.params;
-  const { estagio_id, usuario_nome, usuario_id } = req.body;
+  const { estagio_id, usuario_nome, usuario_id, valor_acordo, parcelas_acordo } = req.body;
   try {
+    const uId = usuario_id ? parseInt(usuario_id) : null;
+    const vAcordo = valor_acordo !== undefined ? formatarValorExcel(valor_acordo) : null;
+    const pAcordo = parcelas_acordo !== undefined ? parseInt(parcelas_acordo) : null;
+
     const result = await pool.query(
-      'UPDATE clientes SET estagio_id = $1, usuario_responsavel_id = COALESCE($2, usuario_responsavel_id), atualizado_em = CURRENT_TIMESTAMP WHERE id = $3 RETURNING *',
-      [estagio_id, usuario_id || null, id]
+      `UPDATE clientes 
+       SET estagio_id = $1, 
+           usuario_responsavel_id = COALESCE($2, usuario_responsavel_id), 
+           valor_acordo = COALESCE($3, valor_acordo),
+           parcelas_acordo = COALESCE($4, parcelas_acordo),
+           atualizado_em = CURRENT_TIMESTAMP 
+       WHERE id = $5 RETURNING *`,
+      [estagio_id, uId, vAcordo, pAcordo, id]
     );
     res.json({ sucesso: true, mensagem: `Cliente movido por ${usuario_nome}`, cliente: result.rows[0] });
   } catch (error) {
@@ -350,36 +372,31 @@ app.put('/api/clientes/:id/estagio', async (req, res) => {
   }
 });
 
-// EXCLUIR CLIENTE
 app.delete('/api/clientes/:id', async (req, res) => {
   const { id } = req.params;
   try {
     await pool.query('DELETE FROM agenda WHERE cliente_id = $1', [id]);
     await pool.query('DELETE FROM historico_contatos WHERE cliente_id = $1', [id]);
     await pool.query('DELETE FROM clientes WHERE id = $1', [id]);
-    res.json({ sucesso: true, mensagem: 'Cliente excluído com sucesso!' });
+    res.json({ sucesso: true });
   } catch (error) {
-    res.status(500).json({ error: 'Erro ao excluir cliente.', detalhe: error.message });
+    res.status(500).json({ error: 'Erro ao excluir cliente.' });
   }
 });
 
-// EXCLUSÃO EM MASSA
 app.post('/api/clientes/excluir-massa', async (req, res) => {
   const { ids } = req.body;
-  if (!ids || !Array.isArray(ids) || ids.length === 0) {
-    return res.status(400).json({ error: 'Nenhum ID selecionado para exclusão.' });
-  }
   try {
     await pool.query('DELETE FROM agenda WHERE cliente_id = ANY($1::int[])', [ids]);
     await pool.query('DELETE FROM historico_contatos WHERE cliente_id = ANY($1::int[])', [ids]);
     await pool.query('DELETE FROM clientes WHERE id = ANY($1::int[])', [ids]);
-    res.json({ sucesso: true, mensagem: `${ids.length} clientes excluídos com sucesso!` });
+    res.json({ sucesso: true });
   } catch (error) {
-    res.status(500).json({ error: 'Erro ao excluir clientes em massa.', detalhe: error.message });
+    res.status(500).json({ error: 'Erro ao excluir clientes em massa.' });
   }
 });
 
-// PRÉVIA DA PLANILHA EXCEL
+// IMPORTAÇÃO EXCEL
 app.post('/api/clientes/previa', upload.single('arquivo'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
@@ -410,17 +427,12 @@ app.post('/api/clientes/previa', upload.single('arquivo'), async (req, res) => {
 
     res.json({ sucesso: true, total: listaPrevia.length, dados: listaPrevia });
   } catch (error) {
-    res.status(500).json({ error: 'Erro ao gerar prévia.', detalhe: error.message });
+    res.status(500).json({ error: 'Erro ao gerar prévia.' });
   }
 });
 
-// CONFIRMAR IMPORTAÇÃO
 app.post('/api/clientes/confirmar-importacao', async (req, res) => {
   const { clientes } = req.body;
-  if (!clientes || !Array.isArray(clientes) || clientes.length === 0) {
-    return res.status(400).json({ error: 'Nenhum cliente selecionado.' });
-  }
-
   try {
     let inseridos = 0;
     for (const cli of clientes) {
@@ -450,8 +462,7 @@ app.post('/api/clientes/confirmar-importacao', async (req, res) => {
 
     res.json({ sucesso: true, mensagem: `${inseridos} clientes importados para o Funil com sucesso!` });
   } catch (error) {
-    console.error('Erro na gravação do PostgreSQL:', error);
-    res.status(500).json({ error: 'Erro ao salvar no banco.', detalhe: error.message });
+    res.status(500).json({ error: 'Erro ao salvar no banco.' });
   }
 });
 

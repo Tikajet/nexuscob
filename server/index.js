@@ -51,7 +51,7 @@ async function initDB() {
       );
     `);
 
-    // Tabela de Agenda
+    // Tabela de Agenda - Garantindo colunas flexíveis
     await pool.query(`
       CREATE TABLE IF NOT EXISTS agenda (
         id SERIAL PRIMARY KEY,
@@ -66,6 +66,10 @@ async function initDB() {
       );
     `);
 
+    // Remover restrições NOT NULL se existirem
+    await pool.query(`ALTER TABLE agenda ALTER COLUMN usuario_id DROP NOT NULL;`).catch(() => {});
+    await pool.query(`ALTER TABLE agenda ALTER COLUMN cliente_id DROP NOT NULL;`).catch(() => {});
+
     // Tabela CRM
     await pool.query(`
       CREATE TABLE IF NOT EXISTS historico_contatos (
@@ -77,7 +81,7 @@ async function initDB() {
       );
     `);
 
-    console.log('✅ Banco PostgreSQL Nexus-Cob pronto!');
+    console.log('✅ Banco PostgreSQL Nexus-Cob pronto e corrigido!');
   } catch (error) {
     console.error('❌ Erro na inicializacao do BD:', error.message);
   }
@@ -182,7 +186,7 @@ app.put('/api/usuarios/:id/senha', async (req, res) => {
   }
 });
 
-// AGENDA / RETORNOS
+// AGENDA / RETORNOS (TRATAMENTO ROBUSTO)
 app.get('/api/agenda', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM agenda ORDER BY data_retorno ASC');
@@ -197,15 +201,21 @@ app.post('/api/agenda', async (req, res) => {
   if (!cliente_nome || !data_retorno) {
     return res.status(400).json({ error: 'Cliente e Data são obrigatórios.' });
   }
+
   try {
-    const uId = usuario_id ? parseInt(usuario_id) : null;
+    let uId = null;
+    if (usuario_id !== undefined && usuario_id !== null && usuario_id !== '') {
+      const parsed = parseInt(usuario_id, 10);
+      if (!isNaN(parsed)) uId = parsed;
+    }
+
     const result = await pool.query(
       'INSERT INTO agenda (cliente_nome, usuario_id, usuario_nome, data_retorno, observacao) VALUES ($1, $2, $3, $4, $5) RETURNING *',
       [cliente_nome, uId, usuario_nome || 'A definir', data_retorno, observacao || '']
     );
     res.json({ sucesso: true, agendamento: result.rows[0] });
   } catch (err) {
-    console.error('Erro no agendamento:', err);
+    console.error('Erro detalhado no agendamento:', err);
     res.status(500).json({ error: 'Erro ao salvar agendamento.', detalhe: err.message });
   }
 });
@@ -352,9 +362,14 @@ app.put('/api/clientes/:id/estagio', async (req, res) => {
   const { id } = req.params;
   const { estagio_id, usuario_nome, usuario_id, valor_acordo, parcelas_acordo } = req.body;
   try {
-    const uId = usuario_id ? parseInt(usuario_id) : null;
+    let uId = null;
+    if (usuario_id !== undefined && usuario_id !== null && usuario_id !== '') {
+      const parsed = parseInt(usuario_id, 10);
+      if (!isNaN(parsed)) uId = parsed;
+    }
+
     const vAcordo = valor_acordo !== undefined ? formatarValorExcel(valor_acordo) : null;
-    const pAcordo = parcelas_acordo !== undefined ? parseInt(parcelas_acordo) : null;
+    const pAcordo = parcelas_acordo !== undefined ? parseInt(parcelas_acordo, 10) : null;
 
     const result = await pool.query(
       `UPDATE clientes 

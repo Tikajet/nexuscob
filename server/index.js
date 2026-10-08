@@ -34,6 +34,7 @@ async function initDB() {
     await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS dias_atraso INT DEFAULT 30;`);
     await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS status_conexao VARCHAR(50) DEFAULT 'Ativo';`);
     await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS estagio_id INT DEFAULT 1;`);
+    await pool.query(`ALTER TABLE clientes ADD COLUMN IF NOT EXISTS atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP;`);
 
     // Tabela de scripts
     await pool.query(`
@@ -52,6 +53,25 @@ async function initDB() {
   }
 }
 initDB();
+
+// FUNÇÃO UNIVERSAL DE TRATAMENTO DE MOEDA DO EXCEL
+function formatarValorExcel(val) {
+  if (val === null || val === undefined || val === '') return 0.00;
+  
+  if (typeof val === 'number') {
+    return parseFloat(val.toFixed(2));
+  }
+
+  let str = String(val).replace(/R\$/g, '').trim();
+
+  if (str.includes('.') && str.includes(',')) {
+    str = str.replace(/\./g, '').replace(',', '.');
+  } else if (str.includes(',')) {
+    str = str.replace(',', '.');
+  }
+
+  return parseFloat(str) || 0.00;
+}
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'API Nexus-Cob operacional' });
@@ -170,12 +190,11 @@ app.post('/api/clientes/manual', async (req, res) => {
 
   try {
     const cod = codigo && String(codigo).trim() !== '' ? String(codigo).trim() : `CLI-${Math.floor(1000 + Math.random() * 9000)}`;
-    let valStr = String(total_vencido).replace(/R\$/g, '').replace(/\s/g, '').replace(/\./g, '').replace(',', '.');
-    const val = parseFloat(valStr) || 0.00;
+    const val = formatarValorExcel(total_vencido);
 
     const result = await pool.query(
-      `INSERT INTO clientes (codigo, nome, total_vencido, dias_atraso, status_conexao, estagio_id) 
-       VALUES ($1, $2, $3, $4, $5, 1) RETURNING *`,
+      `INSERT INTO clientes (codigo, nome, total_vencido, dias_atraso, status_conexao, estagio_id, atualizado_em) 
+       VALUES ($1, $2, $3, $4, $5, 1, CURRENT_TIMESTAMP) RETURNING *`,
       [cod, String(nome).trim(), val, diasAtraso, statusConexao]
     );
 
@@ -185,16 +204,16 @@ app.post('/api/clientes/manual', async (req, res) => {
   }
 });
 
-// MOVER ESTÁGIO
+// MOVER ESTÁGIO (SALVA A HORA DA MOVIMENTAÇÃO)
 app.put('/api/clientes/:id/estagio', async (req, res) => {
   const { id } = req.params;
   const { estagio_id, usuario_nome, usuario_id } = req.body;
   try {
-    await pool.query(
-      'UPDATE clientes SET estagio_id = $1, usuario_responsavel_id = COALESCE($2, usuario_responsavel_id) WHERE id = $3',
+    const result = await pool.query(
+      'UPDATE clientes SET estagio_id = $1, usuario_responsavel_id = COALESCE($2, usuario_responsavel_id), atualizado_em = CURRENT_TIMESTAMP WHERE id = $3 RETURNING *',
       [estagio_id, usuario_id || null, id]
     );
-    res.json({ sucesso: true, mensagem: `Cliente movido por ${usuario_nome}` });
+    res.json({ sucesso: true, mensagem: `Cliente movido por ${usuario_nome}`, cliente: result.rows[0] });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao atualizar estágio.', detalhe: error.message });
   }
@@ -244,8 +263,7 @@ app.post('/api/clientes/previa', upload.single('arquivo'), async (req, res) => {
       const chaveNome = keys.find(k => k.trim().toUpperCase() === 'NOME' || k.trim().toUpperCase() === 'CLIENTE') || keys[1];
       const chaveValor = keys.find(k => k.trim().toUpperCase().includes('VALOR') || k.trim().toUpperCase().includes('DEVEDOR')) || keys[2];
 
-      let valorStr = String(item[chaveValor] || '0');
-      let valorLimpo = parseFloat(valorStr.replace(/R\$/g, '').replace(/\s/g, '').replace(/\./g, '').replace(',', '.')) || 0.00;
+      const valorLimpo = formatarValorExcel(item[chaveValor]);
 
       return {
         tempId: index + 1,
@@ -274,7 +292,7 @@ app.post('/api/clientes/confirmar-importacao', async (req, res) => {
     let inseridos = 0;
     for (const cli of clientes) {
       const cod = String(cli.codigo || `CLI-${Math.floor(1000 + Math.random() * 9000)}`);
-      const val = parseFloat(cli.total_vencido) || 0.00;
+      const val = formatarValorExcel(cli.total_vencido);
       const nom = String(cli.nome || 'Cliente sem nome');
 
       let diasAtraso = 30;
@@ -289,8 +307,8 @@ app.post('/api/clientes/confirmar-importacao', async (req, res) => {
       }
 
       await pool.query(
-        `INSERT INTO clientes (codigo, nome, total_vencido, dias_atraso, status_conexao, estagio_id) 
-         VALUES ($1, $2, $3, $4, $5, 1)`,
+        `INSERT INTO clientes (codigo, nome, total_vencido, dias_atraso, status_conexao, estagio_id, atualizado_em) 
+         VALUES ($1, $2, $3, $4, $5, 1, CURRENT_TIMESTAMP)`,
         [cod, nom, val, diasAtraso, statusConexao]
       );
       inseridos++;

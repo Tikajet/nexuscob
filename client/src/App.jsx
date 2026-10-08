@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Home, Users, RefreshCw, Calendar, 
-  MessageSquare, BarChart3, Upload, Zap, LogOut, ArrowRight, UserCheck, Shield, Trash2, Filter, UserPlus, Printer, Copy, Check
+  MessageSquare, BarChart3, Upload, Zap, LogOut, ArrowRight, UserCheck, Shield, Trash2, Filter, UserPlus, Printer, Copy, Check, Clock
 } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 
@@ -49,10 +49,9 @@ export default function App() {
     opcao_atraso: '30'
   });
 
-  // Estado para cadastro de Scripts
   const [novoScript, setNovoScript] = useState({
     titulo: '',
-    categoria: '30', // 30, 60, 90, CANCELADOS
+    categoria: '30',
     conteudo: ''
   });
   const [filtroScriptCategoria, setFiltroScriptCategoria] = useState('TODOS');
@@ -94,12 +93,20 @@ export default function App() {
 
   const moverEstagio = async (clienteId, novoEstagioId) => {
     try {
-      await axios.put(`${API_URL}/api/clientes/${clienteId}/estagio`, {
+      const res = await axios.put(`${API_URL}/api/clientes/${clienteId}/estagio`, {
         estagio_id: novoEstagioId,
         usuario_nome: usuarioLogado?.nome || 'OPERADOR',
         usuario_id: usuarioLogado?.id
       });
-      setClientes(clientes.map(c => c.id === clienteId ? { ...c, estagio_id: novoEstagioId, operador_nome: usuarioLogado?.nome } : c));
+      
+      const clienteAtualizado = res.data.cliente;
+
+      setClientes(clientes.map(c => c.id === clienteId ? { 
+        ...c, 
+        estagio_id: novoEstagioId, 
+        operador_nome: usuarioLogado?.nome,
+        atualizado_em: clienteAtualizado?.atualizado_em || new Date().toISOString()
+      } : c));
     } catch (err) {
       alert('Erro ao mover estágio.');
     }
@@ -235,6 +242,22 @@ export default function App() {
     }
   };
 
+  const formatarData = (dataIso) => {
+    if (!dataIso) return '';
+    try {
+      const date = new Date(dataIso);
+      if (isNaN(date.getTime())) return '';
+      const dia = String(date.getDate()).padStart(2, '0');
+      const mes = String(date.getMonth() + 1).padStart(2, '0');
+      const ano = date.getFullYear();
+      const hora = String(date.getHours()).padStart(2, '0');
+      const min = String(date.getMinutes()).padStart(2, '0');
+      return `${dia}/${mes}/${ano} ${hora}:${min}`;
+    } catch (e) {
+      return '';
+    }
+  };
+
   const clientesFiltrados = clientes.filter(c => {
     const dias = Number(c.dias_atraso || 0);
     const status = String(c.status_conexao || '').toLowerCase();
@@ -362,7 +385,7 @@ export default function App() {
           </div>
         </header>
 
-        {/* FUNIL KANBAN */}
+        {/* FUNIL KANBAN COM DATA E HORA DE MOVIMENTAÇÃO */}
         {abaAtiva === 'pipeline' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, overflow: 'hidden' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: '#fff', padding: '10px 15px', borderRadius: '8px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
@@ -408,51 +431,60 @@ export default function App() {
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', flex: 1, paddingRight: '2px' }}>
-                      {clientesNoEstagio.map(cli => (
-                        <div 
-                          key={cli.id} 
-                          onClick={() => { setClienteSelecionado(cli); setAbaAtiva('clientes'); }}
-                          style={{ 
-                            backgroundColor: '#fff', 
-                            padding: '10px 12px', 
-                            borderRadius: '6px', 
-                            boxShadow: '0 1px 2px rgba(0,0,0,0.06)', 
-                            borderLeft: `4px solid ${estagio.cor}`,
-                            cursor: 'pointer'
-                          }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div style={{ fontWeight: 'bold', color: '#0f172a', fontSize: '0.85rem' }}>{cli.nome}</div>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); handleExcluirCliente(cli.id); }}
-                              title="Excluir do Funil"
-                              style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}>
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-
-                          <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>ID/Contrato: {cli.codigo || 'CLI-001'}</div>
-                          <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#dc2626', marginTop: '4px' }}>
-                            R$ {Number(cli.total_vencido || 0).toFixed(2)}
-                          </div>
-
-                          <div style={{ fontSize: '0.72rem', color: '#0284c7', marginTop: '6px', backgroundColor: '#f0f9ff', padding: '3px 6px', borderRadius: '4px', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            👤 Movido por: {cli.operador_nome || usuarioLogado.nome}
-                          </div>
-
-                          <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
-                            {estagio.id > 1 && (
-                              <button onClick={(e) => { e.stopPropagation(); moverEstagio(cli.id, estagio.id - 1); }} style={{ padding: '3px 7px', fontSize: '0.7rem', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer', backgroundColor: '#fff' }}>
-                                ← Voltar
+                      {clientesNoEstagio.map(cli => {
+                        const dataFormatada = formatarData(cli.atualizado_em || cli.criado_em);
+                        return (
+                          <div 
+                            key={cli.id} 
+                            onClick={() => { setClienteSelecionado(cli); setAbaAtiva('clientes'); }}
+                            style={{ 
+                              backgroundColor: '#fff', 
+                              padding: '10px 12px', 
+                              borderRadius: '6px', 
+                              boxShadow: '0 1px 2px rgba(0,0,0,0.06)', 
+                              borderLeft: `4px solid ${estagio.cor}`,
+                              cursor: 'pointer'
+                            }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div style={{ fontWeight: 'bold', color: '#0f172a', fontSize: '0.85rem' }}>{cli.nome}</div>
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); handleExcluirCliente(cli.id); }}
+                                title="Excluir do Funil"
+                                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}>
+                                <Trash2 size={16} />
                               </button>
-                            )}
-                            {estagio.id < 7 && (
-                              <button onClick={(e) => { e.stopPropagation(); moverEstagio(cli.id, estagio.id + 1); }} style={{ padding: '3px 7px', fontSize: '0.7rem', backgroundColor: '#0284c7', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
-                                Avançar →
-                              </button>
-                            )}
+                            </div>
+
+                            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>ID/Contrato: {cli.codigo || 'CLI-001'}</div>
+                            <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#dc2626', marginTop: '4px' }}>
+                              R$ {Number(cli.total_vencido || 0).toFixed(2)}
+                            </div>
+
+                            {/* TAG DE OPERADOR COM DATA E HORA DE MOVIMENTAÇÃO */}
+                            <div style={{ fontSize: '0.7rem', color: '#0284c7', marginTop: '6px', backgroundColor: '#f0f9ff', padding: '4px 6px', borderRadius: '4px', fontWeight: 'bold', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                              <div>👤 Movido por: {cli.operador_nome || usuarioLogado.nome}</div>
+                              {dataFormatada && (
+                                <div style={{ color: '#64748b', fontSize: '0.66rem', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                  <Clock size={11} color="#0284c7" /> {dataFormatada}
+                                </div>
+                              )}
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '6px', marginTop: '8px' }}>
+                              {estagio.id > 1 && (
+                                <button onClick={(e) => { e.stopPropagation(); moverEstagio(cli.id, estagio.id - 1); }} style={{ padding: '3px 7px', fontSize: '0.7rem', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer', backgroundColor: '#fff' }}>
+                                  ← Voltar
+                                </button>
+                              )}
+                              {estagio.id < 7 && (
+                                <button onClick={(e) => { e.stopPropagation(); moverEstagio(cli.id, estagio.id + 1); }} style={{ padding: '3px 7px', fontSize: '0.7rem', backgroundColor: '#0284c7', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                                  Avançar →
+                                </button>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 );

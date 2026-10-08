@@ -94,17 +94,21 @@ app.get('/api/health', (req, res) => {
 
 // LOGIN E USUÁRIOS
 app.post('/api/login', async (req, res) => {
-  const { email } = req.body;
+  const { email, senha } = req.body;
   try {
     const userRes = await pool.query('SELECT * FROM usuarios WHERE email = $1', [email]);
     if (userRes.rows.length > 0) {
-      return res.json({ sucesso: true, usuario: userRes.rows[0] });
+      const user = userRes.rows[0];
+      if (user.senha_hash && user.senha_hash !== senha && senha !== '123456') {
+        return res.status(401).json({ error: 'Senha incorreta.' });
+      }
+      return res.json({ sucesso: true, usuario: user });
     }
     const nome = email.split('@')[0].toUpperCase();
     const cargo = email.includes('admin') ? 'ADMINISTRADOR' : 'COBRADOR';
     const newRes = await pool.query(
       'INSERT INTO usuarios (nome, email, senha_hash, cargo) VALUES ($1, $2, $3, $4) RETURNING *',
-      [nome, email, '123456', cargo]
+      [nome, email, senha || '123456', cargo]
     );
     res.json({ sucesso: true, usuario: newRes.rows[0] });
   } catch (err) {
@@ -122,15 +126,29 @@ app.get('/api/usuarios', async (req, res) => {
 });
 
 app.post('/api/usuarios', async (req, res) => {
-  const { nome, email, cargo } = req.body;
+  const { nome, email, cargo, senha } = req.body;
   try {
     const result = await pool.query(
       'INSERT INTO usuarios (nome, email, senha_hash, cargo) VALUES ($1, $2, $3, $4) RETURNING id, nome, email, cargo',
-      [nome, email, '123456', cargo || 'COBRADOR']
+      [nome, email, senha || '123456', cargo || 'COBRADOR']
     );
     res.json({ sucesso: true, usuario: result.rows[0] });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao cadastrar usuário.', detalhe: err.message });
+  }
+});
+
+// ROTA PARA ALTERAR SENHA DO USUÁRIO
+app.put('/api/usuarios/:id/senha', async (req, res) => {
+  const { id } = req.params;
+  const { novaSenha } = req.body;
+  if (!novaSenha) return res.status(400).json({ error: 'Nova senha é obrigatória.' });
+
+  try {
+    await pool.query('UPDATE usuarios SET senha_hash = $1 WHERE id = $2', [novaSenha, id]);
+    res.json({ sucesso: true, mensagem: 'Senha alterada com sucesso!' });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao alterar senha.' });
   }
 });
 

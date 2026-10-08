@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Home, Users, RefreshCw, Calendar, 
-  MessageSquare, BarChart3, Upload, Zap, LogOut, ArrowRight, UserCheck, Shield, Trash2, Filter, UserPlus, Printer, Copy, Check, Clock, CalendarDays
+  MessageSquare, BarChart3, Upload, Zap, LogOut, ArrowRight, UserCheck, Shield, Trash2, Filter, UserPlus, Printer, Copy, Check, Clock, CalendarDays, Search, KeyRound
 } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 
@@ -24,7 +24,10 @@ export default function App() {
   const [senhaLogin, setSenhaLogin] = useState('');
 
   const [abaAtiva, setAbaAtiva] = useState('pipeline');
+  const [subAbaAdmin, setSubAbaAdmin] = useState('usuarios'); // 'usuarios' | 'cadastrar' | 'exclusao'
+  
   const [filtroAtraso, setFiltroAtraso] = useState('TODOS');
+  const [buscaClienteFicha, setBuscaClienteFicha] = useState('');
 
   // Filtros de Relatório
   const [filtroRelatorioMes, setFiltroRelatorioMes] = useState('TODOS');
@@ -40,8 +43,11 @@ export default function App() {
   const [carregando, setCarregando] = useState(false);
 
   const [selecionadosExclusao, setSelecionadosExclusao] = useState([]);
-  const [novoUsuario, setNovoUsuario] = useState({ nome: '', email: '', cargo: 'COBRADOR' });
+  const [novoUsuario, setNovoUsuario] = useState({ nome: '', email: '', cargo: 'COBRADOR', senha: '' });
   const [clienteSelecionado, setClienteSelecionado] = useState(null);
+
+  const [usuarioParaAlterarSenha, setUsuarioParaAlterarSenha] = useState(null);
+  const [novaSenhaInput, setNovaSenhaInput] = useState('');
 
   const [filtroAgendaUsuario, setFiltroAgendaUsuario] = useState('TODOS');
   const [novoAgendamento, setNovoAgendamento] = useState({
@@ -66,13 +72,15 @@ export default function App() {
   const [filtroScriptCategoria, setFiltroScriptCategoria] = useState('TODOS');
   const [copiadoId, setCopiadoId] = useState(null);
 
+  const isEspecial = usuarioLogado?.cargo === 'ADMINISTRADOR' || usuarioLogado?.cargo === 'SUPERVISOR';
+
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
       const res = await axios.post(`${API_URL}/api/login`, { email: emailLogin, senha: senhaLogin });
       setUsuarioLogado(res.data.usuario);
     } catch (err) {
-      setUsuarioLogado({ id: 1, nome: emailLogin.split('@')[0]?.toUpperCase() || 'OPERADOR', cargo: emailLogin.includes('admin') ? 'ADMINISTRADOR' : 'COBRADOR' });
+      alert(err.response?.data?.error || 'Erro de autenticação. Verifique e-mail e senha.');
     }
   };
 
@@ -147,6 +155,20 @@ export default function App() {
       carregarDados();
     } catch (err) {
       alert('Erro ao excluir em massa.');
+    }
+  };
+
+  const handleAlterarSenha = async (e) => {
+    e.preventDefault();
+    if (!usuarioParaAlterarSenha || !novaSenhaInput) return alert('Digite a nova senha.');
+    try {
+      await axios.put(`${API_URL}/api/usuarios/${usuarioParaAlterarSenha.id}/senha`, { novaSenha: novaSenhaInput });
+      alert(`Senha do usuário ${usuarioParaAlterarSenha.nome} alterada com sucesso!`);
+      setUsuarioParaAlterarSenha(null);
+      setNovaSenhaInput('');
+      carregarDados();
+    } catch (err) {
+      alert('Erro ao alterar senha do usuário.');
     }
   };
 
@@ -288,8 +310,9 @@ export default function App() {
     try {
       await axios.post(`${API_URL}/api/usuarios`, novoUsuario);
       alert('Usuário cadastrado com sucesso!');
-      setNovoUsuario({ nome: '', email: '', cargo: 'COBRADOR' });
+      setNovoUsuario({ nome: '', email: '', cargo: 'COBRADOR', senha: '' });
       carregarDados();
+      setSubAbaAdmin('usuarios');
     } catch (err) {
       alert('Erro ao cadastrar usuário.');
     }
@@ -320,6 +343,12 @@ export default function App() {
     if (filtroAtraso === '90') return dias >= 61 && status !== 'cancelado';
     if (filtroAtraso === 'CANCELADOS') return status === 'cancelado';
     return true;
+  });
+
+  const clientesBuscaFicha = clientes.filter(c => {
+    if (!buscaClienteFicha) return true;
+    const termo = buscaClienteFicha.toLowerCase();
+    return String(c.nome || '').toLowerCase().includes(termo) || String(c.codigo || '').toLowerCase().includes(termo);
   });
 
   const scriptsFiltrados = scripts.filter(s => {
@@ -394,15 +423,16 @@ export default function App() {
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, overflowY: 'auto' }}>
           {[
-            { id: 'pipeline', label: 'Pipeline / Funis', icon: RefreshCw },
-            { id: 'agenda', label: 'Agenda / Retornos', icon: CalendarDays },
-            { id: 'clientes', label: 'Ficha do Cliente', icon: Users },
-            { id: 'scripts', label: 'Scripts de Cobrança', icon: MessageSquare },
-            { id: 'dashboard', label: 'Dashboard', icon: Home },
-            { id: 'importar', label: 'Importar / Prévia Excel', icon: Upload },
-            { id: 'admin', label: 'Administração / Usuários', icon: Shield },
-            { id: 'relatorios', label: 'Relatórios / Período', icon: BarChart3 },
+            { id: 'pipeline', label: 'Pipeline / Funis', icon: RefreshCw, adminOnly: false },
+            { id: 'agenda', label: 'Agenda / Retornos', icon: CalendarDays, adminOnly: false },
+            { id: 'clientes', label: 'Ficha do Cliente', icon: Users, adminOnly: false },
+            { id: 'scripts', label: 'Scripts de Cobrança', icon: MessageSquare, adminOnly: false },
+            { id: 'dashboard', label: 'Dashboard', icon: Home, adminOnly: false },
+            { id: 'importar', label: 'Importar / Prévia Excel', icon: Upload, adminOnly: true },
+            { id: 'admin', label: 'Administração / Usuários', icon: Shield, adminOnly: true },
+            { id: 'relatorios', label: 'Relatórios / Período', icon: BarChart3, adminOnly: false },
           ].map((item) => {
+            if (item.adminOnly && !isEspecial) return null; // Bloqueia para Cobrador comum
             const Icon = item.icon;
             const ativo = abaAtiva === item.id;
             return (
@@ -445,7 +475,7 @@ export default function App() {
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', padding: '12px 18px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
           <h1 style={{ margin: 0, fontSize: '1.15rem', color: '#0f172a', fontWeight: 'bold' }}>NEXUS COB — PINHAISNET</h1>
           <div style={{ fontSize: '0.82rem', color: '#334155', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <UserCheck size={16} color="#059669" /> Operador: <span style={{ color: '#0284c7' }}>{usuarioLogado.nome}</span>
+            <UserCheck size={16} color="#059669" /> Operador: <span style={{ color: '#0284c7' }}>{usuarioLogado.nome}</span> ({usuarioLogado.cargo})
           </div>
         </header>
 
@@ -511,12 +541,14 @@ export default function App() {
                             }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <div style={{ fontWeight: 'bold', color: '#0f172a', fontSize: '0.85rem' }}>{cli.nome}</div>
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); handleExcluirCliente(cli.id); }}
-                                title="Excluir do Funil"
-                                style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}>
-                                <Trash2 size={16} />
-                              </button>
+                              {isEspecial && (
+                                <button 
+                                  onClick={(e) => { e.stopPropagation(); handleExcluirCliente(cli.id); }}
+                                  title="Excluir do Funil"
+                                  style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}>
+                                  <Trash2 size={16} />
+                                </button>
+                              )}
                             </div>
 
                             <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>ID/Contrato: {cli.codigo || 'CLI-001'}</div>
@@ -556,7 +588,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ABA AGENDA / RETORNOS */}
+        {/* AGENDA */}
         {abaAtiva === 'agenda' && (
           <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '20px', flex: 1, overflow: 'hidden' }}>
             <form onSubmit={handleCadastrarAgendamento} style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -675,6 +707,120 @@ export default function App() {
           </div>
         )}
 
+        {/* FICHA DO CLIENTE (COM BUSCA RÁPIDA) */}
+        {abaAtiva === 'clientes' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '20px', flex: 1, overflow: 'hidden' }}>
+            <form onSubmit={handleCadastrarClienteManual} style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0284c7', fontWeight: 'bold', fontSize: '1rem' }}>
+                <UserPlus size={20} /> Cadastrar Cliente Manual
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>ID / Código</label>
+                <input 
+                  type="text" 
+                  placeholder="Ex: 01 ou CLI-001" 
+                  value={formManual.codigo} 
+                  onChange={e => setFormManual({ ...formManual, codigo: e.target.value })}
+                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Nome do Cliente *</label>
+                <input 
+                  type="text" 
+                  placeholder="Nome completo" 
+                  value={formManual.nome} 
+                  onChange={e => setFormManual({ ...formManual, nome: e.target.value })}
+                  required
+                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Valor Devedor (R$) *</label>
+                <input 
+                  type="text" 
+                  placeholder="Ex: 1872,00" 
+                  value={formManual.total_vencido} 
+                  onChange={e => setFormManual({ ...formManual, total_vencido: e.target.value })}
+                  required
+                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Faixa / Situação do Atraso</label>
+                <select 
+                  value={formManual.opcao_atraso} 
+                  onChange={e => setFormManual({ ...formManual, opcao_atraso: e.target.value })}
+                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }}>
+                  <option value="30">Devedor 30 Dias</option>
+                  <option value="60">Devedor 60 Dias</option>
+                  <option value="90">Devedor 90+ Dias</option>
+                  <option value="CANCELADOS">Cliente Cancelado</option>
+                </select>
+              </div>
+
+              <button type="submit" style={{ padding: '12px', backgroundColor: '#0284c7', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', marginTop: '8px' }}>
+                Salvar e Adicionar ao Funil
+              </button>
+            </form>
+
+            <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '18px', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 style={{ margin: 0, fontSize: '1.1rem', color: '#0f172a' }}>📄 Análise do Cliente Cadastrado</h2>
+                <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Total no Banco: <strong>{clientes.length}</strong></span>
+              </div>
+
+              {/* BARRA DE BUSCA RÁPIDA DE CLIENTES */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', backgroundColor: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <label style={{ fontSize: '0.82rem', fontWeight: 'bold', color: '#0284c7', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Search size={16} /> Buscar Cliente no Banco por Nome ou ID:
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="Digite para pesquisar (ex: 7877 ou Paulino)..." 
+                  value={buscaClienteFicha}
+                  onChange={e => setBuscaClienteFicha(e.target.value)}
+                  style={{ padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.88rem', outline: 'none' }}
+                />
+
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '4px' }}>
+                  <label style={{ fontSize: '0.82rem', fontWeight: 'bold', color: '#334155', whiteSpace: 'nowrap' }}>Selecionar Resultado ({clientesBuscaFicha.length}):</label>
+                  <select 
+                    value={clienteSelecionado?.id || ''} 
+                    onChange={(e) => setClienteSelecionado(clientes.find(c => c.id === Number(e.target.value)))}
+                    style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem', flex: 1 }}>
+                    {clientesBuscaFicha.map(c => (
+                      <option key={c.id} value={c.id}>{c.codigo} - {c.nome} (R$ {Number(c.total_vencido || 0).toFixed(2)})</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {clienteSelecionado ? (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                  <div style={{ backgroundColor: '#f8fafc', padding: '18px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <h3 style={{ margin: '0 0 10px 0', fontSize: '1rem', color: '#0284c7' }}>Dados Cadastrais</h3>
+                    <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>ID / Código:</strong> {clienteSelecionado.codigo}</p>
+                    <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>Nome do Cliente:</strong> {clienteSelecionado.nome}</p>
+                    <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>Status Conexão:</strong> {clienteSelecionado.status_conexao || 'Ativo'}</p>
+                  </div>
+
+                  <div style={{ backgroundColor: '#f8fafc', padding: '18px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <h3 style={{ margin: '0 0 10px 0', fontSize: '1rem', color: '#dc2626' }}>Situação Financeira</h3>
+                    <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>Valor Total Devedor:</strong> <span style={{ color: '#dc2626', fontWeight: 'bold' }}>R$ {Number(clienteSelecionado.total_vencido || 0).toFixed(2)}</span></p>
+                    <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>Dias em Atraso:</strong> {clienteSelecionado.dias_atraso || 30} dias</p>
+                    <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>Estágio Atual no Funil:</strong> {ESTAGIOS.find(e => e.id === Number(clienteSelecionado.estagio_id))?.nome || '1º CONTATO'}</p>
+                  </div>
+                </div>
+              ) : <p style={{ color: '#64748b' }}>Nenhum cliente encontrado com a busca.</p>}
+            </div>
+          </div>
+        )}
+
         {/* SCRIPTS DE COBRANÇA */}
         {abaAtiva === 'scripts' && (
           <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '20px', flex: 1, overflow: 'hidden' }}>
@@ -753,9 +899,11 @@ export default function App() {
                         <span style={{ padding: '3px 8px', borderRadius: '12px', backgroundColor: s.categoria === 'CANCELADOS' ? '#fee2e2' : '#e0f2fe', color: s.categoria === 'CANCELADOS' ? '#dc2626' : '#0369a1', fontSize: '0.72rem', fontWeight: 'bold' }}>
                           {s.categoria === 'CANCELADOS' ? 'CANCELADOS' : `${s.categoria} DIAS`}
                         </span>
-                        <button onClick={() => handleExcluirScript(s.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}>
-                          <Trash2 size={16} />
-                        </button>
+                        {isEspecial && (
+                          <button onClick={() => handleExcluirScript(s.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}>
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -860,8 +1008,8 @@ export default function App() {
           </div>
         )}
 
-        {/* IMPORTAÇÃO & PRÉVIA */}
-        {abaAtiva === 'importar' && (
+        {/* IMPORTAÇÃO DE LISTAS (APENAS ADMIN) */}
+        {abaAtiva === 'importar' && isEspecial && (
           <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '20px', flex: 1, overflowY: 'auto' }}>
             <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a' }}>📥 Importar Lista & Gerar Prévia do Funil</h2>
 
@@ -963,195 +1111,208 @@ export default function App() {
           </div>
         )}
 
-        {/* FICHA DO CLIENTE */}
-        {abaAtiva === 'clientes' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '20px', flex: 1, overflow: 'hidden' }}>
-            <form onSubmit={handleCadastrarClienteManual} style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0284c7', fontWeight: 'bold', fontSize: '1rem' }}>
-                <UserPlus size={20} /> Cadastrar Cliente Manual
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>ID / Código</label>
-                <input 
-                  type="text" 
-                  placeholder="Ex: 01 ou CLI-001" 
-                  value={formManual.codigo} 
-                  onChange={e => setFormManual({ ...formManual, codigo: e.target.value })}
-                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Nome do Cliente *</label>
-                <input 
-                  type="text" 
-                  placeholder="Nome completo" 
-                  value={formManual.nome} 
-                  onChange={e => setFormManual({ ...formManual, nome: e.target.value })}
-                  required
-                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Valor Devedor (R$) *</label>
-                <input 
-                  type="text" 
-                  placeholder="Ex: 1872,00" 
-                  value={formManual.total_vencido} 
-                  onChange={e => setFormManual({ ...formManual, total_vencido: e.target.value })}
-                  required
-                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Faixa / Situação do Atraso</label>
-                <select 
-                  value={formManual.opcao_atraso} 
-                  onChange={e => setFormManual({ ...formManual, opcao_atraso: e.target.value })}
-                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }}>
-                  <option value="30">Devedor 30 Dias</option>
-                  <option value="60">Devedor 60 Dias</option>
-                  <option value="90">Devedor 90+ Dias</option>
-                  <option value="CANCELADOS">Cliente Cancelado</option>
-                </select>
-              </div>
-
-              <button type="submit" style={{ padding: '12px', backgroundColor: '#0284c7', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', marginTop: '8px' }}>
-                Salvar e Adicionar ao Funil
+        {/* ADMINISTRAÇÃO & USUÁRIOS COM SUBMENUS */}
+        {abaAtiva === 'admin' && isEspecial && (
+          <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '15px', flex: 1, overflow: 'hidden' }}>
+            
+            {/* SUBMENU DE NAVEGAÇÃO DE ADMINISTRAÇÃO */}
+            <div style={{ display: 'flex', gap: '10px', borderBottom: '2px solid #e2e8f0', paddingBottom: '10px' }}>
+              <button 
+                onClick={() => setSubAbaAdmin('usuarios')}
+                style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', backgroundColor: subAbaAdmin === 'usuarios' ? '#0284c7' : '#f1f5f9', color: subAbaAdmin === 'usuarios' ? '#fff' : '#475569', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Users size={16} /> Gerenciar Usuários & Senhas
               </button>
-            </form>
 
-            <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '20px', overflowY: 'auto' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 style={{ margin: 0, fontSize: '1.1rem', color: '#0f172a' }}>📄 Análise do Cliente Cadastrado</h2>
-                <span style={{ fontSize: '0.85rem', color: '#64748b' }}>Total: <strong>{clientes.length}</strong></span>
-              </div>
+              <button 
+                onClick={() => setSubAbaAdmin('cadastrar')}
+                style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', backgroundColor: subAbaAdmin === 'cadastrar' ? '#0284c7' : '#f1f5f9', color: subAbaAdmin === 'cadastrar' ? '#fff' : '#475569', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <UserPlus size={16} /> Cadastrar Novo Usuário
+              </button>
 
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#334155' }}>Selecionar Cliente:</label>
-                <select 
-                  value={clienteSelecionado?.id || ''} 
-                  onChange={(e) => setClienteSelecionado(clientes.find(c => c.id === Number(e.target.value)))}
-                  style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem', flex: 1 }}>
-                  {clientes.map(c => (
-                    <option key={c.id} value={c.id}>{c.codigo} - {c.nome} (R$ {Number(c.total_vencido || 0).toFixed(2)})</option>
-                  ))}
-                </select>
-              </div>
-
-              {clienteSelecionado ? (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                  <div style={{ backgroundColor: '#f8fafc', padding: '18px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <h3 style={{ margin: '0 0 10px 0', fontSize: '1rem', color: '#0284c7' }}>Dados Cadastrais</h3>
-                    <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>ID / Código:</strong> {clienteSelecionado.codigo}</p>
-                    <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>Nome do Cliente:</strong> {clienteSelecionado.nome}</p>
-                    <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>Status Conexão:</strong> {clienteSelecionado.status_conexao || 'Ativo'}</p>
-                  </div>
-
-                  <div style={{ backgroundColor: '#f8fafc', padding: '18px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <h3 style={{ margin: '0 0 10px 0', fontSize: '1rem', color: '#dc2626' }}>Situação Financeira</h3>
-                    <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>Valor Total Devedor:</strong> <span style={{ color: '#dc2626', fontWeight: 'bold' }}>R$ {Number(clienteSelecionado.total_vencido || 0).toFixed(2)}</span></p>
-                    <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>Dias em Atraso:</strong> {clienteSelecionado.dias_atraso || 30} dias</p>
-                    <p style={{ margin: 0, fontSize: '0.9rem' }}><strong>Estágio Atual no Funil:</strong> {ESTAGIOS.find(e => e.id === Number(clienteSelecionado.estagio_id))?.nome || '1º CONTATO'}</p>
-                  </div>
-                </div>
-              ) : <p style={{ color: '#64748b' }}>Nenhum cliente cadastrado ainda.</p>}
+              <button 
+                onClick={() => setSubAbaAdmin('exclusao')}
+                style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', backgroundColor: subAbaAdmin === 'exclusao' ? '#ef4444' : '#f1f5f9', color: subAbaAdmin === 'exclusao' ? '#fff' : '#475569', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Trash2 size={16} /> Exclusão de Listas em Massa
+              </button>
             </div>
-          </div>
-        )}
 
-        {abaAtiva === 'admin' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: '20px', flex: 1, overflow: 'hidden' }}>
-            <form onSubmit={handleCadastrarUsuario} style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <h3 style={{ margin: 0, fontSize: '1rem', color: '#0f172a' }}>👤 Cadastrar Usuário</h3>
-              <input 
-                type="text" 
-                placeholder="Nome completo" 
-                value={novoUsuario.nome} 
-                onChange={e => setNovoUsuario({ ...novoUsuario, nome: e.target.value })}
-                required 
-                style={{ padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
-              />
-              <input 
-                type="email" 
-                placeholder="email@provedor.com" 
-                value={novoUsuario.email} 
-                onChange={e => setNovoUsuario({ ...novoUsuario, email: e.target.value })}
-                required 
-                style={{ padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px' }}
-              />
-              <select 
-                value={novoUsuario.cargo} 
-                onChange={e => setNovoUsuario({ ...novoUsuario, cargo: e.target.value })}
-                style={{ padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px' }}>
-                <option value="COBRADOR">COBRADOR / OPERADOR</option>
-                <option value="SUPERVISOR">SUPERVISOR</option>
-                <option value="ADMINISTRADOR">ADMINISTRADOR</option>
-              </select>
-              <button type="submit" style={{ padding: '10px', backgroundColor: '#0284c7', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
-                Salvar Usuário
-              </button>
-            </form>
+            {/* SUB-ABA 1: GERENCIAR USUÁRIOS & ALTERAR SENHAS */}
+            {subAbaAdmin === 'usuarios' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', overflowY: 'auto', flex: 1 }}>
+                <h3 style={{ margin: 0, fontSize: '1rem', color: '#0f172a' }}>👥 Usuários Cadastrados no Sistema</h3>
 
-            <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '15px', overflowY: 'auto' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ margin: 0, fontSize: '1rem', color: '#0f172a' }}>Exclusão em Massa de Listas (Admin)</h3>
-                {selecionadosExclusao.length > 0 && (
-                  <button onClick={handleExcluirEmMassa} style={{ padding: '8px 14px', backgroundColor: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Trash2 size={16} /> Excluir {selecionadosExclusao.length} Selecionados
-                  </button>
+                {usuarioParaAlterarSenha && (
+                  <form onSubmit={handleAlterarSenha} style={{ backgroundColor: '#f0f9ff', border: '1px solid #0284c7', padding: '15px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <KeyRound size={20} color="#0284c7" />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 'bold', fontSize: '0.85rem', color: '#0369a1' }}>Alterar senha de: {usuarioParaAlterarSenha.nome} ({usuarioParaAlterarSenha.email})</div>
+                      <input 
+                        type="password" 
+                        placeholder="Digite a nova senha..." 
+                        value={novaSenhaInput}
+                        onChange={e => setNovaSenhaInput(e.target.value)}
+                        required
+                        style={{ padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', width: '250px', marginTop: '4px' }}
+                      />
+                    </div>
+                    <button type="submit" style={{ padding: '8px 16px', backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Salvar Nova Senha</button>
+                    <button type="button" onClick={() => setUsuarioParaAlterarSenha(null)} style={{ padding: '8px 12px', border: '1px solid #cbd5e1', backgroundColor: '#fff', borderRadius: '6px', cursor: 'pointer' }}>Cancelar</button>
+                  </form>
                 )}
-              </div>
 
-              <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                  <thead style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                    <tr>
-                      <th style={{ padding: '10px', textAlign: 'center' }}>
-                        <input 
-                          type="checkbox" 
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelecionadosExclusao(clientes.map(c => c.id));
-                            } else {
-                              setSelecionadosExclusao([]);
-                            }
-                          }}
-                        />
-                      </th>
-                      <th style={{ padding: '10px', textAlign: 'left' }}>ID / Código</th>
-                      <th style={{ padding: '10px', textAlign: 'left' }}>Nome do Cliente</th>
-                      <th style={{ padding: '10px', textAlign: 'left' }}>Valor Devedor</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {clientes.map(c => (
-                      <tr key={c.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                        <td style={{ padding: '10px', textAlign: 'center' }}>
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                    <thead style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                      <tr>
+                        <th style={{ padding: '10px', textAlign: 'left' }}>Nome</th>
+                        <th style={{ padding: '10px', textAlign: 'left' }}>E-mail</th>
+                        <th style={{ padding: '10px', textAlign: 'left' }}>Cargo / Perfil</th>
+                        <th style={{ padding: '10px', textAlign: 'center' }}>Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {usuarios.map(u => (
+                        <tr key={u.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '10px', fontWeight: 'bold' }}>{u.nome}</td>
+                          <td style={{ padding: '10px' }}>{u.email}</td>
+                          <td style={{ padding: '10px' }}>
+                            <span style={{ padding: '3px 8px', borderRadius: '12px', backgroundColor: u.cargo === 'ADMINISTRADOR' ? '#dbeafe' : '#f1f5f9', color: u.cargo === 'ADMINISTRADOR' ? '#1d4ed8' : '#475569', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                              {u.cargo}
+                            </span>
+                          </td>
+                          <td style={{ padding: '10px', textAlign: 'center' }}>
+                            <button 
+                              onClick={() => { setUsuarioParaAlterarSenha(u); setNovaSenhaInput(''); }}
+                              style={{ padding: '4px 10px', backgroundColor: '#0284c7', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                              <KeyRound size={12} /> Alterar Senha
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* SUB-ABA 2: CADASTRAR NOVO USUÁRIO */}
+            {subAbaAdmin === 'cadastrar' && (
+              <form onSubmit={handleCadastrarUsuario} style={{ maxWidth: '450px', display: 'flex', flexDirection: 'column', gap: '14px', backgroundColor: '#f8fafc', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                <h3 style={{ margin: 0, fontSize: '1rem', color: '#0f172a' }}>👤 Cadastrar Novo Usuário</h3>
+                
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Nome Completo *</label>
+                  <input 
+                    type="text" 
+                    placeholder="Ex: Vitoria Rodrigues" 
+                    value={novoUsuario.nome} 
+                    onChange={e => setNovoUsuario({ ...novoUsuario, nome: e.target.value })}
+                    required 
+                    style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>E-mail de Acesso *</label>
+                  <input 
+                    type="email" 
+                    placeholder="vitoria@pinhaisnet.com.br" 
+                    value={novoUsuario.email} 
+                    onChange={e => setNovoUsuario({ ...novoUsuario, email: e.target.value })}
+                    required 
+                    style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Senha Inicial *</label>
+                  <input 
+                    type="password" 
+                    placeholder="••••••••" 
+                    value={novoUsuario.senha} 
+                    onChange={e => setNovoUsuario({ ...novoUsuario, senha: e.target.value })}
+                    required 
+                    style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Perfil / Cargo no Sistema</label>
+                  <select 
+                    value={novoUsuario.cargo} 
+                    onChange={e => setNovoUsuario({ ...novoUsuario, cargo: e.target.value })}
+                    style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }}>
+                    <option value="COBRADOR">COBRADOR / OPERADOR (Acesso Restrito)</option>
+                    <option value="SUPERVISOR">SUPERVISOR (Acesso Total)</option>
+                    <option value="ADMINISTRADOR">ADMINISTRADOR (Acesso Total)</option>
+                  </select>
+                </div>
+
+                <button type="submit" style={{ padding: '12px', backgroundColor: '#0284c7', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', marginTop: '6px' }}>
+                  Salvar e Criar Acesso
+                </button>
+              </form>
+            )}
+
+            {/* SUB-ABA 3: EXCLUSÃO EM MASSA */}
+            {subAbaAdmin === 'exclusao' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', overflowY: 'auto', flex: 1 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <h3 style={{ margin: 0, fontSize: '1rem', color: '#dc2626' }}>🗑️ Exclusão em Massa de Clientes e Listas</h3>
+                  {selecionadosExclusao.length > 0 && (
+                    <button onClick={handleExcluirEmMassa} style={{ padding: '8px 14px', backgroundColor: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Trash2 size={16} /> Excluir {selecionadosExclusao.length} Selecionados
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                    <thead style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                      <tr>
+                        <th style={{ padding: '10px', textAlign: 'center' }}>
                           <input 
                             type="checkbox" 
-                            checked={selecionadosExclusao.includes(c.id)}
                             onChange={(e) => {
                               if (e.target.checked) {
-                                setSelecionadosExclusao([...selecionadosExclusao, c.id]);
+                                setSelecionadosExclusao(clientes.map(c => c.id));
                               } else {
-                                setSelecionadosExclusao(selecionadosExclusao.filter(id => id !== c.id));
+                                setSelecionadosExclusao([]);
                               }
                             }}
                           />
-                        </td>
-                        <td style={{ padding: '10px', fontWeight: 'bold' }}>{c.codigo}</td>
-                        <td style={{ padding: '10px' }}>{c.nome}</td>
-                        <td style={{ padding: '10px', color: '#dc2626', fontWeight: 'bold' }}>R$ {Number(c.total_vencido || 0).toFixed(2)}</td>
+                        </th>
+                        <th style={{ padding: '10px', textAlign: 'left' }}>ID / Código</th>
+                        <th style={{ padding: '10px', textAlign: 'left' }}>Nome do Cliente</th>
+                        <th style={{ padding: '10px', textAlign: 'left' }}>Valor Devedor</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {clientes.map(c => (
+                        <tr key={c.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '10px', textAlign: 'center' }}>
+                            <input 
+                              type="checkbox" 
+                              checked={selecionadosExclusao.includes(c.id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelecionadosExclusao([...selecionadosExclusao, c.id]);
+                                } else {
+                                  setSelecionadosExclusao(selecionadosExclusao.filter(id => id !== c.id));
+                                }
+                              }}
+                            />
+                          </td>
+                          <td style={{ padding: '10px', fontWeight: 'bold' }}>{c.codigo}</td>
+                          <td style={{ padding: '10px' }}>{c.nome}</td>
+                          <td style={{ padding: '10px', color: '#dc2626', fontWeight: 'bold' }}>R$ {Number(c.total_vencido || 0).toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </main>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { 
   Home, Users, RefreshCw, Calendar, 
-  MessageSquare, BarChart3, Upload, Zap, LogOut, ArrowRight, UserCheck, Shield, Trash2, Filter, UserPlus, Printer, Copy, Check, Clock
+  MessageSquare, BarChart3, Upload, Zap, LogOut, ArrowRight, UserCheck, Shield, Trash2, Filter, UserPlus, Printer, Copy, Check, Clock, CalendarDays
 } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 
@@ -35,12 +35,21 @@ export default function App() {
   const [previaClientes, setPreviaClientes] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
   const [scripts, setScripts] = useState([]);
+  const [agendamentos, setAgendamentos] = useState([]);
   const [arquivo, setArquivo] = useState(null);
   const [carregando, setCarregando] = useState(false);
 
   const [selecionadosExclusao, setSelecionadosExclusao] = useState([]);
   const [novoUsuario, setNovoUsuario] = useState({ nome: '', email: '', cargo: 'COBRADOR' });
   const [clienteSelecionado, setClienteSelecionado] = useState(null);
+
+  const [filtroAgendaUsuario, setFiltroAgendaUsuario] = useState('TODOS');
+  const [novoAgendamento, setNovoAgendamento] = useState({
+    cliente_nome: '',
+    usuario_id: '',
+    data_retorno: '',
+    observacao: ''
+  });
 
   const [formManual, setFormManual] = useState({
     codigo: '',
@@ -80,6 +89,9 @@ export default function App() {
 
       const resScripts = await axios.get(`${API_URL}/api/scripts`);
       setScripts(resScripts.data || []);
+
+      const resAgenda = await axios.get(`${API_URL}/api/agenda`);
+      setAgendamentos(resAgenda.data || []);
     } catch (err) {
       console.log('Conectando...', err.message);
     }
@@ -135,6 +147,47 @@ export default function App() {
       carregarDados();
     } catch (err) {
       alert('Erro ao excluir em massa.');
+    }
+  };
+
+  const handleCadastrarAgendamento = async (e) => {
+    e.preventDefault();
+    if (!novoAgendamento.cliente_nome || !novoAgendamento.data_retorno) {
+      return alert('Selecione o Cliente e a Data do Retorno.');
+    }
+
+    const opEncontrado = usuarios.find(u => u.id === Number(novoAgendamento.usuario_id));
+    const opNome = opEncontrado ? opEncontrado.nome : (usuarioLogado?.nome || 'A definir');
+
+    try {
+      await axios.post(`${API_URL}/api/agenda`, {
+        ...novoAgendamento,
+        usuario_nome: opNome
+      });
+      alert('Retorno agendado com sucesso!');
+      setNovoAgendamento({ cliente_nome: '', usuario_id: '', data_retorno: '', observacao: '' });
+      carregarDados();
+    } catch (err) {
+      alert('Erro ao agendar retorno.');
+    }
+  };
+
+  const handleConcluirAgendamento = async (id) => {
+    try {
+      await axios.put(`${API_URL}/api/agenda/${id}/concluir`);
+      setAgendamentos(agendamentos.map(a => a.id === id ? { ...a, concluido: true } : a));
+    } catch (err) {
+      alert('Erro ao concluir compromisso.');
+    }
+  };
+
+  const handleExcluirAgendamento = async (id) => {
+    if (!window.confirm('Deseja excluir este agendamento?')) return;
+    try {
+      await axios.delete(`${API_URL}/api/agenda/${id}`);
+      setAgendamentos(agendamentos.filter(a => a.id !== id));
+    } catch (err) {
+      alert('Erro ao excluir agendamento.');
     }
   };
 
@@ -274,6 +327,11 @@ export default function App() {
     return String(s.categoria) === filtroScriptCategoria;
   });
 
+  const agendamentosFiltrados = agendamentos.filter(a => {
+    if (filtroAgendaUsuario === 'TODOS') return true;
+    return String(a.usuario_id) === String(filtroAgendaUsuario);
+  });
+
   if (!usuarioLogado) {
     return (
       <div style={{ width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0f172a', fontFamily: 'system-ui, sans-serif' }}>
@@ -282,7 +340,8 @@ export default function App() {
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', fontSize: '1.8rem', fontWeight: 'bold', color: '#38bdf8' }}>
               <Zap size={32} color="#38bdf8" /> NEXUS COB
             </div>
-            <p style={{ color: '#94a3b8', fontSize: '0.85rem', marginTop: '6px' }}>Gestão Inteligente de Cobranças</p>
+            <div style={{ color: '#0284c7', fontSize: '0.85rem', fontWeight: 'bold', letterSpacing: '1px', marginTop: '2px' }}>PINHAISNET</div>
+            <p style={{ color: '#94a3b8', fontSize: '0.8rem', marginTop: '6px' }}>Gestão Inteligente de Cobranças</p>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
@@ -321,17 +380,22 @@ export default function App() {
   return (
     <div style={{ display: 'flex', width: '100vw', height: '100vh', fontFamily: 'system-ui, sans-serif', backgroundColor: '#f1f5f9', overflow: 'hidden', margin: 0, padding: 0 }}>
       <aside style={{ width: '240px', minWidth: '240px', backgroundColor: '#0f172a', color: '#f8fafc', padding: '18px 12px', display: 'flex', flexDirection: 'column', gap: '15px', boxSizing: 'border-box' }}>
+        {/* BRANDING NEXUS COB - PINHAISNET */}
         <div style={{ padding: '0 8px 12px 8px', borderBottom: '1px solid #1e293b' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.3rem', fontWeight: 'bold', color: '#38bdf8' }}>
             <Zap size={24} color="#38bdf8" />
             <span>NEXUS COB</span>
           </div>
-          <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: '2px' }}>Gestão Inteligente de Cobranças</div>
+          <div style={{ fontSize: '0.78rem', color: '#38bdf8', fontWeight: 'bold', letterSpacing: '1px', marginTop: '2px' }}>
+            PINHAISNET
+          </div>
+          <div style={{ fontSize: '0.68rem', color: '#94a3b8', marginTop: '2px' }}>Gestão Inteligente de Cobranças</div>
         </div>
 
         <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, overflowY: 'auto' }}>
           {[
             { id: 'pipeline', label: 'Pipeline / Funis', icon: RefreshCw },
+            { id: 'agenda', label: 'Agenda / Retornos', icon: CalendarDays },
             { id: 'clientes', label: 'Ficha do Cliente', icon: Users },
             { id: 'scripts', label: 'Scripts de Cobrança', icon: MessageSquare },
             { id: 'dashboard', label: 'Dashboard', icon: Home },
@@ -379,13 +443,13 @@ export default function App() {
 
       <main style={{ flex: 1, padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: '16px', overflow: 'hidden', boxSizing: 'border-box' }}>
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', padding: '12px 18px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-          <h1 style={{ margin: 0, fontSize: '1.15rem', color: '#0f172a', fontWeight: 'bold' }}>NEXUS COB — Gestão Inteligente</h1>
+          <h1 style={{ margin: 0, fontSize: '1.15rem', color: '#0f172a', fontWeight: 'bold' }}>NEXUS COB — PINHAISNET</h1>
           <div style={{ fontSize: '0.82rem', color: '#334155', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
             <UserCheck size={16} color="#059669" /> Operador: <span style={{ color: '#0284c7' }}>{usuarioLogado.nome}</span>
           </div>
         </header>
 
-        {/* FUNIL KANBAN COM DATA E HORA DE MOVIMENTAÇÃO */}
+        {/* FUNIL KANBAN */}
         {abaAtiva === 'pipeline' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, overflow: 'hidden' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', backgroundColor: '#fff', padding: '10px 15px', borderRadius: '8px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}>
@@ -460,7 +524,6 @@ export default function App() {
                               R$ {Number(cli.total_vencido || 0).toFixed(2)}
                             </div>
 
-                            {/* TAG DE OPERADOR COM DATA E HORA DE MOVIMENTAÇÃO */}
                             <div style={{ fontSize: '0.7rem', color: '#0284c7', marginTop: '6px', backgroundColor: '#f0f9ff', padding: '4px 6px', borderRadius: '4px', fontWeight: 'bold', display: 'flex', flexDirection: 'column', gap: '2px' }}>
                               <div>👤 Movido por: {cli.operador_nome || usuarioLogado.nome}</div>
                               {dataFormatada && (
@@ -489,6 +552,125 @@ export default function App() {
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {/* ABA AGENDA / RETORNOS */}
+        {abaAtiva === 'agenda' && (
+          <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '20px', flex: 1, overflow: 'hidden' }}>
+            <form onSubmit={handleCadastrarAgendamento} style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#0284c7', fontWeight: 'bold', fontSize: '1rem' }}>
+                <CalendarDays size={20} /> Agendar Retorno de Cobrança
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Cliente *</label>
+                <select 
+                  value={novoAgendamento.cliente_nome}
+                  onChange={e => setNovoAgendamento({ ...novoAgendamento, cliente_nome: e.target.value })}
+                  required
+                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }}>
+                  <option value="">Selecione o Cliente...</option>
+                  {clientes.map(c => (
+                    <option key={c.id} value={`${c.codigo} - ${c.nome}`}>{c.codigo} - {c.nome}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Operador Responsável *</label>
+                <select 
+                  value={novoAgendamento.usuario_id}
+                  onChange={e => setNovoAgendamento({ ...novoAgendamento, usuario_id: e.target.value })}
+                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }}>
+                  <option value="">{usuarioLogado.nome} (Você mesmo)</option>
+                  {usuarios.map(u => (
+                    <option key={u.id} value={u.id}>{u.nome} ({u.cargo})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Data e Hora do Retorno *</label>
+                <input 
+                  type="datetime-local" 
+                  value={novoAgendamento.data_retorno}
+                  onChange={e => setNovoAgendamento({ ...novoAgendamento, data_retorno: e.target.value })}
+                  required
+                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Observação / Motivo do Agendamento</label>
+                <textarea 
+                  rows={3}
+                  placeholder="Ex: Cliente pediu para ligar após o almoço para confirmar o Pix do acordo."
+                  value={novoAgendamento.observacao}
+                  onChange={e => setNovoAgendamento({ ...novoAgendamento, observacao: e.target.value })}
+                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                />
+              </div>
+
+              <button type="submit" style={{ padding: '12px', backgroundColor: '#0284c7', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', marginTop: '8px' }}>
+                Salvar Compromisso na Agenda
+              </button>
+            </form>
+
+            <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '15px', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 style={{ margin: 0, fontSize: '1.1rem', color: '#0f172a' }}>📅 Compromissos e Retornos Agendados</h2>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Ver Agenda do Operador:</span>
+                  <select 
+                    value={filtroAgendaUsuario} 
+                    onChange={e => setFiltroAgendaUsuario(e.target.value)}
+                    style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.82rem', fontWeight: 'bold', color: '#0284c7' }}>
+                    <option value="TODOS">Todos os Operadores</option>
+                    {usuarios.map(u => (
+                      <option key={u.id} value={u.id}>{u.nome}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {agendamentosFiltrados.length === 0 ? (
+                  <p style={{ color: '#64748b', fontSize: '0.9rem' }}>Nenhum retorno agendado para o operador selecionado.</p>
+                ) : (
+                  agendamentosFiltrados.map(a => (
+                    <div key={a.id} style={{ border: '1px solid #e2e8f0', padding: '14px', borderRadius: '8px', backgroundColor: a.concluido ? '#f0fdf4' : '#fff', opacity: a.concluido ? 0.75 : 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <div style={{ fontWeight: 'bold', color: '#0f172a', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {a.cliente_nome}
+                          {a.concluido && <span style={{ backgroundColor: '#d1fae5', color: '#059669', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '10px' }}>Concluído</span>}
+                        </div>
+                        <div style={{ fontSize: '0.8rem', color: '#0284c7', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Clock size={14} /> Data do Retorno: {formatarData(a.data_retorno)} | 👤 Operador: {a.usuario_nome}
+                        </div>
+                        {a.observacao && (
+                          <div style={{ fontSize: '0.82rem', color: '#475569', marginTop: '4px', fontStyle: 'italic' }}>
+                            "{a.observacao}"
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        {!a.concluido && (
+                          <button onClick={() => handleConcluirAgendamento(a.id)} style={{ padding: '6px 12px', backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.78rem' }}>
+                            Marcar como Feito
+                          </button>
+                        )}
+                        <button onClick={() => handleExcluirAgendamento(a.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}>
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         )}

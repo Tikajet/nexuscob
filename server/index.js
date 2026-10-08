@@ -47,6 +47,21 @@ async function initDB() {
       );
     `);
 
+    // Tabela de Agenda / Retornos de Cobrança
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS agenda (
+        id SERIAL PRIMARY KEY,
+        cliente_id INT,
+        cliente_nome VARCHAR(255),
+        usuario_id INT,
+        usuario_nome VARCHAR(255),
+        data_retorno TIMESTAMP NOT NULL,
+        observacao TEXT,
+        concluido BOOLEAN DEFAULT FALSE,
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
     console.log('✅ Banco PostgreSQL Nexus-Cob pronto!');
   } catch (error) {
     console.error('❌ Erro na inicializacao do BD:', error.message);
@@ -116,6 +131,52 @@ app.post('/api/usuarios', async (req, res) => {
     res.json({ sucesso: true, usuario: result.rows[0] });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao cadastrar usuário.', detalhe: err.message });
+  }
+});
+
+// ROUTING DE AGENDA / COMPROMISSOS
+app.get('/api/agenda', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM agenda ORDER BY data_retorno ASC');
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao buscar agendamentos.' });
+  }
+});
+
+app.post('/api/agenda', async (req, res) => {
+  const { cliente_nome, usuario_id, usuario_nome, data_retorno, observacao } = req.body;
+  if (!cliente_nome || !data_retorno) {
+    return res.status(400).json({ error: 'Cliente e Data são obrigatórios.' });
+  }
+  try {
+    const result = await pool.query(
+      'INSERT INTO agenda (cliente_nome, usuario_id, usuario_nome, data_retorno, observacao) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [cliente_nome, usuario_id || null, usuario_nome || 'A definir', data_retorno, observacao || '']
+    );
+    res.json({ sucesso: true, agendamento: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao salvar agendamento.' });
+  }
+});
+
+app.put('/api/agenda/:id/concluir', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('UPDATE agenda SET concluido = TRUE WHERE id = $1', [id]);
+    res.json({ sucesso: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao concluir agendamento.' });
+  }
+});
+
+app.delete('/api/agenda/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM agenda WHERE id = $1', [id]);
+    res.json({ sucesso: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao excluir agendamento.' });
   }
 });
 

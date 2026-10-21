@@ -8,21 +8,21 @@ import {
 const API_URL = '/api';
 
 const ESTAGIOS_COBRANCA = [
-  { id: 1, nome: 'Novos Contatos', cor: 'border-blue-500' },
-  { id: 2, nome: 'Primeiro Contato', cor: 'border-cyan-500' },
-  { id: 3, nome: 'Segundo Contato', cor: 'border-indigo-500' },
-  { id: 4, nome: 'Terceiro Contato', cor: 'border-purple-500' },
-  { id: 5, nome: 'Promessa de Pagamento', cor: 'border-amber-500' },
-  { id: 6, nome: 'Acordo Realizado', cor: 'border-emerald-500' },
-  { id: 7, nome: 'Recusado ou Sem Contato', cor: 'border-rose-500' }
+  { id: 1, nome: 'Novos Contatos', cor: 'border-rose-700' },
+  { id: 2, nome: 'Primeiro Contato', cor: 'border-rose-600' },
+  { id: 3, nome: 'Segundo Contato', cor: 'border-rose-500' },
+  { id: 4, nome: 'Terceiro Contato', cor: 'border-purple-600' },
+  { id: 5, nome: 'Promessa de Pagamento', cor: 'border-amber-600' },
+  { id: 6, nome: 'Acordo Realizado', cor: 'border-emerald-600' },
+  { id: 7, nome: 'Recusado ou Sem Contato', cor: 'border-slate-500' }
 ];
 
 const ESTAGIOS_POS_VENDA = [
-  { id: 1, nome: 'Boas-Vindas (1-3 dias)', cor: 'border-blue-500' },
-  { id: 2, nome: 'Acompanhamento (15 dias)', cor: 'border-indigo-500' },
-  { id: 3, nome: 'Satisfação CSAT (30 dias)', cor: 'border-amber-500' },
-  { id: 4, nome: 'Cliente Fidelizado', cor: 'border-emerald-500' },
-  { id: 5, nome: 'Risco de Cancelamento', cor: 'border-rose-500' }
+  { id: 1, nome: 'Boas-Vindas (1-3 dias)', cor: 'border-rose-700' },
+  { id: 2, nome: 'Acompanhamento (15 dias)', cor: 'border-rose-600' },
+  { id: 3, nome: 'Satisfação CSAT (30 dias)', cor: 'border-amber-600' },
+  { id: 4, nome: 'Cliente Fidelizado', cor: 'border-emerald-600' },
+  { id: 5, nome: 'Risco de Cancelamento', cor: 'border-slate-500' }
 ];
 
 const FRASES_MOTIVACIONAIS = [
@@ -77,7 +77,6 @@ export default function App() {
   // Buscas
   const [buscaGlobal, setBuscaGlobal] = useState('');
   const [buscaPipeline, setBuscaPipeline] = useState('');
-  const [buscaAgenda, setBuscaAgenda] = useState('');
 
   // Edição
   const [usuarioEditando, setUsuarioEditando] = useState(null);
@@ -130,7 +129,7 @@ export default function App() {
 
   const moverEstagioCliente = (clienteId, novoEstagioId) => {
     if (novoEstagioId === 6) {
-      setModalAcordo({ exibir: false, clienteId, valor: '', parcelas: '1' });
+      setModalAcordo({ exibir: true, clienteId, valor: '', parcelas: '1' });
       return;
     }
 
@@ -164,10 +163,8 @@ export default function App() {
     });
   };
 
-  // CADASTRO DE PÓS-VENDA
   const handleCadastrarPosVenda = (e) => {
     e.preventDefault();
-
     if (!novoPosVenda.nome.trim()) {
       alert('Por favor, informe o nome do cliente.');
       return;
@@ -186,17 +183,16 @@ export default function App() {
       .then(r => r.json())
       .then(data => {
         if (data.sucesso) {
-          alert('Cliente salvo no Pós-Venda e adicionado ao Funil!');
+          alert('Cliente salvo no Pós-Venda com sucesso!');
           setNovoPosVenda({ codigo: '', nome: '', telefone: '', plano: 'Fibra 500MB', satisfacao: '5', vendedor_id: '', observacoes: '' });
           carregarDados();
         } else {
-          alert('Erro ao salvar cliente no Pós-Venda.');
+          alert(data.error || 'Erro ao salvar cliente no Pós-Venda.');
         }
       })
-      .catch(() => alert('Erro de comunicação com o servidor.'));
+      .catch((err) => alert('Erro de comunicação com o servidor.'));
   };
 
-  // EXCEL IMPORTAÇÃO
   const handleCarregarPreviaExcel = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -223,13 +219,12 @@ export default function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ clientes: previaExcel })
     }).then(() => {
-      alert(`${previaExcel.length} clientes da planilha salvos com sucesso no Pipeline!`);
+      alert(`${previaExcel.length} clientes salvos com sucesso no Pipeline!`);
       setPreviaExcel([]);
       carregarDados();
     });
   };
 
-  // CHAT GRUPOS
   const handleCriarGrupoChat = (e) => {
     e.preventDefault();
     if (!novoGrupoNome.trim()) return;
@@ -294,58 +289,60 @@ export default function App() {
     });
   };
 
-  const bgPrincipal = temaClaro ? 'bg-slate-100 text-slate-900' : 'bg-slate-950 text-slate-100';
-  const bgCard = temaClaro ? 'bg-white border-slate-200 text-slate-800' : 'bg-slate-900 border-slate-800 text-slate-100';
-  const bgInput = temaClaro ? 'bg-slate-50 border-slate-300 text-slate-900' : 'bg-slate-950 border-slate-800 text-white';
+  // ESTILOS DE TEMA (CLARO EM MARSALA E ESCURO EM DARK SLATE)
+  const bgPrincipal = temaClaro ? 'bg-[#f4f0f2] text-slate-900' : 'bg-slate-950 text-slate-100';
+  const bgCard = temaClaro ? 'bg-white border-[#e2d5da] text-slate-800 shadow-sm' : 'bg-slate-900 border-slate-800 text-slate-100';
+  const bgInput = temaClaro ? 'bg-[#fbf9fa] border-[#d8c5cc] text-slate-900 focus:border-[#800020]' : 'bg-slate-950 border-slate-800 text-white';
+  const btnMarsala = 'bg-[#800020] hover:bg-[#600018] text-white font-bold transition-all';
 
   if (!usuario) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4 text-slate-100 font-sans">
-        <div className="w-full max-w-md bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl">
+      <div className="min-h-screen bg-[#2d000b] flex flex-col justify-center items-center p-4 text-slate-100 font-sans">
+        <div className="w-full max-w-md bg-[#1d0007] border border-[#500014] p-8 rounded-2xl shadow-2xl">
           <div className="flex flex-col items-center mb-6">
-            <div className="flex items-center space-x-2 text-blue-500 font-black text-3xl tracking-wider">
-              <Wifi className="w-8 h-8 text-blue-400" />
+            <div className="flex items-center space-x-2 text-rose-400 font-black text-3xl tracking-wider">
+              <Wifi className="w-8 h-8 text-rose-500" />
               <span>METRO<span className="text-white">COB</span></span>
             </div>
-            <p className="text-xs text-blue-400 tracking-widest uppercase font-semibold mt-1">POWERED BY NEXUS</p>
+            <p className="text-xs text-rose-300 tracking-widest uppercase font-semibold mt-1">POWERED BY NEXUS</p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">E-mail do Operador</label>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-rose-200 mb-1">E-mail do Operador</label>
               <input 
                 type="email" 
                 required
                 value={emailLogin} 
                 onChange={e => setEmailLogin(e.target.value)}
                 placeholder="operador@metronet.com.br"
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-sm focus:outline-none text-white"
+                className="w-full bg-[#120004] border border-[#500014] rounded-lg px-4 py-3 text-sm focus:outline-none text-white placeholder-rose-400/50"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Senha de Acesso</label>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-rose-200 mb-1">Senha de Acesso</label>
               <input 
                 type="password" 
                 required
                 value={senhaLogin} 
                 onChange={e => setSenhaLogin(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-sm focus:outline-none text-white"
+                className="w-full bg-[#120004] border border-[#500014] rounded-lg px-4 py-3 text-sm focus:outline-none text-white"
               />
             </div>
 
             <button 
               type="submit" 
-              className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold py-3 rounded-lg shadow-lg"
+              className={`w-full ${btnMarsala} py-3 rounded-lg shadow-lg text-sm uppercase tracking-wider`}
             >
               Acessar Painel MetroCob
             </button>
           </form>
 
-          <div className="mt-8 pt-4 border-t border-slate-800 text-center">
-            <p className="text-xs text-slate-500 font-medium">
-              Developer: <span className="text-blue-400 font-bold">Thiago Pauluk</span>
+          <div className="mt-8 pt-4 border-t border-[#500014] text-center">
+            <p className="text-xs text-rose-300/60 font-medium">
+              Developer: <span className="text-rose-400 font-bold">Thiago Pauluk</span>
             </p>
           </div>
         </div>
@@ -356,7 +353,6 @@ export default function App() {
   const totalClientes = clientes.length;
   const totalEmAberto = clientes.reduce((acc, c) => acc + (parseFloat(c.total_vencido) || 0), 0);
   const totalRecebido = clientes.filter(c => c.estagio_id === 6).reduce((acc, c) => acc + (parseFloat(c.valor_acordo) || parseFloat(c.total_vencido) || 0), 0);
-
   const mediaCsat = posVendas.length > 0 ? (posVendas.reduce((acc, p) => acc + (p.satisfacao || 5), 0) / posVendas.length).toFixed(1) : '5.0';
 
   const clientesFiltradosPipeline = clientes.filter(c => {
@@ -377,17 +373,17 @@ export default function App() {
       {/* POPUP MOTIVACIONAL */}
       {exibirPopup && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-blue-500/40 p-8 rounded-2xl max-w-lg w-full shadow-2xl text-center space-y-6">
-            <div className="w-16 h-16 bg-blue-600/20 text-blue-400 rounded-full flex items-center justify-center mx-auto border border-blue-500/30">
+          <div className="bg-[#1d0007] border border-[#800020] p-8 rounded-2xl max-w-lg w-full shadow-2xl text-center space-y-6">
+            <div className="w-16 h-16 bg-[#800020]/30 text-rose-300 rounded-full flex items-center justify-center mx-auto border border-[#800020]">
               <Shield className="w-8 h-8" />
             </div>
             <div>
               <h3 className="text-xl font-bold text-white mb-2">Bem-vindo, {usuario.nome}!</h3>
-              <p className="text-slate-300 italic text-base leading-relaxed">"{frasePopup}"</p>
+              <p className="text-rose-100 italic text-base leading-relaxed">"{frasePopup}"</p>
             </div>
             <button 
               onClick={() => setExibirPopup(false)}
-              className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-8 py-2.5 rounded-lg"
+              className={`${btnMarsala} px-8 py-2.5 rounded-lg`}
             >
               Iniciar Trabalho
             </button>
@@ -398,30 +394,30 @@ export default function App() {
       {/* MODAL ACORDO */}
       {modalAcordo.exibir && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-emerald-500/50 p-6 rounded-2xl max-w-md w-full space-y-4">
-            <h3 className="text-lg font-bold text-white">Registrar Acordo Realizado</h3>
+          <div className={`${bgCard} border border-emerald-500/50 p-6 rounded-2xl max-w-md w-full space-y-4`}>
+            <h3 className="text-lg font-bold">Registrar Acordo Realizado</h3>
             <form onSubmit={handleConfirmarAcordo} className="space-y-4 text-xs">
               <div>
-                <label className="block text-slate-400 mb-1">Valor Final do Acordo (R$)</label>
+                <label className="block mb-1 opacity-70">Valor Final do Acordo (R$)</label>
                 <input 
                   type="text" 
                   required
                   placeholder="Ex: 250,00"
                   value={modalAcordo.valor}
                   onChange={e => setModalAcordo({...modalAcordo, valor: e.target.value})}
-                  className="w-full bg-slate-950 border border-slate-800 p-2.5 rounded-lg text-white"
+                  className={`w-full ${bgInput} p-2.5 rounded-lg`}
                 />
               </div>
 
               <div>
-                <label className="block text-slate-400 mb-1">Quantidade de Parcelas</label>
+                <label className="block mb-1 opacity-70">Quantidade de Parcelas</label>
                 <input 
                   type="number" 
                   min="1"
                   max="12"
                   value={modalAcordo.parcelas}
                   onChange={e => setModalAcordo({...modalAcordo, parcelas: e.target.value})}
-                  className="w-full bg-slate-950 border border-slate-800 p-2.5 rounded-lg text-white"
+                  className={`w-full ${bgInput} p-2.5 rounded-lg`}
                 />
               </div>
 
@@ -429,7 +425,7 @@ export default function App() {
                 <button 
                   type="button" 
                   onClick={() => setModalAcordo({ exibir: false, clienteId: null, valor: '', parcelas: '1' })}
-                  className="w-1/2 bg-slate-800 text-slate-300 py-2 rounded-lg font-semibold"
+                  className="w-1/2 bg-slate-300 text-slate-800 py-2 rounded-lg font-semibold"
                 >
                   Cancelar
                 </button>
@@ -448,18 +444,20 @@ export default function App() {
       {/* SIDEBAR METRONET */}
       <aside className={`w-64 ${bgCard} border-r flex flex-col justify-between transition-colors`}>
         <div>
-          <div className="p-6 border-b border-slate-800/80">
-            <div className="flex items-center space-x-2 text-blue-500 font-black text-xl tracking-wider">
-              <Wifi className="w-6 h-6 text-blue-400" />
+          <div className={`p-6 border-b ${temaClaro ? 'border-[#e2d5da]' : 'border-slate-800'}`}>
+            <div className={`flex items-center space-x-2 font-black text-xl tracking-wider ${temaClaro ? 'text-[#800020]' : 'text-rose-400'}`}>
+              <Wifi className="w-6 h-6" />
               <span>METRO<span className={temaClaro ? "text-slate-900" : "text-white"}>COB</span></span>
             </div>
-            <p className="text-[10px] text-blue-400 tracking-widest uppercase font-semibold mt-0.5">POWERED BY NEXUS</p>
+            <p className={`text-[10px] tracking-widest uppercase font-semibold mt-0.5 ${temaClaro ? 'text-[#800020]' : 'text-rose-400'}`}>
+              POWERED BY NEXUS
+            </p>
           </div>
 
           <nav className="p-4 space-y-1 text-sm font-medium">
             <button 
               onClick={() => setAbaAtiva('dashboard')}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'dashboard' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'dashboard' ? `${btnMarsala}` : 'opacity-70 hover:opacity-100 hover:bg-[#800020]/10'}`}
             >
               <BarChart2 className="w-5 h-5" />
               <span>Dashboard</span>
@@ -467,7 +465,7 @@ export default function App() {
 
             <button 
               onClick={() => setAbaAtiva('pipeline')}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'pipeline' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'pipeline' ? `${btnMarsala}` : 'opacity-70 hover:opacity-100 hover:bg-[#800020]/10'}`}
             >
               <Users className="w-5 h-5" />
               <span>Pipeline Cobrança</span>
@@ -477,10 +475,10 @@ export default function App() {
             <div>
               <button 
                 onClick={() => setMenuPosVendaAberto(!menuPosVendaAberto)}
-                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${abaAtiva === 'pos-venda' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${abaAtiva === 'pos-venda' ? `${btnMarsala}` : 'opacity-70 hover:opacity-100 hover:bg-[#800020]/10'}`}
               >
                 <div className="flex items-center space-x-3">
-                  <HeartHandshake className="w-5 h-5 text-emerald-400" />
+                  <HeartHandshake className="w-5 h-5" />
                   <span>Pós-Venda</span>
                 </div>
                 {menuPosVendaAberto ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
@@ -490,7 +488,7 @@ export default function App() {
                 <div className="ml-8 mt-1 space-y-1 text-xs font-semibold">
                   <button 
                     onClick={() => { setAbaAtiva('pos-venda'); setSubAbaPosVenda('funil'); }}
-                    className={`w-full text-left py-2 px-3 rounded-lg flex items-center space-x-2 ${subAbaPosVenda === 'funil' && abaAtiva === 'pos-venda' ? 'text-emerald-400 bg-slate-800' : 'text-slate-400 hover:text-white'}`}
+                    className={`w-full text-left py-2 px-3 rounded-lg flex items-center space-x-2 ${subAbaPosVenda === 'funil' && abaAtiva === 'pos-venda' ? 'text-[#800020] bg-[#800020]/10 font-bold' : 'opacity-70 hover:opacity-100'}`}
                   >
                     <ShoppingBag className="w-4 h-4" />
                     <span>Funil Pós-Venda</span>
@@ -498,10 +496,10 @@ export default function App() {
 
                   <button 
                     onClick={() => { setAbaAtiva('pos-venda'); setSubAbaPosVenda('cadastro'); }}
-                    className={`w-full text-left py-2 px-3 rounded-lg flex items-center space-x-2 ${subAbaPosVenda === 'cadastro' && abaAtiva === 'pos-venda' ? 'text-emerald-400 bg-slate-800' : 'text-slate-400 hover:text-white'}`}
+                    className={`w-full text-left py-2 px-3 rounded-lg flex items-center space-x-2 ${subAbaPosVenda === 'cadastro' && abaAtiva === 'pos-venda' ? 'text-[#800020] bg-[#800020]/10 font-bold' : 'opacity-70 hover:opacity-100'}`}
                   >
                     <UserPlus className="w-4 h-4" />
-                    <span>Cadastrar Cliente Pós-Venda</span>
+                    <span>Cadastrar Pós-Venda</span>
                   </button>
                 </div>
               )}
@@ -509,7 +507,7 @@ export default function App() {
 
             <button 
               onClick={() => setAbaAtiva('cadastro-cliente')}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'cadastro-cliente' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'cadastro-cliente' ? `${btnMarsala}` : 'opacity-70 hover:opacity-100 hover:bg-[#800020]/10'}`}
             >
               <UserPlus className="w-5 h-5" />
               <span>Clientes Cobrança</span>
@@ -517,7 +515,7 @@ export default function App() {
 
             <button 
               onClick={() => setAbaAtiva('agenda')}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'agenda' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'agenda' ? `${btnMarsala}` : 'opacity-70 hover:opacity-100 hover:bg-[#800020]/10'}`}
             >
               <Calendar className="w-5 h-5" />
               <span>Agenda / Retornos</span>
@@ -525,7 +523,7 @@ export default function App() {
 
             <button 
               onClick={() => setAbaAtiva('chat')}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'chat' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'chat' ? `${btnMarsala}` : 'opacity-70 hover:opacity-100 hover:bg-[#800020]/10'}`}
             >
               <MessageSquare className="w-5 h-5" />
               <span>Chat & Grupos</span>
@@ -535,7 +533,7 @@ export default function App() {
             <div>
               <button 
                 onClick={() => setMenuAdminAberto(!menuAdminAberto)}
-                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${abaAtiva === 'admin' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${abaAtiva === 'admin' ? `${btnMarsala}` : 'opacity-70 hover:opacity-100 hover:bg-[#800020]/10'}`}
               >
                 <div className="flex items-center space-x-3">
                   <Settings className="w-5 h-5" />
@@ -548,7 +546,7 @@ export default function App() {
                 <div className="ml-8 mt-1 space-y-1 text-xs font-semibold">
                   <button 
                     onClick={() => { setAbaAtiva('admin'); setSubAbaAdmin('excel'); }}
-                    className={`w-full text-left py-2 px-3 rounded-lg flex items-center space-x-2 ${subAbaAdmin === 'excel' && abaAtiva === 'admin' ? 'text-blue-400 bg-slate-800' : 'text-slate-400 hover:text-white'}`}
+                    className={`w-full text-left py-2 px-3 rounded-lg flex items-center space-x-2 ${subAbaAdmin === 'excel' && abaAtiva === 'admin' ? 'text-[#800020] bg-[#800020]/10 font-bold' : 'opacity-70 hover:opacity-100'}`}
                   >
                     <FileSpreadsheet className="w-4 h-4" />
                     <span>Subir Planilha Excel</span>
@@ -556,10 +554,10 @@ export default function App() {
 
                   <button 
                     onClick={() => { setAbaAtiva('admin'); setSubAbaAdmin('usuarios'); }}
-                    className={`w-full text-left py-2 px-3 rounded-lg flex items-center space-x-2 ${subAbaAdmin === 'usuarios' && abaAtiva === 'admin' ? 'text-blue-400 bg-slate-800' : 'text-slate-400 hover:text-white'}`}
+                    className={`w-full text-left py-2 px-3 rounded-lg flex items-center space-x-2 ${subAbaAdmin === 'usuarios' && abaAtiva === 'admin' ? 'text-[#800020] bg-[#800020]/10 font-bold' : 'opacity-70 hover:opacity-100'}`}
                   >
                     <Users className="w-4 h-4" />
-                    <span>Gerenciamento Usuários</span>
+                    <span>Gerenciar Usuários</span>
                   </button>
                 </div>
               )}
@@ -567,18 +565,18 @@ export default function App() {
           </nav>
         </div>
 
-        <div className="p-4 border-t border-slate-800 space-y-2">
+        <div className={`p-4 border-t ${temaClaro ? 'border-[#e2d5da]' : 'border-slate-800'} space-y-2`}>
           <button 
             onClick={() => setTemaClaro(!temaClaro)}
-            className="w-full flex items-center justify-center space-x-2 bg-slate-800 hover:bg-slate-700 py-2 rounded-lg text-xs text-slate-200 transition-all font-semibold"
+            className={`w-full flex items-center justify-center space-x-2 ${temaClaro ? 'bg-[#800020]/10 text-[#800020]' : 'bg-slate-800 text-slate-200'} py-2 rounded-lg text-xs transition-all font-bold`}
           >
-            {temaClaro ? <Moon className="w-4 h-4 text-amber-400" /> : <Sun className="w-4 h-4 text-amber-400" />}
-            <span>{temaClaro ? 'Modo Escuro' : 'Modo Claro'}</span>
+            {temaClaro ? <Moon className="w-4 h-4 text-[#800020]" /> : <Sun className="w-4 h-4 text-amber-400" />}
+            <span>{temaClaro ? 'Modo Escuro' : 'Modo Claro (Marsala)'}</span>
           </button>
 
           <button 
             onClick={() => setUsuario(null)}
-            className="w-full flex items-center justify-center space-x-2 text-rose-400 hover:bg-rose-500/10 py-2 rounded-lg text-xs font-semibold transition-all"
+            className="w-full flex items-center justify-center space-x-2 text-rose-500 hover:bg-rose-500/10 py-2 rounded-lg text-xs font-semibold transition-all"
           >
             <LogOut className="w-4 h-4" />
             <span>Sair</span>
@@ -591,7 +589,7 @@ export default function App() {
         
         <header className={`h-16 ${bgCard} border-b px-6 flex items-center justify-between`}>
           <div className="relative w-96">
-            <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+            <Search className="w-4 h-4 opacity-40 absolute left-3 top-3" />
             <input 
               type="text" 
               placeholder="Buscar cliente na página inicial, CPF, ID..."
@@ -602,7 +600,9 @@ export default function App() {
           </div>
 
           <div className="flex items-center space-x-3">
-            <span className="text-xs font-bold text-blue-500 uppercase">{usuario.nome} ({usuario.cargo})</span>
+            <span className={`text-xs font-bold uppercase ${temaClaro ? 'text-[#800020]' : 'text-rose-400'}`}>
+              {usuario.nome} ({usuario.cargo})
+            </span>
           </div>
         </header>
 
@@ -613,54 +613,56 @@ export default function App() {
             <div className="space-y-6">
               <div>
                 <h1 className="text-2xl font-bold">Dashboard Geral e Ranking de Desempenho</h1>
-                <p className="text-xs text-blue-500 font-semibold tracking-wider uppercase">METRONET INTERNET DE VERDADE</p>
+                <p className={`text-xs font-semibold tracking-wider uppercase ${temaClaro ? 'text-[#800020]' : 'text-rose-400'}`}>
+                  METRONET INTERNET DE VERDADE
+                </p>
               </div>
 
               <div className="grid grid-cols-4 gap-4">
-                <div className={`${bgCard} border p-5 rounded-2xl shadow-sm`}>
-                  <p className="text-xs font-medium text-slate-400">Total Carteira Cobrança</p>
+                <div className={`${bgCard} border p-5 rounded-2xl`}>
+                  <p className="text-xs font-medium opacity-60">Total Carteira Cobrança</p>
                   <p className="text-2xl font-black mt-1">{totalClientes} clientes</p>
                 </div>
 
-                <div className={`${bgCard} border p-5 rounded-2xl shadow-sm`}>
-                  <p className="text-xs font-medium text-slate-400">Total em Aberto</p>
-                  <p className="text-2xl font-black text-rose-500 mt-1">R$ {totalEmAberto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                <div className={`${bgCard} border p-5 rounded-2xl`}>
+                  <p className="text-xs font-medium opacity-60">Total em Aberto</p>
+                  <p className="text-2xl font-black text-rose-600 mt-1">R$ {totalEmAberto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                 </div>
 
-                <div className={`${bgCard} border p-5 rounded-2xl shadow-sm`}>
-                  <p className="text-xs font-medium text-slate-400">Total Recuperado</p>
-                  <p className="text-2xl font-black text-emerald-500 mt-1">R$ {totalRecebido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                <div className={`${bgCard} border p-5 rounded-2xl`}>
+                  <p className="text-xs font-medium opacity-60">Total Recuperado</p>
+                  <p className="text-2xl font-black text-emerald-600 mt-1">R$ {totalRecebido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                 </div>
 
-                <div className={`${bgCard} border p-5 rounded-2xl shadow-sm`}>
-                  <p className="text-xs font-medium text-slate-400">Índice Qualidade CSAT</p>
+                <div className={`${bgCard} border p-5 rounded-2xl`}>
+                  <p className="text-xs font-medium opacity-60">Índice Qualidade CSAT</p>
                   <div className="flex items-center space-x-2 mt-1">
-                    <p className="text-2xl font-black text-amber-400">{mediaCsat} / 5.0</p>
-                    <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
+                    <p className="text-2xl font-black text-amber-500">{mediaCsat} / 5.0</p>
+                    <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
                   </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-6">
-                <div className={`${bgCard} border p-6 rounded-2xl space-y-4 shadow-sm`}>
-                  <h2 className="text-base font-bold flex items-center space-x-2 text-amber-500">
+                <div className={`${bgCard} border p-6 rounded-2xl space-y-4`}>
+                  <h2 className="text-base font-bold flex items-center space-x-2 text-amber-600">
                     <Award className="w-5 h-5" />
                     <span>Ranking Cobradores (Maior Volume de Acordos)</span>
                   </h2>
 
                   <div className="space-y-3 max-h-[350px] overflow-y-auto">
                     {rankingCobranca.map((op, idx) => (
-                      <div key={idx} className={`${bgInput} p-4 rounded-xl flex items-center justify-between border border-slate-700/50`}>
+                      <div key={idx} className={`${bgInput} p-4 rounded-xl flex items-center justify-between border`}>
                         <div className="flex items-center space-x-3">
-                          <span className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center font-bold text-xs text-white">
+                          <span className={`w-7 h-7 rounded-full ${btnMarsala} flex items-center justify-center font-bold text-xs`}>
                             #{idx + 1}
                           </span>
                           <div>
                             <p className="text-sm font-bold">{op.operador}</p>
-                            <p className="text-xs text-slate-400">{op.total_acordos} acordos efetuados</p>
+                            <p className="text-xs opacity-60">{op.total_acordos} acordos efetuados</p>
                           </div>
                         </div>
-                        <span className="text-sm font-black text-emerald-500">
+                        <span className="text-sm font-black text-emerald-600">
                           R$ {parseFloat(op.valor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </span>
                       </div>
@@ -668,27 +670,27 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className={`${bgCard} border p-6 rounded-2xl space-y-4 shadow-sm`}>
-                  <h2 className="text-base font-bold flex items-center space-x-2 text-emerald-400">
+                <div className={`${bgCard} border p-6 rounded-2xl space-y-4`}>
+                  <h2 className={`text-base font-bold flex items-center space-x-2 ${temaClaro ? 'text-[#800020]' : 'text-rose-400'}`}>
                     <Award className="w-5 h-5" />
                     <span>Ranking Vendedores & Pós-Venda</span>
                   </h2>
 
                   <div className="space-y-3 max-h-[350px] overflow-y-auto">
                     {rankingVendedores.map((vend, idx) => (
-                      <div key={idx} className={`${bgInput} p-4 rounded-xl flex items-center justify-between border border-slate-700/50`}>
+                      <div key={idx} className={`${bgInput} p-4 rounded-xl flex items-center justify-between border`}>
                         <div className="flex items-center space-x-3">
                           <span className="w-7 h-7 rounded-full bg-emerald-600 flex items-center justify-center font-bold text-xs text-white">
                             #{idx + 1}
                           </span>
                           <div>
                             <p className="text-sm font-bold">{vend.vendedor}</p>
-                            <p className="text-xs text-slate-400">{vend.total_pos_vendas} clientes no pós-venda</p>
+                            <p className="text-xs opacity-60">{vend.total_pos_vendas} clientes pós-venda</p>
                           </div>
                         </div>
-                        <span className="text-sm font-black text-amber-400 flex items-center space-x-1">
+                        <span className="text-sm font-black text-amber-500 flex items-center space-x-1">
                           <span>{parseFloat(vend.media_satisfacao || 5).toFixed(1)}</span>
-                          <Star className="w-4 h-4 fill-amber-400" />
+                          <Star className="w-4 h-4 fill-amber-500" />
                         </span>
                       </div>
                     ))}
@@ -701,45 +703,30 @@ export default function App() {
           {/* PIPELINE DE COBRANÇA */}
           {abaAtiva === 'pipeline' && (
             <div className="space-y-4">
-              <div className="flex justify-between items-center bg-slate-900/50 p-3 rounded-2xl border border-slate-800">
+              <div className={`flex justify-between items-center p-3 rounded-2xl border ${bgCard}`}>
                 <div className="flex items-center space-x-2">
-                  <Filter className="w-4 h-4 text-blue-500" />
-                  <span className="text-xs font-bold uppercase text-slate-300">Filtrar Carteira:</span>
+                  <Filter className={`w-4 h-4 ${temaClaro ? 'text-[#800020]' : 'text-rose-400'}`} />
+                  <span className="text-xs font-bold uppercase opacity-80">Filtrar Carteira:</span>
                   
-                  <button 
-                    onClick={() => setFiltroAtrasoPipeline('todos')}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${filtroAtrasoPipeline === 'todos' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'}`}
-                  >
+                  <button onClick={() => setFiltroAtrasoPipeline('todos')} className={`px-3 py-1 rounded-lg text-xs font-bold ${filtroAtrasoPipeline === 'todos' ? `${btnMarsala}` : 'opacity-60'}`}>
                     Todos ({clientes.length})
                   </button>
-                  <button 
-                    onClick={() => setFiltroAtrasoPipeline('30')}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${filtroAtrasoPipeline === '30' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'}`}
-                  >
+                  <button onClick={() => setFiltroAtrasoPipeline('30')} className={`px-3 py-1 rounded-lg text-xs font-bold ${filtroAtrasoPipeline === '30' ? `${btnMarsala}` : 'opacity-60'}`}>
                     30 Dias ({clientes.filter(c => c.dias_atraso === 30).length})
                   </button>
-                  <button 
-                    onClick={() => setFiltroAtrasoPipeline('60')}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${filtroAtrasoPipeline === '60' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'}`}
-                  >
+                  <button onClick={() => setFiltroAtrasoPipeline('60')} className={`px-3 py-1 rounded-lg text-xs font-bold ${filtroAtrasoPipeline === '60' ? `${btnMarsala}` : 'opacity-60'}`}>
                     60 Dias ({clientes.filter(c => c.dias_atraso === 60).length})
                   </button>
-                  <button 
-                    onClick={() => setFiltroAtrasoPipeline('90')}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${filtroAtrasoPipeline === '90' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'}`}
-                  >
+                  <button onClick={() => setFiltroAtrasoPipeline('90')} className={`px-3 py-1 rounded-lg text-xs font-bold ${filtroAtrasoPipeline === '90' ? `${btnMarsala}` : 'opacity-60'}`}>
                     90 Dias ({clientes.filter(c => c.dias_atraso === 90).length})
                   </button>
-                  <button 
-                    onClick={() => setFiltroAtrasoPipeline('cancelados')}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${filtroAtrasoPipeline === 'cancelados' ? 'bg-rose-600 text-white' : 'bg-slate-800 text-slate-400'}`}
-                  >
+                  <button onClick={() => setFiltroAtrasoPipeline('cancelados')} className={`px-3 py-1 rounded-lg text-xs font-bold ${filtroAtrasoPipeline === 'cancelados' ? 'bg-rose-600 text-white' : 'opacity-60'}`}>
                     Cancelados ({clientes.filter(c => c.dias_atraso >= 120 || c.status_conexao === 'Cancelado').length})
                   </button>
                 </div>
 
                 <div className="relative w-64">
-                  <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                  <Search className="w-4 h-4 opacity-40 absolute left-3 top-2.5" />
                   <input 
                     type="text" 
                     placeholder="Filtrar cliente..."
@@ -758,38 +745,38 @@ export default function App() {
                     <div key={estagio.id} className={`${bgCard} border rounded-2xl p-3 min-w-[210px] flex flex-col h-[650px]`}>
                       <div className={`border-b-2 ${estagio.cor} pb-2 mb-3 flex justify-between items-center`}>
                         <span className="text-xs font-bold truncate">{estagio.nome}</span>
-                        <span className="bg-blue-600/20 text-blue-400 text-xs px-2 py-0.5 rounded-full font-bold">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${temaClaro ? 'bg-[#800020]/10 text-[#800020]' : 'bg-rose-500/20 text-rose-300'}`}>
                           {clientesEstagio.length}
                         </span>
                       </div>
 
                       <div className="flex-1 overflow-y-auto space-y-2 pr-1">
                         {clientesEstagio.map(cli => (
-                          <div key={cli.id} className={`${bgInput} border border-slate-700/50 p-3 rounded-xl space-y-2 shadow-sm`}>
+                          <div key={cli.id} className={`${bgInput} border p-3 rounded-xl space-y-2 shadow-sm`}>
                             <div className="flex justify-between items-start">
                               <div className="truncate pr-1">
                                 <p className="text-xs font-bold truncate">{cli.nome}</p>
-                                <p className="text-[10px] text-slate-400">ID: {cli.codigo}</p>
+                                <p className="text-[10px] opacity-60">ID: {cli.codigo}</p>
                               </div>
-                              <button onClick={() => handleExcluirCliente(cli.id)} className="text-rose-400 hover:text-rose-600 p-1">
+                              <button onClick={() => handleExcluirCliente(cli.id)} className="text-rose-500 hover:text-rose-700 p-1">
                                 <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </div>
 
                             <div className="flex justify-between items-center text-xs">
-                              <span className="font-black text-rose-500">
+                              <span className="font-black text-rose-600">
                                 R$ {parseFloat(cli.total_vencido || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                               </span>
                             </div>
 
-                            <div className="pt-2 border-t border-slate-800 flex justify-between items-center">
+                            <div className="pt-2 border-t opacity-80 flex justify-between items-center">
                               {estagio.id > 1 && (
-                                <button onClick={() => moverEstagioCliente(cli.id, estagio.id - 1)} className="text-[10px] text-slate-400 hover:text-blue-400">
+                                <button onClick={() => moverEstagioCliente(cli.id, estagio.id - 1)} className="text-[10px] opacity-60 hover:opacity-100">
                                   ← Voltar
                                 </button>
                               )}
                               {estagio.id < 7 && (
-                                <button onClick={() => moverEstagioCliente(cli.id, estagio.id + 1)} className="text-[10px] text-blue-500 font-bold hover:text-blue-400 ml-auto flex items-center space-x-1">
+                                <button onClick={() => moverEstagioCliente(cli.id, estagio.id + 1)} className={`text-[10px] font-bold ${temaClaro ? 'text-[#800020]' : 'text-rose-400'} ml-auto flex items-center space-x-1`}>
                                   <span>Avançar</span>
                                   <ArrowRight className="w-3 h-3" />
                                 </button>
@@ -812,7 +799,7 @@ export default function App() {
               {subAbaPosVenda === 'funil' && (
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <h1 className="text-xl font-bold flex items-center space-x-2 text-emerald-400">
+                    <h1 className={`text-xl font-bold flex items-center space-x-2 ${temaClaro ? 'text-[#800020]' : 'text-rose-400'}`}>
                       <HeartHandshake className="w-6 h-6" />
                       <span>Pipeline / Funil de Pós-Venda (CSAT)</span>
                     </h1>
@@ -826,40 +813,40 @@ export default function App() {
                         <div key={estagio.id} className={`${bgCard} border rounded-2xl p-4 flex flex-col h-[650px]`}>
                           <div className={`border-b-2 ${estagio.cor} pb-2 mb-3 flex justify-between items-center`}>
                             <span className="text-xs font-bold truncate">{estagio.nome}</span>
-                            <span className="bg-emerald-600/20 text-emerald-400 text-xs px-2 py-0.5 rounded-full font-bold">
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${temaClaro ? 'bg-[#800020]/10 text-[#800020]' : 'bg-rose-500/20 text-rose-300'}`}>
                               {listaEstagio.length}
                             </span>
                           </div>
 
                           <div className="flex-1 overflow-y-auto space-y-3 pr-1">
                             {listaEstagio.map(item => (
-                              <div key={item.id} className={`${bgInput} border border-slate-700/50 p-3 rounded-xl space-y-2 shadow-sm`}>
+                              <div key={item.id} className={`${bgInput} border p-3 rounded-xl space-y-2 shadow-sm`}>
                                 <div className="flex justify-between items-start">
                                   <div>
-                                    <p className="text-xs font-bold text-white truncate">{item.nome}</p>
-                                    <p className="text-[10px] text-slate-400">Plano: {item.plano}</p>
+                                    <p className="text-xs font-bold truncate">{item.nome}</p>
+                                    <p className="text-[10px] opacity-60">Plano: {item.plano}</p>
                                   </div>
-                                  <button onClick={() => handleExcluirPosVenda(item.id)} className="text-rose-400 p-1">
+                                  <button onClick={() => handleExcluirPosVenda(item.id)} className="text-rose-500 p-1">
                                     <Trash2 className="w-3.5 h-3.5" />
                                   </button>
                                 </div>
 
                                 <div className="flex items-center justify-between text-xs pt-1">
-                                  <div className="flex items-center space-x-1 text-amber-400 font-bold">
+                                  <div className="flex items-center space-x-1 text-amber-500 font-bold">
                                     <span>{item.satisfacao}</span>
-                                    <Star className="w-3.5 h-3.5 fill-amber-400" />
+                                    <Star className="w-3.5 h-3.5 fill-amber-500" />
                                   </div>
-                                  <span className="text-[10px] text-slate-400">{item.vendedor_nome || 'Vendedor N/A'}</span>
+                                  <span className="text-[10px] opacity-60">{item.vendedor_nome || 'Vendedor N/A'}</span>
                                 </div>
 
-                                <div className="pt-2 border-t border-slate-800 flex justify-between items-center text-[10px]">
+                                <div className="pt-2 border-t opacity-80 flex justify-between items-center text-[10px]">
                                   {estagio.id > 1 && (
-                                    <button onClick={() => moverEstagioPosVenda(item.id, estagio.id - 1)} className="text-slate-400">
+                                    <button onClick={() => moverEstagioPosVenda(item.id, estagio.id - 1)} className="opacity-60">
                                       ← Voltar
                                     </button>
                                   )}
                                   {estagio.id < 5 && (
-                                    <button onClick={() => moverEstagioPosVenda(item.id, estagio.id + 1)} className="text-emerald-400 font-bold ml-auto">
+                                    <button onClick={() => moverEstagioPosVenda(item.id, estagio.id + 1)} className={`font-bold ${temaClaro ? 'text-[#800020]' : 'text-rose-400'} ml-auto`}>
                                       Avançar →
                                     </button>
                                   )}
@@ -877,24 +864,24 @@ export default function App() {
               {subAbaPosVenda === 'cadastro' && (
                 <div className="grid grid-cols-3 gap-6">
                   <div className={`${bgCard} border p-5 rounded-2xl space-y-4 shadow-sm h-fit`}>
-                    <h2 className="text-base font-bold flex items-center space-x-2 text-emerald-400">
+                    <h2 className={`text-base font-bold flex items-center space-x-2 ${temaClaro ? 'text-[#800020]' : 'text-rose-400'}`}>
                       <UserPlus className="w-5 h-5" />
                       <span>Novo Cliente de Pós-Venda</span>
                     </h2>
 
                     <form onSubmit={handleCadastrarPosVenda} className="space-y-4 text-xs">
                       <div>
-                        <label className="block text-slate-400 mb-1 font-semibold">Nome Completo *</label>
+                        <label className="block mb-1 font-semibold opacity-70">Nome Completo *</label>
                         <input type="text" required placeholder="Nome do cliente" value={novoPosVenda.nome} onChange={e => setNovoPosVenda({...novoPosVenda, nome: e.target.value})} className={`w-full ${bgInput} rounded-lg p-2.5`} />
                       </div>
 
                       <div>
-                        <label className="block text-slate-400 mb-1 font-semibold">Plano Contratado *</label>
+                        <label className="block mb-1 font-semibold opacity-70">Plano Contratado *</label>
                         <input type="text" required placeholder="Ex: Fibra 600MB" value={novoPosVenda.plano} onChange={e => setNovoPosVenda({...novoPosVenda, plano: e.target.value})} className={`w-full ${bgInput} rounded-lg p-2.5`} />
                       </div>
 
                       <div>
-                        <label className="block text-slate-400 mb-1 font-semibold">Vendedor Responsável *</label>
+                        <label className="block mb-1 font-semibold opacity-70">Vendedor Responsável *</label>
                         <select value={novoPosVenda.vendedor_id} onChange={e => setNovoPosVenda({...novoPosVenda, vendedor_id: e.target.value})} className={`w-full ${bgInput} rounded-lg p-2.5`}>
                           <option value="">Selecione o Vendedor...</option>
                           {usuarios.map(u => (
@@ -904,7 +891,7 @@ export default function App() {
                       </div>
 
                       <div>
-                        <label className="block text-slate-400 mb-1 font-semibold">Nota CSAT Inicial (1 a 5 stars)</label>
+                        <label className="block mb-1 font-semibold opacity-70">Nota CSAT Inicial (1 a 5 stars)</label>
                         <select value={novoPosVenda.satisfacao} onChange={e => setNovoPosVenda({...novoPosVenda, satisfacao: e.target.value})} className={`w-full ${bgInput} rounded-lg p-2.5`}>
                           <option value="5">⭐⭐⭐⭐⭐ 5 - Excelente</option>
                           <option value="4">⭐⭐⭐⭐ 4 - Bom</option>
@@ -914,7 +901,7 @@ export default function App() {
                         </select>
                       </div>
 
-                      <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 font-bold py-3 rounded-xl text-white transition-all shadow-md">
+                      <button type="submit" className={`w-full ${btnMarsala} py-3 rounded-xl uppercase tracking-wider`}>
                         Salvar no Pós-Venda
                       </button>
                     </form>
@@ -924,17 +911,17 @@ export default function App() {
                     <h2 className="text-base font-bold">Clientes em Pós-Venda ({posVendas.length})</h2>
                     <div className="space-y-2 max-h-[500px] overflow-y-auto">
                       {posVendas.map(item => (
-                        <div key={item.id} className={`${bgInput} border border-slate-700/50 p-3.5 rounded-xl flex items-center justify-between text-xs`}>
+                        <div key={item.id} className={`${bgInput} border p-3.5 rounded-xl flex items-center justify-between text-xs`}>
                           <div>
-                            <p className="font-bold text-sm text-white">{item.nome}</p>
-                            <p className="text-slate-400">Plano: {item.plano} • Vendedor: {item.vendedor_nome || 'N/A'}</p>
+                            <p className="font-bold text-sm">{item.nome}</p>
+                            <p className="opacity-60">Plano: {item.plano} • Vendedor: {item.vendedor_nome || 'N/A'}</p>
                           </div>
                           <div className="flex items-center space-x-3">
-                            <span className="text-amber-400 font-bold flex items-center space-x-1 bg-slate-800 px-2.5 py-1 rounded-lg">
+                            <span className="text-amber-500 font-bold flex items-center space-x-1 bg-[#800020]/10 px-2.5 py-1 rounded-lg">
                               <span>{item.satisfacao}</span>
-                              <Star className="w-3.5 h-3.5 fill-amber-400" />
+                              <Star className="w-3.5 h-3.5 fill-amber-500" />
                             </span>
-                            <button onClick={() => handleExcluirPosVenda(item.id)} className="text-rose-400 p-1">
+                            <button onClick={() => handleExcluirPosVenda(item.id)} className="text-rose-500 p-1">
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
@@ -952,29 +939,29 @@ export default function App() {
           {abaAtiva === 'cadastro-cliente' && (
             <div className="grid grid-cols-3 gap-6">
               <div className={`${bgCard} border p-5 rounded-2xl space-y-4 shadow-sm h-fit`}>
-                <h2 className="text-base font-bold flex items-center space-x-2 text-blue-500">
+                <h2 className={`text-base font-bold flex items-center space-x-2 ${temaClaro ? 'text-[#800020]' : 'text-rose-400'}`}>
                   <UserPlus className="w-5 h-5" />
                   <span>Cadastrar Cliente Cobrança</span>
                 </h2>
 
                 <form onSubmit={handleCadastrarClienteManual} className="space-y-4 text-xs">
                   <div>
-                    <label className="block text-slate-400 mb-1 font-semibold">ID / Código do Cliente *</label>
+                    <label className="block mb-1 font-semibold opacity-70">ID / Código do Cliente *</label>
                     <input type="text" required placeholder="Ex: 17242" value={novoCliente.codigo} onChange={e => setNovoCliente({...novoCliente, codigo: e.target.value})} className={`w-full ${bgInput} rounded-lg p-2.5`} />
                   </div>
 
                   <div>
-                    <label className="block text-slate-400 mb-1 font-semibold">Nome Completo *</label>
+                    <label className="block mb-1 font-semibold opacity-70">Nome Completo *</label>
                     <input type="text" required placeholder="Nome do cliente" value={novoCliente.nome} onChange={e => setNovoCliente({...novoCliente, nome: e.target.value})} className={`w-full ${bgInput} rounded-lg p-2.5`} />
                   </div>
 
                   <div>
-                    <label className="block text-slate-400 mb-1 font-semibold">Valor Devedor (R$) *</label>
+                    <label className="block mb-1 font-semibold opacity-70">Valor Devedor (R$) *</label>
                     <input type="text" required placeholder="Ex: 150,00" value={novoCliente.total_vencido} onChange={e => setNovoCliente({...novoCliente, total_vencido: e.target.value})} className={`w-full ${bgInput} rounded-lg p-2.5`} />
                   </div>
 
                   <div>
-                    <label className="block text-slate-400 mb-1 font-semibold">Tempo de Atraso / Categoria *</label>
+                    <label className="block mb-1 font-semibold opacity-70">Tempo de Atraso / Categoria *</label>
                     <select value={novoCliente.dias_atraso} onChange={e => setNovoCliente({...novoCliente, dias_atraso: e.target.value})} className={`w-full ${bgInput} rounded-lg p-2.5`}>
                       <option value="30">30 Dias de Atraso</option>
                       <option value="60">60 Dias de Atraso</option>
@@ -983,8 +970,8 @@ export default function App() {
                     </select>
                   </div>
 
-                  <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 font-bold py-3 rounded-xl text-white transition-all">
-                    Cadastrar Cliente no Pipeline
+                  <button type="submit" className={`w-full ${btnMarsala} py-3 rounded-xl uppercase tracking-wider`}>
+                    Cadastrar Cliente
                   </button>
                 </form>
               </div>
@@ -993,12 +980,12 @@ export default function App() {
                 <h2 className="text-base font-bold">Clientes Cobrança Cadastrados ({clientes.length})</h2>
                 <div className="space-y-2 max-h-[500px] overflow-y-auto">
                   {clientes.map(cli => (
-                    <div key={cli.id} className={`${bgInput} border border-slate-700/50 p-3.5 rounded-xl flex items-center justify-between text-xs`}>
+                    <div key={cli.id} className={`${bgInput} border p-3.5 rounded-xl flex items-center justify-between text-xs`}>
                       <div>
-                        <p className="font-bold text-sm text-white">{cli.nome}</p>
-                        <p className="text-slate-400">ID: {cli.codigo} • Atraso: {cli.dias_atraso} Dias</p>
+                        <p className="font-bold text-sm">{cli.nome}</p>
+                        <p className="opacity-60">ID: {cli.codigo} • Atraso: {cli.dias_atraso} Dias</p>
                       </div>
-                      <span className="font-black text-rose-500">
+                      <span className="font-black text-rose-600">
                         R$ {parseFloat(cli.total_vencido || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </span>
                     </div>
@@ -1012,8 +999,8 @@ export default function App() {
           {abaAtiva === 'agenda' && (
             <div className="grid grid-cols-3 gap-6">
               <div className={`${bgCard} border p-5 rounded-2xl space-y-4 shadow-sm`}>
-                <h2 className="text-base font-bold flex items-center space-x-2">
-                  <Calendar className="w-5 h-5 text-blue-500" />
+                <h2 className={`text-base font-bold flex items-center space-x-2 ${temaClaro ? 'text-[#800020]' : 'text-rose-400'}`}>
+                  <Calendar className="w-5 h-5" />
                   <span>Agendar Retorno</span>
                 </h2>
 
@@ -1033,21 +1020,21 @@ export default function App() {
                   }).then(() => { e.target.reset(); carregarDados(); });
                 }} className="space-y-4 text-xs">
                   <div>
-                    <label className="block text-slate-400 mb-1 font-semibold">Cliente *</label>
+                    <label className="block mb-1 font-semibold opacity-70">Cliente *</label>
                     <input type="text" name="cliente_nome" required placeholder="Nome do cliente" className={`w-full ${bgInput} rounded-lg p-2.5`} />
                   </div>
 
                   <div>
-                    <label className="block text-slate-400 mb-1 font-semibold">Data e Hora *</label>
+                    <label className="block mb-1 font-semibold opacity-70">Data e Hora *</label>
                     <input type="datetime-local" name="data_retorno" required className={`w-full ${bgInput} rounded-lg p-2.5`} />
                   </div>
 
                   <div>
-                    <label className="block text-slate-400 mb-1 font-semibold">Observação</label>
+                    <label className="block mb-1 font-semibold opacity-70">Observação</label>
                     <textarea name="observacao" rows="3" className={`w-full ${bgInput} rounded-lg p-2.5`}></textarea>
                   </div>
 
-                  <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 font-bold py-2.5 rounded-lg text-white">
+                  <button type="submit" className={`w-full ${btnMarsala} py-2.5 rounded-lg uppercase tracking-wider`}>
                     Salvar na Agenda
                   </button>
                 </form>
@@ -1057,13 +1044,13 @@ export default function App() {
                 <h2 className="text-base font-bold">Compromissos Agendados</h2>
                 <div className="space-y-3 max-h-[500px] overflow-y-auto">
                   {agenda.map(item => (
-                    <div key={item.id} className={`${bgInput} border border-slate-700/50 p-4 rounded-xl flex items-center justify-between text-xs`}>
+                    <div key={item.id} className={`${bgInput} border p-4 rounded-xl flex items-center justify-between text-xs`}>
                       <div>
                         <p className="font-bold">{item.cliente_nome}</p>
-                        <p className="text-blue-500 font-semibold">📅 {item.data_retorno}</p>
-                        <p className="text-slate-400 mt-1">{item.observacao}</p>
+                        <p className={`font-semibold ${temaClaro ? 'text-[#800020]' : 'text-rose-400'}`}>📅 {item.data_retorno}</p>
+                        <p className="opacity-60 mt-1">{item.observacao}</p>
                       </div>
-                      <span className="bg-slate-800 px-3 py-1 rounded-full text-slate-200 text-[10px] font-bold uppercase">
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${temaClaro ? 'bg-[#800020]/10 text-[#800020]' : 'bg-slate-800 text-slate-200'}`}>
                         {item.usuario_nome}
                       </span>
                     </div>
@@ -1073,47 +1060,44 @@ export default function App() {
             </div>
           )}
 
-          {/* CHAT COM CRIAR GRUPO */}
+          {/* CHAT COM MARSALA E DESIGN AGRADÁVEL */}
           {abaAtiva === 'chat' && (
             <div className="grid grid-cols-4 gap-6 h-[620px]">
               <div className={`${bgCard} border p-4 rounded-2xl space-y-4 shadow-sm flex flex-col justify-between`}>
                 <div className="space-y-3 overflow-y-auto pr-1">
-                  <h3 className="text-sm font-bold text-white">Canais & Conversas</h3>
+                  <h3 className="text-sm font-bold">Canais & Conversas</h3>
                   
                   <button 
                     onClick={() => { setChatTipo('geral'); setChatDestinoId(null); }} 
-                    className={`w-full text-left p-2.5 rounded-xl font-bold text-xs ${chatTipo === 'geral' ? 'bg-blue-600 text-white' : `${bgInput}`}`}
+                    className={`w-full text-left p-2.5 rounded-xl font-bold text-xs ${chatTipo === 'geral' ? `${btnMarsala}` : `${bgInput}`}`}
                   >
                     # Geral (Todos)
                   </button>
 
-                  {/* GRUPOS */}
-                  <p className="text-[10px] font-bold uppercase text-slate-400 pt-2">Grupos Criados</p>
+                  <p className="text-[10px] font-bold uppercase opacity-50 pt-2">Grupos Criados</p>
                   {gruposChat.map(g => (
                     <button 
                       key={g.id}
                       onClick={() => { setChatTipo('grupo'); setChatDestinoId(g.id); }}
-                      className={`w-full text-left p-2 rounded-lg text-xs truncate ${chatTipo === 'grupo' && chatDestinoId === g.id ? 'bg-blue-600 text-white font-bold' : `${bgInput}`}`}
+                      className={`w-full text-left p-2 rounded-lg text-xs truncate ${chatTipo === 'grupo' && chatDestinoId === g.id ? `${btnMarsala}` : `${bgInput}`}`}
                     >
                       📢 {g.nome}
                     </button>
                   ))}
 
-                  {/* USUÁRIOS */}
-                  <p className="text-[10px] font-bold uppercase text-slate-400 pt-2">Usuários Online</p>
+                  <p className="text-[10px] font-bold uppercase opacity-50 pt-2">Usuários Online</p>
                   {usuarios.filter(u => u.id !== usuario.id).map(u => (
                     <button 
                       key={u.id} 
                       onClick={() => { setChatTipo('direto'); setChatDestinoId(u.id); }} 
-                      className={`w-full text-left p-2 rounded-lg text-xs truncate ${chatTipo === 'direto' && chatDestinoId === u.id ? 'bg-blue-600 text-white font-bold' : `${bgInput}`}`}
+                      className={`w-full text-left p-2 rounded-lg text-xs truncate ${chatTipo === 'direto' && chatDestinoId === u.id ? `${btnMarsala}` : `${bgInput}`}`}
                     >
                       👤 {u.nome} ({u.cargo})
                     </button>
                   ))}
                 </div>
 
-                {/* FORMULÁRIO CRIAR NOVO GRUPO */}
-                <form onSubmit={handleCriarGrupoChat} className="pt-2 border-t border-slate-800 space-y-2">
+                <form onSubmit={handleCriarGrupoChat} className="pt-2 border-t space-y-2">
                   <input 
                     type="text" 
                     placeholder="Nome do Novo Grupo..."
@@ -1121,7 +1105,7 @@ export default function App() {
                     onChange={e => setNovoGrupoNome(e.target.value)}
                     className={`w-full ${bgInput} rounded-lg p-2 text-xs focus:outline-none`}
                   />
-                  <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-1.5 rounded-lg text-xs flex items-center justify-center space-x-1">
+                  <button type="submit" className={`w-full ${btnMarsala} py-2 rounded-lg text-xs flex items-center justify-center space-x-1 uppercase tracking-wider`}>
                     <PlusCircle className="w-4 h-4" />
                     <span>Criar Grupo</span>
                   </button>
@@ -1129,12 +1113,12 @@ export default function App() {
               </div>
 
               <div className={`col-span-3 ${bgCard} border rounded-2xl p-5 flex flex-col shadow-sm`}>
-                <div className={`flex-1 overflow-y-auto space-y-3 p-3 ${bgInput} rounded-xl mb-4 border border-slate-700/50`}>
+                <div className={`flex-1 overflow-y-auto space-y-3 p-3 ${bgInput} rounded-xl mb-4 border`}>
                   {chatMensagens.map(msg => (
                     <div key={msg.id} className={`${bgCard} p-3 rounded-xl text-xs space-y-1 shadow-sm`}>
-                      <div className="flex justify-between items-center font-bold text-blue-500">
+                      <div className={`flex justify-between items-center font-bold ${temaClaro ? 'text-[#800020]' : 'text-rose-400'}`}>
                         <span>{msg.remetente_nome}</span>
-                        <span className="text-[10px] text-slate-400">{new Date(msg.criado_em).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span className="text-[10px] opacity-50">{new Date(msg.criado_em).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
                       <p>{msg.mensagem}</p>
                     </div>
@@ -1143,7 +1127,7 @@ export default function App() {
 
                 <form onSubmit={handleEnviarChat} className="flex space-x-2">
                   <input type="text" placeholder="Escreva sua mensagem..." value={novaMsgChat} onChange={e => setNovaMsgChat(e.target.value)} className={`flex-1 ${bgInput} rounded-xl px-4 py-2.5 text-xs focus:outline-none`} />
-                  <button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white px-5 rounded-xl font-bold">
+                  <button type="submit" className={`${btnMarsala} px-5 rounded-xl font-bold`}>
                     <Send className="w-4 h-4" />
                   </button>
                 </form>
@@ -1151,23 +1135,22 @@ export default function App() {
             </div>
           )}
 
-          {/* ADMINISTRAÇÃO - TELA EXCEL E USUÁRIOS CORRIGIDAS */}
+          {/* ADMINISTRAÇÃO */}
           {abaAtiva === 'admin' && (
             <div className="space-y-6">
               
-              {/* SUB-ABA SUBIR PLANILHA EXCEL */}
               {subAbaAdmin === 'excel' && (
                 <div className={`${bgCard} border p-6 rounded-2xl space-y-6 shadow-sm`}>
                   <div>
-                    <h2 className="text-lg font-bold flex items-center space-x-2 text-blue-500">
+                    <h2 className={`text-lg font-bold flex items-center space-x-2 ${temaClaro ? 'text-[#800020]' : 'text-rose-400'}`}>
                       <FileSpreadsheet className="w-6 h-6" />
                       <span>Subir Planilha de Clientes (com Prévia)</span>
                     </h2>
-                    <p className="text-xs text-slate-400 mt-1">Carregue o arquivo Excel para visualizar os dados antes de disparar para o pipeline.</p>
+                    <p className="text-xs opacity-60 mt-1">Carregue o arquivo Excel para visualizar os dados antes de disparar para o pipeline.</p>
                   </div>
 
-                  <div className="border-2 border-dashed border-blue-500/30 p-8 rounded-2xl text-center space-y-4">
-                    <Upload className="w-10 h-10 text-blue-500 mx-auto animate-bounce" />
+                  <div className={`border-2 border-dashed ${temaClaro ? 'border-[#800020]/30' : 'border-rose-500/30'} p-8 rounded-2xl text-center space-y-4`}>
+                    <Upload className={`w-10 h-10 mx-auto animate-bounce ${temaClaro ? 'text-[#800020]' : 'text-rose-400'}`} />
                     <input 
                       type="file" 
                       accept=".xlsx, .xls, .csv"
@@ -1177,29 +1160,29 @@ export default function App() {
                     />
                     <label 
                       htmlFor="excelInput"
-                      className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-6 py-3 rounded-xl cursor-pointer inline-block shadow-lg transition-all"
+                      className={`${btnMarsala} text-xs px-6 py-3 rounded-xl cursor-pointer inline-block shadow-lg uppercase tracking-wider`}
                     >
                       Selecionar Arquivo Excel / CSV
                     </label>
                   </div>
 
                   {previaExcel.length > 0 && (
-                    <div className="space-y-4 pt-4 border-t border-slate-700/50">
+                    <div className="space-y-4 pt-4 border-t opacity-90">
                       <div className="flex justify-between items-center">
-                        <h3 className="text-sm font-bold text-emerald-500">
+                        <h3 className="text-sm font-bold text-emerald-600">
                           Prévia da Planilha ({previaExcel.length} Clientes Encontrados)
                         </h3>
                         <button 
                           onClick={handleConfirmarImportacaoExcel}
-                          className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-6 py-2.5 rounded-xl shadow-md transition-all"
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-6 py-2.5 rounded-xl shadow-md uppercase tracking-wider"
                         >
                           Confirmar e Salvar no Pipeline
                         </button>
                       </div>
 
-                      <div className="max-h-[350px] overflow-y-auto border border-slate-700/50 rounded-xl">
+                      <div className="max-h-[350px] overflow-y-auto border rounded-xl">
                         <table className="w-full text-left text-xs">
-                          <thead className={`${bgInput} uppercase text-slate-400 border-b border-slate-700`}>
+                          <thead className={`${bgInput} uppercase opacity-70 border-b`}>
                             <tr>
                               <th className="p-3">#</th>
                               <th className="p-3">ID / Código</th>
@@ -1209,11 +1192,11 @@ export default function App() {
                           </thead>
                           <tbody>
                             {previaExcel.map((item, idx) => (
-                              <tr key={idx} className="border-b border-slate-800/40 hover:bg-slate-800/20">
-                                <td className="p-3 text-slate-400">{idx + 1}</td>
+                              <tr key={idx} className="border-b hover:bg-black/5">
+                                <td className="p-3 opacity-60">{idx + 1}</td>
                                 <td className="p-3 font-bold">{item.codigo}</td>
                                 <td className="p-3">{item.nome}</td>
-                                <td className="p-3 font-bold text-rose-500">
+                                <td className="p-3 font-bold text-rose-600">
                                   R$ {parseFloat(item.total_vencido || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                                 </td>
                               </tr>
@@ -1226,12 +1209,11 @@ export default function App() {
                 </div>
               )}
 
-              {/* SUB-ABA USUÁRIOS */}
               {subAbaAdmin === 'usuarios' && (
                 <div className="grid grid-cols-3 gap-6">
                   <div className={`${bgCard} border p-5 rounded-2xl space-y-4 shadow-sm`}>
-                    <h2 className="text-base font-bold flex items-center space-x-2">
-                      <UserPlus className="w-5 h-5 text-blue-500" />
+                    <h2 className={`text-base font-bold flex items-center space-x-2 ${temaClaro ? 'text-[#800020]' : 'text-rose-400'}`}>
+                      <UserPlus className="w-5 h-5" />
                       <span>{usuarioEditando ? 'Editar Usuário' : 'Cadastrar Usuário'}</span>
                     </h2>
 
@@ -1259,17 +1241,17 @@ export default function App() {
                       });
                     }} className="space-y-3 text-xs">
                       <div>
-                        <label className="block text-slate-400 mb-1">Nome Completo</label>
+                        <label className="block mb-1 opacity-70">Nome Completo</label>
                         <input type="text" name="nome" defaultValue={usuarioEditando?.nome || ''} required className={`w-full ${bgInput} rounded-lg p-2.5`} />
                       </div>
 
                       <div>
-                        <label className="block text-slate-400 mb-1">E-mail de Acesso</label>
+                        <label className="block mb-1 opacity-70">E-mail de Acesso</label>
                         <input type="email" name="email" defaultValue={usuarioEditando?.email || ''} required className={`w-full ${bgInput} rounded-lg p-2.5`} />
                       </div>
 
                       <div>
-                        <label className="block text-slate-400 mb-1">Cargo / Função *</label>
+                        <label className="block mb-1 opacity-70">Cargo / Função *</label>
                         <select name="cargo" defaultValue={usuarioEditando?.cargo || 'COBRADOR'} className={`w-full ${bgInput} rounded-lg p-2.5 font-bold`}>
                           <option value="COBRADOR">COBRADOR</option>
                           <option value="ADMINISTRADOR">ADMINISTRADOR</option>
@@ -1280,11 +1262,11 @@ export default function App() {
 
                       <div className="flex space-x-2 pt-2">
                         {usuarioEditando && (
-                          <button type="button" onClick={() => setUsuarioEditando(null)} className="w-1/2 bg-slate-700 text-white font-bold py-2 rounded-lg">
+                          <button type="button" onClick={() => setUsuarioEditando(null)} className="w-1/2 bg-slate-300 text-slate-800 font-bold py-2 rounded-lg">
                             Cancelar
                           </button>
                         )}
-                        <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-lg">
+                        <button type="submit" className={`w-full ${btnMarsala} py-2.5 rounded-lg uppercase tracking-wider`}>
                           {usuarioEditando ? 'Salvar Alterações' : 'Salvar Usuário'}
                         </button>
                       </div>
@@ -1295,16 +1277,16 @@ export default function App() {
                     <h2 className="text-base font-bold">Usuários Cadastrados</h2>
                     <div className="space-y-2 max-h-[500px] overflow-y-auto">
                       {usuarios.map(u => (
-                        <div key={u.id} className={`${bgInput} border border-slate-700/50 p-3 rounded-xl flex items-center justify-between text-xs`}>
+                        <div key={u.id} className={`${bgInput} border p-3 rounded-xl flex items-center justify-between text-xs`}>
                           <div>
-                            <p className="font-bold text-white">{u.nome}</p>
-                            <p className="text-slate-400">{u.email}</p>
+                            <p className="font-bold">{u.nome}</p>
+                            <p className="opacity-60">{u.email}</p>
                           </div>
                           <div className="flex items-center space-x-2">
-                            <span className="bg-blue-600/20 text-blue-400 border border-blue-500/30 px-3 py-1 rounded-full text-[10px] font-bold uppercase">
+                            <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase ${temaClaro ? 'bg-[#800020]/10 text-[#800020]' : 'bg-rose-500/20 text-rose-300'}`}>
                               {u.cargo}
                             </span>
-                            <button onClick={() => setUsuarioEditando(u)} className="p-1.5 text-blue-400 hover:bg-slate-800 rounded">
+                            <button onClick={() => setUsuarioEditando(u)} className={`p-1.5 rounded ${temaClaro ? 'text-[#800020]' : 'text-rose-400'}`}>
                               <Edit3 className="w-4 h-4" />
                             </button>
                           </div>

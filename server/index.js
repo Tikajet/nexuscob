@@ -66,7 +66,6 @@ async function initDB() {
       );
     `);
 
-    // Garante as colunas em bancos ja criados sem recriar a tabela
     await pool.query(`ALTER TABLE pos_venda_clientes ADD COLUMN IF NOT EXISTS estagio_id INT DEFAULT 1;`);
     await pool.query(`ALTER TABLE pos_venda_clientes ADD COLUMN IF NOT EXISTS vendedor_id INT;`);
     await pool.query(`ALTER TABLE pos_venda_clientes ADD COLUMN IF NOT EXISTS satisfacao INT DEFAULT 5;`);
@@ -108,7 +107,7 @@ async function initDB() {
       );
     `);
 
-    console.log('✅ Banco de dados PostgreSQL ajustado!');
+    console.log('✅ Banco PostgreSQL MetroCob inicializado com sucesso!');
   } catch (error) {
     console.error('❌ Erro no banco de dados:', error.message);
   }
@@ -183,12 +182,20 @@ app.post('/api/usuarios', async (req, res) => {
 
 app.put('/api/usuarios/:id', async (req, res) => {
   const { id } = req.params;
-  const { nome, email, cargo } = req.body;
+  const { nome, email, cargo, senha } = req.body;
   try {
-    const result = await pool.query(
-      'UPDATE usuarios SET nome = $1, email = $2, cargo = $3 WHERE id = $4 RETURNING id, nome, email, cargo',
-      [nome, email, cargo, id]
-    );
+    let query = 'UPDATE usuarios SET nome = $1, email = $2, cargo = $3';
+    let params = [nome, email, cargo];
+
+    if (senha && senha.trim() !== '') {
+      query += ', senha_hash = $4 WHERE id = $5 RETURNING id, nome, email, cargo';
+      params.push(senha.trim(), id);
+    } else {
+      query += ' WHERE id = $4 RETURNING id, nome, email, cargo';
+      params.push(id);
+    }
+
+    const result = await pool.query(query, params);
     res.json({ sucesso: true, usuario: result.rows[0] });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao editar usuário.' });
@@ -324,6 +331,17 @@ app.post('/api/chat/grupos', async (req, res) => {
     res.json({ sucesso: true, grupo: result.rows[0] });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao criar grupo.' });
+  }
+});
+
+app.delete('/api/chat/grupos/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM chat_mensagens WHERE grupo_id = $1', [id]);
+    await pool.query('DELETE FROM chat_grupos WHERE id = $1', [id]);
+    res.json({ sucesso: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao excluir grupo.' });
   }
 });
 
@@ -463,6 +481,31 @@ app.delete('/api/clientes/:id', async (req, res) => {
     res.json({ sucesso: true });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao excluir cliente.' });
+  }
+});
+
+// EXCLUSÃO EM MASSA DE CLIENTES
+app.delete('/api/clientes/limpar/massa', async (req, res) => {
+  const { categoria } = req.query; // 'todos', '30', '60', '90', '120'
+  try {
+    let query = 'DELETE FROM clientes';
+    let params = [];
+
+    if (categoria && categoria !== 'todos') {
+      const dias = parseInt(categoria, 10);
+      if (dias >= 120) {
+        query += ' WHERE dias_atraso >= 120 OR status_conexao = $1';
+        params.push('Cancelado');
+      } else {
+        query += ' WHERE dias_atraso = $1';
+        params.push(dias);
+      }
+    }
+
+    const result = await pool.query(query, params);
+    res.json({ sucesso: true, deletados: result.rowCount });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao realizar exclusão em massa.' });
   }
 });
 

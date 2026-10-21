@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   BarChart2, Users, Calendar, Settings, MessageSquare, Search, LogOut, 
-  CheckCircle, Send, Wifi, Shield, Trash2, ArrowRight, Sun, Moon, 
-  UserPlus, Award, ChevronDown, ChevronRight, Upload, FileSpreadsheet, Edit3
+  Send, Wifi, Shield, Trash2, ArrowRight, Sun, Moon, 
+  UserPlus, Award, ChevronDown, ChevronRight, Upload, FileSpreadsheet, Edit3, Filter
 } from 'lucide-react';
 
 const API_URL = '/api';
@@ -20,9 +20,7 @@ const ESTAGIOS_FUNIL = [
 const FRASES_MOTIVACIONAIS = [
   "A consistência é a chave para transformar metas em resultados extraordinários!",
   "Cada cliente atendido com excelência reforça o nosso compromisso com a qualidade.",
-  "Grandes conquistas são construídas através de pequenas ações diárias.",
-  "Sua dedicação hoje é o sucesso da MetroNet amanhã!",
-  "Foco, resiliência e empatia transformam qualquer desafio em negociação concluída."
+  "Grandes conquistas são construídas através de pequenas ações diárias."
 ];
 
 export default function App() {
@@ -45,7 +43,6 @@ export default function App() {
   
   // Prévia Excel
   const [previaExcel, setPreviaExcel] = useState([]);
-  const [carregandoPrevia, setCarregandoPrevia] = useState(false);
 
   // Chat
   const [gruposChat, setGruposChat] = useState([]);
@@ -54,16 +51,21 @@ export default function App() {
   const [chatDestinoId, setChatDestinoId] = useState(null);
   const [novaMsgChat, setNovaMsgChat] = useState('');
 
+  // Cadastro de Clientes
+  const [novoCliente, setNovoCliente] = useState({ codigo: '', nome: '', total_vencido: '', dias_atraso: '30' });
+  const [filtroCategoriaAtraso, setFiltroCategoriaAtraso] = useState('todos');
+
   // Modais e Drag
   const [modalAcordo, setModalAcordo] = useState({ exibir: false, clienteId: null, valor: '', parcelas: '1' });
   const [clienteArrastadoId, setClienteArrastadoId] = useState(null);
 
-  // Filtros
+  // Filtros de Busca
   const [buscaGlobal, setBuscaGlobal] = useState('');
   const [buscaPipeline, setBuscaPipeline] = useState('');
   const [buscaAgenda, setBuscaAgenda] = useState('');
+  const [buscaCadastro, setBuscaCadastro] = useState('');
 
-  // Edição de Usuário
+  // Edição
   const [usuarioEditando, setUsuarioEditando] = useState(null);
 
   useEffect(() => {
@@ -106,11 +108,11 @@ export default function App() {
         setExibirPopup(true);
       }
     } catch (err) {
-      alert('Erro ao conectar.');
+      alert('Erro de conexão ao realizar login.');
     }
   };
 
-  // LÓGICA DRAG AND DROP
+  // DRAG AND DROP
   const handleDragStart = (e, clienteId) => {
     setClienteArrastadoId(clienteId);
     e.dataTransfer.setData('text/plain', clienteId);
@@ -142,8 +144,23 @@ export default function App() {
     }).then(() => carregarDados());
   };
 
+  const handleCadastrarClienteManual = (e) => {
+    e.preventDefault();
+    fetch(`${API_URL}/clientes/manual`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(novoCliente)
+    }).then(r => r.json()).then(data => {
+      if (data.sucesso) {
+        alert('Cliente cadastrado com sucesso!');
+        setNovoCliente({ codigo: '', nome: '', total_vencido: '', dias_atraso: '30' });
+        carregarDados();
+      }
+    });
+  };
+
   const handleExcluirCliente = (clienteId) => {
-    if (confirm('Tem certeza que deseja excluir este cliente do pipeline?')) {
+    if (confirm('Tem certeza que deseja excluir este cliente?')) {
       fetch(`${API_URL}/clientes/${clienteId}`, { method: 'DELETE' })
         .then(() => carregarDados());
     }
@@ -167,23 +184,18 @@ export default function App() {
     });
   };
 
-  // ENVIAR PLANILHA COM PRÉVIA
   const handleCarregarPreviaExcel = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    setCarregandoPrevia(true);
     const formData = new FormData();
     formData.append('arquivo', file);
 
     fetch(`${API_URL}/clientes/previa`, { method: 'POST', body: formData })
       .then(r => r.json())
       .then(data => {
-        setCarregandoPrevia(false);
         if (data.sucesso) {
           setPreviaExcel(data.dados);
-        } else {
-          alert('Erro ao processar planilha.');
         }
       });
   };
@@ -222,7 +234,7 @@ export default function App() {
     });
   };
 
-  // ESTILOS DINÂMICOS MODO CLARO / ESCURO
+  // ESTILOS MODO CLARO / ESCURO
   const bgPrincipal = temaClaro ? 'bg-slate-100 text-slate-900' : 'bg-slate-950 text-slate-100';
   const bgCard = temaClaro ? 'bg-white border-slate-200 text-slate-800' : 'bg-slate-900 border-slate-800 text-slate-100';
   const bgInput = temaClaro ? 'bg-slate-50 border-slate-300 text-slate-900' : 'bg-slate-950 border-slate-800 text-white';
@@ -285,6 +297,19 @@ export default function App() {
   const totalClientes = clientes.length;
   const totalEmAberto = clientes.reduce((acc, c) => acc + (parseFloat(c.total_vencido) || 0), 0);
   const totalRecebido = clientes.filter(c => c.estagio_id === 6).reduce((acc, c) => acc + (parseFloat(c.valor_acordo) || parseFloat(c.total_vencido) || 0), 0);
+
+  // FILTRAGEM DOS CLIENTES NO CADASTRO
+  const clientesFiltradosCadastro = clientes.filter(c => {
+    const combinaBusca = c.nome?.toLowerCase().includes(buscaCadastro.toLowerCase()) || c.codigo?.toLowerCase().includes(buscaCadastro.toLowerCase());
+    if (!combinaBusca) return false;
+
+    if (filtroCategoriaAtraso === '30') return c.dias_atraso === 30;
+    if (filtroCategoriaAtraso === '60') return c.dias_atraso === 60;
+    if (filtroCategoriaAtraso === '90') return c.dias_atraso === 90;
+    if (filtroCategoriaAtraso === 'cancelados') return c.dias_atraso >= 120 || c.status_conexao === 'Cancelado';
+
+    return true;
+  });
 
   return (
     <div className={`min-h-screen ${bgPrincipal} flex font-sans transition-colors duration-200`}>
@@ -449,7 +474,6 @@ export default function App() {
         </div>
 
         <div className="p-4 border-t border-slate-800 space-y-2">
-          {/* BOTÃO MUDAR TEMA CLARO/ESCURO */}
           <button 
             onClick={() => setTemaClaro(!temaClaro)}
             className="w-full flex items-center justify-center space-x-2 bg-slate-800 hover:bg-slate-700 py-2 rounded-lg text-xs text-slate-200 transition-all font-semibold"
@@ -517,7 +541,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* SEÇÃO RANKING OPERADORES */}
               <div className={`${bgCard} border p-6 rounded-2xl space-y-4 shadow-sm`}>
                 <h2 className="text-base font-bold flex items-center space-x-2 text-amber-500">
                   <Award className="w-5 h-5" />
@@ -546,7 +569,7 @@ export default function App() {
             </div>
           )}
 
-          {/* PIPELINE COM DRAG AND DROP E BOTÃO EXCLUIR */}
+          {/* PIPELINE */}
           {abaAtiva === 'pipeline' && (
             <div className="space-y-4">
               <div className="flex justify-between items-center">
@@ -638,6 +661,173 @@ export default function App() {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {/* TELA DE CADASTRO E GERENCIAMENTO DE CLIENTES TOTALMENTE RECONSTRUÍDA */}
+          {abaAtiva === 'cadastro-cliente' && (
+            <div className="grid grid-cols-3 gap-6">
+              
+              {/* FORMULÁRIO CADASTRO MANUAL */}
+              <div className={`${bgCard} border p-5 rounded-2xl space-y-4 shadow-sm h-fit`}>
+                <h2 className="text-base font-bold flex items-center space-x-2 text-blue-500">
+                  <UserPlus className="w-5 h-5" />
+                  <span>Cadastrar Novo Cliente</span>
+                </h2>
+
+                <form onSubmit={handleCadastrarClienteManual} className="space-y-4 text-xs">
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-semibold">ID / Código do Cliente *</label>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="Ex: 17242"
+                      value={novoCliente.codigo}
+                      onChange={e => setNovoCliente({...novoCliente, codigo: e.target.value})}
+                      className={`w-full ${bgInput} rounded-lg p-2.5 focus:outline-none focus:border-blue-500`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-semibold">Nome Completo *</label>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="Nome do cliente"
+                      value={novoCliente.nome}
+                      onChange={e => setNovoCliente({...novoCliente, nome: e.target.value})}
+                      className={`w-full ${bgInput} rounded-lg p-2.5 focus:outline-none focus:border-blue-500`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-semibold">Valor Devedor (R$) *</label>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="Ex: 150,00"
+                      value={novoCliente.total_vencido}
+                      onChange={e => setNovoCliente({...novoCliente, total_vencido: e.target.value})}
+                      className={`w-full ${bgInput} rounded-lg p-2.5 focus:outline-none focus:border-blue-500`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-semibold">Tempo de Atraso / Categoria *</label>
+                    <select 
+                      value={novoCliente.dias_atraso}
+                      onChange={e => setNovoCliente({...novoCliente, dias_atraso: e.target.value})}
+                      className={`w-full ${bgInput} rounded-lg p-2.5 focus:outline-none focus:border-blue-500`}
+                    >
+                      <option value="30">30 Dias de Atraso</option>
+                      <option value="60">60 Dias de Atraso</option>
+                      <option value="90">90 Dias de Atraso</option>
+                      <option value="120">CANCELADOS / Inadimplentes</option>
+                    </select>
+                  </div>
+
+                  <button 
+                    type="submit" 
+                    className="w-full bg-blue-600 hover:bg-blue-500 font-bold py-3 rounded-xl text-white transition-all shadow-md"
+                  >
+                    Cadastrar Cliente no Pipeline
+                  </button>
+                </form>
+              </div>
+
+              {/* LISTAGEM COM ABAS DE CATEGORIA */}
+              <div className={`col-span-2 ${bgCard} border p-5 rounded-2xl space-y-4 shadow-sm`}>
+                <div className="flex flex-col space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-base font-bold flex items-center space-x-2">
+                      <Users className="w-5 h-5 text-blue-500" />
+                      <span>Clientes Cadastrados ({clientesFiltradosCadastro.length})</span>
+                    </h2>
+
+                    <div className="relative w-64">
+                      <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                      <input 
+                        type="text" 
+                        placeholder="Buscar nesta lista..."
+                        value={buscaCadastro}
+                        onChange={e => setBuscaCadastro(e.target.value)}
+                        className={`w-full ${bgInput} rounded-lg pl-9 pr-3 py-1.5 text-xs`}
+                      />
+                    </div>
+                  </div>
+
+                  {/* ABAS DE FILTRO POR ATRASO */}
+                  <div className="flex space-x-2 border-b border-slate-700/50 pb-2 text-xs font-bold">
+                    <button 
+                      onClick={() => setFiltroCategoriaAtraso('todos')}
+                      className={`px-3 py-1.5 rounded-lg transition-all ${filtroCategoriaAtraso === 'todos' ? 'bg-blue-600 text-white' : 'bg-slate-800/50 text-slate-400 hover:text-white'}`}
+                    >
+                      Todos ({clientes.length})
+                    </button>
+                    <button 
+                      onClick={() => setFiltroCategoriaAtraso('30')}
+                      className={`px-3 py-1.5 rounded-lg transition-all ${filtroCategoriaAtraso === '30' ? 'bg-blue-600 text-white' : 'bg-slate-800/50 text-slate-400 hover:text-white'}`}
+                    >
+                      30 Dias ({clientes.filter(c => c.dias_atraso === 30).length})
+                    </button>
+                    <button 
+                      onClick={() => setFiltroCategoriaAtraso('60')}
+                      className={`px-3 py-1.5 rounded-lg transition-all ${filtroCategoriaAtraso === '60' ? 'bg-blue-600 text-white' : 'bg-slate-800/50 text-slate-400 hover:text-white'}`}
+                    >
+                      60 Dias ({clientes.filter(c => c.dias_atraso === 60).length})
+                    </button>
+                    <button 
+                      onClick={() => setFiltroCategoriaAtraso('90')}
+                      className={`px-3 py-1.5 rounded-lg transition-all ${filtroCategoriaAtraso === '90' ? 'bg-blue-600 text-white' : 'bg-slate-800/50 text-slate-400 hover:text-white'}`}
+                    >
+                      90 Dias ({clientes.filter(c => c.dias_atraso === 90).length})
+                    </button>
+                    <button 
+                      onClick={() => setFiltroCategoriaAtraso('cancelados')}
+                      className={`px-3 py-1.5 rounded-lg transition-all ${filtroCategoriaAtraso === 'cancelados' ? 'bg-rose-600 text-white' : 'bg-slate-800/50 text-slate-400 hover:text-white'}`}
+                    >
+                      Cancelados ({clientes.filter(c => c.dias_atraso >= 120 || c.status_conexao === 'Cancelado').length})
+                    </button>
+                  </div>
+                </div>
+
+                {/* LISTA */}
+                <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
+                  {clientesFiltradosCadastro.length === 0 ? (
+                    <div className="text-center py-12 text-slate-400 text-xs">
+                      Nenhum cliente encontrado para esta categoria.
+                    </div>
+                  ) : (
+                    clientesFiltradosCadastro.map(cli => (
+                      <div key={cli.id} className={`${bgInput} border border-slate-700/50 p-3.5 rounded-xl flex items-center justify-between text-xs hover:border-blue-500/50 transition-all`}>
+                        <div className="space-y-0.5">
+                          <p className="font-bold text-sm">{cli.nome}</p>
+                          <div className="flex items-center space-x-2 text-[11px] text-slate-400">
+                            <span>ID: <strong className="text-blue-400">{cli.codigo}</strong></span>
+                            <span>•</span>
+                            <span className="bg-slate-800 px-2 py-0.5 rounded text-slate-300 font-semibold">
+                              {cli.dias_atraso >= 120 ? 'Cancelado' : `${cli.dias_atraso} Dias de Atraso`}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center space-x-4">
+                          <span className="font-black text-rose-500 text-sm">
+                            R$ {parseFloat(cli.total_vencido || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                          </span>
+                          <button 
+                            onClick={() => handleExcluirCliente(cli.id)}
+                            className="p-1.5 text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+                            title="Excluir Cliente"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             </div>
           )}
@@ -777,11 +967,9 @@ export default function App() {
             </div>
           )}
 
-          {/* SUBMENU ADMINISTRAÇÃO */}
+          {/* ADMINISTRAÇÃO */}
           {abaAtiva === 'admin' && (
             <div className="space-y-6">
-              
-              {/* SUB-ABA: IMPORTAR EXCEL COM PRÉVIA */}
               {subAbaAdmin === 'excel' && (
                 <div className={`${bgCard} border p-6 rounded-2xl space-y-6 shadow-sm`}>
                   <div>
@@ -809,7 +997,6 @@ export default function App() {
                     </label>
                   </div>
 
-                  {/* TABELA DE PRÉVIA */}
                   {previaExcel.length > 0 && (
                     <div className="space-y-4 pt-4 border-t border-slate-700/50">
                       <div className="flex justify-between items-center">
@@ -853,7 +1040,6 @@ export default function App() {
                 </div>
               )}
 
-              {/* SUB-ABA: GERENCIAMENTO DE USUÁRIOS */}
               {subAbaAdmin === 'usuarios' && (
                 <div className="grid grid-cols-3 gap-6">
                   <div className={`${bgCard} border p-5 rounded-2xl space-y-4 shadow-sm`}>

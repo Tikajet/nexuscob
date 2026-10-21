@@ -19,7 +19,6 @@ const pool = new Pool({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
 });
 
-// INITIALIZAÇÃO E MIGRAÇÃO DO BANCO
 async function initDB() {
   try {
     const schemaPath = path.join(__dirname, 'schema.sql');
@@ -58,16 +57,6 @@ async function initDB() {
     `);
 
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS scripts (
-        id SERIAL PRIMARY KEY,
-        titulo VARCHAR(255) NOT NULL,
-        categoria VARCHAR(50) DEFAULT '30',
-        conteudo TEXT NOT NULL,
-        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    await pool.query(`
       CREATE TABLE IF NOT EXISTS agenda (
         id SERIAL PRIMARY KEY,
         cliente_id INT,
@@ -82,23 +71,6 @@ async function initDB() {
       );
     `);
 
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS pos_venda_clientes (
-        id SERIAL PRIMARY KEY,
-        codigo VARCHAR(50),
-        nome VARCHAR(255) NOT NULL,
-        telefone VARCHAR(50),
-        plano VARCHAR(100),
-        data_instalacao DATE DEFAULT CURRENT_DATE,
-        estagio VARCHAR(50) DEFAULT '15_dias',
-        satisfacao INT DEFAULT 5,
-        observacoes TEXT,
-        usuario_responsavel_id INT,
-        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    // TABELAS CHAT (MENSAGENS + GRUPOS)
     await pool.query(`
       CREATE TABLE IF NOT EXISTS chat_grupos (
         id SERIAL PRIMARY KEY,
@@ -119,17 +91,7 @@ async function initDB() {
       );
     `);
 
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS historico_contatos (
-        id SERIAL PRIMARY KEY,
-        cliente_id INT NOT NULL,
-        usuario_nome VARCHAR(255),
-        observacao TEXT NOT NULL,
-        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-
-    console.log('✅ Banco PostgreSQL MetroCob pronto com Chat Individual/Grupos e Ranking!');
+    console.log('✅ Banco PostgreSQL MetroCob pronto com suporte a categorias de atraso!');
   } catch (error) {
     console.error('❌ Erro na inicializacao do BD:', error.message);
   }
@@ -153,7 +115,7 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'API MetroCob Operacional' });
 });
 
-// LOGIN E GERENCIAMENTO DE USUÁRIOS
+// LOGIN E USUÁRIOS
 app.post('/api/login', async (req, res) => {
   const { email, senha } = req.body;
   const emailLimpo = String(email || 'admin@metronet.com.br').trim().toLowerCase();
@@ -216,17 +178,6 @@ app.put('/api/usuarios/:id', async (req, res) => {
   }
 });
 
-app.put('/api/usuarios/:id/senha', async (req, res) => {
-  const { id } = req.params;
-  const { novaSenha } = req.body;
-  try {
-    await pool.query('UPDATE usuarios SET senha_hash = $1 WHERE id = $2', [novaSenha, id]);
-    res.json({ sucesso: true, mensagem: 'Senha alterada com sucesso!' });
-  } catch (err) {
-    res.status(500).json({ error: 'Erro ao alterar senha.' });
-  }
-});
-
 app.delete('/api/usuarios/:id', async (req, res) => {
   const { id } = req.params;
   try {
@@ -254,23 +205,13 @@ app.get('/api/dashboard/ranking', async (req, res) => {
   }
 });
 
-// CHAT INTERNO (DIRETO E GRUPOS)
+// CHAT INTERNO
 app.get('/api/chat/grupos', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM chat_grupos ORDER BY id DESC');
     res.json(result.rows || []);
   } catch (err) {
     res.json([]);
-  }
-});
-
-app.post('/api/chat/grupos', async (req, res) => {
-  const { nome } = req.body;
-  try {
-    const result = await pool.query('INSERT INTO chat_grupos (nome) VALUES ($1) RETURNING *', [nome]);
-    res.json({ sucesso: true, grupo: result.rows[0] });
-  } catch (err) {
-    res.status(500).json({ error: 'Erro ao criar grupo.' });
   }
 });
 
@@ -323,20 +264,18 @@ app.get('/api/agenda', async (req, res) => {
 });
 
 app.post('/api/agenda', async (req, res) => {
-  const { cliente_id, cliente_nome, usuario_id, usuario_nome, data_retorno, observacao, tipo } = req.body;
+  const { cliente_nome, data_retorno, observacao, usuario_id, usuario_nome } = req.body;
   
   if (!cliente_nome || !data_retorno) {
     return res.status(400).json({ error: 'Cliente e Data são obrigatórios.' });
   }
 
   try {
-    let cId = cliente_id ? parseInt(cliente_id, 10) : null;
-    let uId = usuario_id ? parseInt(usuario_id, 10) : null;
     const dataStr = String(data_retorno).replace('T', ' ');
 
     const result = await pool.query(
-      'INSERT INTO agenda (cliente_id, cliente_nome, usuario_id, usuario_nome, data_retorno, observacao, tipo) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-      [cId, String(cliente_nome), uId, String(usuario_nome || 'Operador'), dataStr, String(observacao || ''), tipo || 'cobranca']
+      'INSERT INTO agenda (cliente_nome, usuario_id, usuario_nome, data_retorno, observacao, tipo) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [String(cliente_nome), usuario_id || null, String(usuario_nome || 'Operador'), dataStr, String(observacao || ''), 'cobranca']
     );
     res.json({ sucesso: true, agendamento: result.rows[0] });
   } catch (err) {
@@ -344,17 +283,7 @@ app.post('/api/agenda', async (req, res) => {
   }
 });
 
-// PÓS-VENDA
-app.get('/api/pos-venda', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM pos_venda_clientes ORDER BY id DESC');
-    res.json(result.rows || []);
-  } catch (err) {
-    res.json([]);
-  }
-});
-
-// CLIENTES (FUNIL E OPERAÇÕES)
+// CLIENTES (CADASTRO MANUAL, LISTAGEM E PIPELINE)
 app.get('/api/clientes', async (req, res) => {
   try {
     const result = await pool.query(`
@@ -370,46 +299,23 @@ app.get('/api/clientes', async (req, res) => {
 });
 
 app.post('/api/clientes/manual', async (req, res) => {
-  const { codigo, nome, telefone, total_vencido, opcao_atraso } = req.body;
-  let diasAtraso = 30;
-  let statusConexao = 'Ativo';
-
-  if (opcao_atraso === '30') diasAtraso = 30;
-  else if (opcao_atraso === '60') diasAtraso = 60;
-  else if (opcao_atraso === '90') diasAtraso = 90;
-  else if (opcao_atraso === 'CANCELADOS') {
-    diasAtraso = 120;
-    statusConexao = 'Cancelado';
-  }
+  const { codigo, nome, total_vencido, dias_atraso } = req.body;
+  let atrasoVal = parseInt(dias_atraso, 10) || 30;
+  let statusConexao = atrasoVal >= 120 ? 'Cancelado' : 'Ativo';
 
   try {
     const cod = codigo && String(codigo).trim() !== '' ? String(codigo).trim() : `CLI-${Math.floor(1000 + Math.random() * 9000)}`;
     const val = formatarValorExcel(total_vencido);
 
     const result = await pool.query(
-      `INSERT INTO clientes (codigo, nome, telefone, total_vencido, dias_atraso, status_conexao, estagio_id, atualizado_em) 
-       VALUES ($1, $2, $3, $4, $5, $6, 1, CURRENT_TIMESTAMP) RETURNING *`,
-      [cod, String(nome).trim(), telefone || '', val, diasAtraso, statusConexao]
+      `INSERT INTO clientes (codigo, nome, total_vencido, dias_atraso, status_conexao, estagio_id, atualizado_em) 
+       VALUES ($1, $2, $3, $4, $5, 1, CURRENT_TIMESTAMP) RETURNING *`,
+      [cod, String(nome).trim(), val, atrasoVal, statusConexao]
     );
 
     res.json({ sucesso: true, mensagem: 'Cliente cadastrado com sucesso!', cliente: result.rows[0] });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao cadastrar cliente.' });
-  }
-});
-
-app.put('/api/clientes/:id', async (req, res) => {
-  const { id } = req.params;
-  const { codigo, nome, telefone, total_vencido, status_conexao } = req.body;
-  try {
-    const val = formatarValorExcel(total_vencido);
-    const result = await pool.query(
-      `UPDATE clientes SET codigo = $1, nome = $2, telefone = $3, total_vencido = $4, status_conexao = $5, atualizado_em = CURRENT_TIMESTAMP WHERE id = $6 RETURNING *`,
-      [codigo, nome, telefone, val, status_conexao, id]
-    );
-    res.json({ sucesso: true, cliente: result.rows[0] });
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao editar cliente.' });
   }
 });
 
@@ -441,23 +347,10 @@ app.delete('/api/clientes/:id', async (req, res) => {
   const { id } = req.params;
   try {
     await pool.query('DELETE FROM agenda WHERE cliente_id = $1', [id]);
-    await pool.query('DELETE FROM historico_contatos WHERE cliente_id = $1', [id]);
     await pool.query('DELETE FROM clientes WHERE id = $1', [id]);
     res.json({ sucesso: true });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao excluir cliente.' });
-  }
-});
-
-app.post('/api/clientes/excluir-massa', async (req, res) => {
-  const { ids } = req.body;
-  try {
-    await pool.query('DELETE FROM agenda WHERE cliente_id = ANY($1::int[])', [ids]);
-    await pool.query('DELETE FROM historico_contatos WHERE cliente_id = ANY($1::int[])', [ids]);
-    await pool.query('DELETE FROM clientes WHERE id = ANY($1::int[])', [ids]);
-    res.json({ sucesso: true });
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao excluir clientes em massa.' });
   }
 });
 
@@ -483,8 +376,7 @@ app.post('/api/clientes/previa', upload.single('arquivo'), async (req, res) => {
         codigo: String(item[chaveId] || `CLI-${index + 1}`).trim(),
         nome: String(item[chaveNome] || 'Cliente sem Nome').trim(),
         total_vencido: valorLimpo,
-        opcao_atraso: '30',
-        selecionado: true
+        dias_atraso: 30
       };
     });
 
@@ -517,7 +409,7 @@ app.post('/api/clientes/confirmar-importacao', async (req, res) => {
   }
 });
 
-// SERVIR BUILD DO REACT
+// SERVIR BUILD
 const clientBuildPath = path.join(__dirname, '../client/dist');
 if (fs.existsSync(clientBuildPath)) {
   app.use(express.static(clientBuildPath));

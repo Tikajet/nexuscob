@@ -1,1637 +1,666 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
 import { 
-  Home, Users, RefreshCw, Calendar, 
-  MessageSquare, BarChart3, Upload, Zap, LogOut, ArrowRight, UserCheck, Shield, Trash2, Filter, UserPlus, Printer, Copy, Check, Clock, CalendarDays, Search, KeyRound, MessageCircle, FileSpreadsheet, Bell, History, Send, Edit3, DollarSign, CheckCircle2
+  BarChart2, Users, Calendar, FileText, Upload, Settings, 
+  MessageSquare, User, Search, Bell, LogOut, CheckCircle, Clock, AlertTriangle, Send, Wifi, Shield
 } from 'lucide-react';
-import Dashboard from './components/Dashboard';
 
-const API_URL = 'https://nexuscob-api.onrender.com';
+const API_URL = 'https://nexuscob-web.onrender.com/api';
 
-const ESTAGIOS = [
-  { id: 1, nome: '1º CONTATO', cor: '#1D3557' },
-  { id: 2, nome: '2ª TENTATIVA', cor: '#457B9D' },
-  { id: 3, nome: '3ª TENTATIVA', cor: '#E63946' },
-  { id: 4, nome: 'CONTATO REALIZADO', cor: '#0284c7' },
-  { id: 5, nome: 'PROMESSA DE PAGAMENTO', cor: '#8b5cf6' },
-  { id: 6, nome: 'ACORDO GERADO', cor: '#f59e0b' },
-  { id: 8, nome: 'ACORDO PAGO', cor: '#10b981' },
-  { id: 7, nome: 'REJEITADO / RECUSA', cor: '#E63946' }
+const FRASES_MOTIVACIONAIS = [
+  "A consistência é a chave para transformar metas em resultados extraordinários!",
+  "Cada cliente atendido com excelência reforça o nosso compromisso com a qualidade.",
+  "Grandes conquistas são construídas através de pequenas ações diárias.",
+  "Sua dedicação hoje é o sucesso da MetroNet amanhã!",
+  "Foco, resiliência e empatia transformam qualquer desafio em negociação concluída.",
+  "A atitude positiva faz toda a diferença em cada ligação.",
+  "Acredite no seu potencial. Hoje é um ótimo dia para bater metas!",
+  "Conectar pessoas com respeito e eficiência é a nossa missão.",
+  "Seja a solução que o cliente procura com calma e determinação.",
+  "Pequenos progressos diários resultam em grandes vitórias ao fim do mês.",
+  "A persistência realiza o impossível!",
+  "Trabalho em equipe fortalece cada operação da nossa rede.",
+  "Entender o cliente é o primeiro passo para um excelente acordo.",
+  "Superar obstáculos é o que nos move rumo ao topo.",
+  "Sua energia e boa vontade contagiam toda a equipe!",
+  "Excelência não é um ato, é um hábito diário.",
+  "Hoje é mais uma oportunidade para se superar e fazer história.",
+  "Mantenha a calma, a clareza e a determinação em cada atendimento.",
+  "Juntos conectamos mais pessoas e alcançamos novos patamares!",
+  "A confiança se constrói com transparência e bom atendimento.",
+  "Desafios são convites para demonstrarmos nossa força e capacidade.",
+  "Um bom negociador ouve com atenção e responde com empatia.",
+  "Tenha orgulho do trabalho que você faz todos os dias!",
+  "Cada meta batida é o reflexo da sua dedicação constante.",
+  "Transforme objeções em oportunidades de fechamento.",
+  "Sua postura profissional faz a MetroNet crescer a cada minuto.",
+  "Persista com sabedoria, colha resultados com orgulho.",
+  "O sucesso é a soma de pequenos esforços repetidos dia após dia.",
+  "Com foco na solução, nenhum problema permanece sem resposta.",
+  "Vamos juntos fazer deste dia um exemplo de conquista e produtividade!"
 ];
 
 export default function App() {
-  const [usuarioLogado, setUsuarioLogado] = useState(null);
+  const [usuario, setUsuario] = useState(null);
   const [emailLogin, setEmailLogin] = useState('');
   const [senhaLogin, setSenhaLogin] = useState('');
+  const [abaAtiva, setAbaAtiva] = useState('dashboard');
+  const [frasePopup, setFrasePopup] = useState('');
+  const [exibirPopup, setExibirPopup] = useState(false);
 
-  const [abaAtiva, setAbaAtiva] = useState('pipeline');
-  const [subAbaAdmin, setSubAbaAdmin] = useState('usuarios');
-  const [subAbaFicha, setSubAbaFicha] = useState('base'); // 'base' | 'cadastrar'
-  
-  const [filtroAtraso, setFiltroAtraso] = useState('TODOS');
-  const [filtroOperadorFunil, setFiltroOperadorFunil] = useState('TODOS');
-  const [buscaFunil, setBuscaFunil] = useState('');
-
-  const [buscaClienteFicha, setBuscaClienteFicha] = useState('');
-
+  // Dados Globais
   const [clientes, setClientes] = useState([]);
-  const [previaClientes, setPreviaClientes] = useState([]);
-  const [usuarios, setUsuarios] = useState([]);
-  const [scripts, setScripts] = useState([]);
-  const [agendamentos, setAgendamentos] = useState([]);
-  const [historicoCliente, setHistoricoCliente] = useState([]);
-  const [novaObsCrm, setNovaObsCrm] = useState('');
+  const [agenda, setAgenda] = useState([]);
+  const [posVendaClientes, setPosVendaClientes] = useState([]);
+  const [chatMensagens, setChatMensagens] = useState([]);
+  const [novaMsgChat, setNovaMsgChat] = useState('');
+  
+  // Filtros de Busca
+  const [buscaGlobal, setBuscaGlobal] = useState('');
+  const [buscaAgenda, setBuscaAgenda] = useState('');
 
-  const [arquivo, setArquivo] = useState(null);
-  const [carregando, setCarregando] = useState(false);
-
-  const [selecionadosExclusao, setSelecionadosExclusao] = useState([]);
-  const [novoUsuario, setNovoUsuario] = useState({ nome: '', email: '', cargo: 'COBRADOR', senha: '' });
-  const [usuarioEdicao, setUsuarioEdicao] = useState(null);
-
-  const [clienteSelecionado, setClienteSelecionado] = useState(null);
-  const [clienteEdicao, setClienteEdicao] = useState(null);
-
-  // Modal de Acordo
-  const [modalAcordo, setModalAcordo] = useState(null); // { clienteId, valor: '', parcelas: '1' }
-
-  const [usuarioParaAlterarSenha, setUsuarioParaAlterarSenha] = useState(null);
-  const [novaSenhaInput, setNovaSenhaInput] = useState('');
-
-  const [filtroAgendaUsuario, setFiltroAgendaUsuario] = useState('TODOS');
+  // Formulário de Agenda
   const [novoAgendamento, setNovoAgendamento] = useState({
     cliente_nome: '',
-    usuario_id: '',
     data_retorno: '',
-    observacao: ''
+    observacao: '',
+    tipo: 'cobranca'
   });
 
-  const [formManual, setFormManual] = useState({
-    codigo: '',
+  // Novo Cliente Pós-Venda
+  const [novoPV, setNovoPV] = useState({
     nome: '',
     telefone: '',
-    total_vencido: '',
-    opcao_atraso: '30'
+    plano: 'Fibra 500 Mega',
+    estagio: '15_dias',
+    observacoes: ''
   });
 
-  const [novoScript, setNovoScript] = useState({
-    titulo: '',
-    categoria: '30',
-    conteudo: ''
-  });
-  const [filtroScriptCategoria, setFiltroScriptCategoria] = useState('TODOS');
-  const [copiadoId, setCopiadoId] = useState(null);
-
-  const isEspecial = usuarioLogado?.cargo === 'ADMINISTRADOR' || usuarioLogado?.cargo === 'SUPERVISOR';
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    try {
-      const res = await axios.post(`${API_URL}/api/login`, { email: emailLogin, senha: senhaLogin });
-      setUsuarioLogado(res.data.usuario);
-    } catch (err) {
-      alert('Erro de autenticação.');
-    }
-  };
-
-  const carregarDados = async () => {
-    try {
-      const resClientes = await axios.get(`${API_URL}/api/clientes`);
-      if (resClientes.data && resClientes.data.length > 0) {
-        setClientes(resClientes.data);
-        if (!clienteSelecionado) {
-          setClienteSelecionado(resClientes.data[0]);
-          carregarHistoricoCliente(resClientes.data[0].id);
-        }
-      }
-
-      const resUsuarios = await axios.get(`${API_URL}/api/usuarios`);
-      setUsuarios(resUsuarios.data || []);
-
-      const resScripts = await axios.get(`${API_URL}/api/scripts`);
-      setScripts(resScripts.data || []);
-
-      const resAgenda = await axios.get(`${API_URL}/api/agenda`);
-      setAgendamentos(resAgenda.data || []);
-    } catch (err) {
-      console.log('Conectando...', err.message);
-    }
-  };
-
-  const carregarHistoricoCliente = async (clienteId) => {
-    try {
-      const res = await axios.get(`${API_URL}/api/clientes/${clienteId}/historico`);
-      setHistoricoCliente(res.data || []);
-    } catch (err) {
-      console.log('Erro ao buscar histórico.');
-    }
-  };
-
   useEffect(() => {
-    if (usuarioLogado) {
+    if (usuario) {
       carregarDados();
+      const interval = setInterval(carregarChat, 5000);
+      return () => clearInterval(interval);
     }
-  }, [usuarioLogado]);
+  }, [usuario]);
 
-  useEffect(() => {
-    if (clienteSelecionado?.id) {
-      carregarHistoricoCliente(clienteSelecionado.id);
-    }
-  }, [clienteSelecionado]);
-
-  const handleAdicionarObsCrm = async (e) => {
-    e.preventDefault();
-    if (!novaObsCrm || !clienteSelecionado) return;
-
-    try {
-      const res = await axios.post(`${API_URL}/api/clientes/${clienteSelecionado.id}/historico`, {
-        usuario_nome: usuarioLogado?.nome || 'OPERADOR',
-        observacao: novaObsCrm
-      });
-      setHistoricoCliente([res.data.historico, ...historicoCliente]);
-      setNovaObsCrm('');
-    } catch (err) {
-      alert('Erro ao salvar histórico CRM.');
-    }
+  const carregarDados = () => {
+    fetch(`${API_URL}/clientes`).then(r => r.json()).then(data => setClientes(data || [])).catch(() => {});
+    fetch(`${API_URL}/agenda`).then(r => r.json()).then(data => setAgenda(data || [])).catch(() => {});
+    fetch(`${API_URL}/pos-venda`).then(r => r.json()).then(data => setPosVendaClientes(data || [])).catch(() => {});
+    carregarChat();
   };
 
-  const moverEstagio = async (clienteId, novoEstagioId, dadosAcordo = null) => {
-    // Se for mover para "Acordo Gerado" (6) e não tiver dados de acordo, abre modal
-    if (novoEstagioId === 6 && !dadosAcordo) {
-      const cli = clientes.find(c => c.id === clienteId);
-      setModalAcordo({
-        clienteId,
-        valor: cli?.total_vencido || '',
-        parcelas: '1'
-      });
-      return;
-    }
+  const carregarChat = () => {
+    fetch(`${API_URL}/chat`).then(r => r.json()).then(data => setChatMensagens(data || [])).catch(() => {});
+  };
 
-    try {
-      const payload = {
-        estagio_id: novoEstagioId,
-        usuario_nome: usuarioLogado?.nome || 'OPERADOR',
-        usuario_id: usuarioLogado?.id
-      };
-
-      if (dadosAcordo) {
-        payload.valor_acordo = dadosAcordo.valor;
-        payload.parcelas_acordo = dadosAcordo.parcelas;
+  const handleLogin = (e) => {
+    e.preventDefault();
+    fetch(`${API_URL}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: emailLogin, senha: senhaLogin })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.sucesso) {
+        setUsuario(data.usuario);
+        const fraseSorteada = FRASES_MOTIVACIONAIS[Math.floor(Math.random() * FRASES_MOTIVACIONAIS.length)];
+        setFrasePopup(fraseSorteada);
+        setExibirPopup(true);
       }
-
-      const res = await axios.put(`${API_URL}/api/clientes/${clienteId}/estagio`, payload);
-      const clienteAtualizado = res.data.cliente;
-
-      setClientes(clientes.map(c => c.id === clienteId ? { 
-        ...c, 
-        estagio_id: novoEstagioId, 
-        operador_nome: usuarioLogado?.nome,
-        valor_acordo: dadosAcordo ? dadosAcordo.valor : c.valor_acordo,
-        parcelas_acordo: dadosAcordo ? dadosAcordo.parcelas : c.parcelas_acordo,
-        atualizado_em: clienteAtualizado?.atualizado_em || new Date().toISOString()
-      } : c));
-
-      setModalAcordo(null);
-    } catch (err) {
-      alert('Erro ao mover estágio.');
-    }
+    })
+    .catch(() => alert('Erro de conexão ao realizar login.'));
   };
 
-  // DRAG AND DROP HANDLERS
-  const handleDragStart = (e, clienteId) => {
-    e.dataTransfer.setData('text/plain', clienteId);
-  };
-
-  const handleDragOver = (e) => {
+  const handleEnviarChat = (e) => {
     e.preventDefault();
+    if (!novaMsgChat.trim()) return;
+
+    fetch(`${API_URL}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        usuario_id: usuario.id,
+        usuario_nome: usuario.nome,
+        mensagem: novaMsgChat
+      })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.sucesso) {
+        setNovaMsgChat('');
+        carregarChat();
+      }
+    });
   };
 
-  const handleDrop = (e, estagioId) => {
+  const handleSalvarAgendamento = (e) => {
     e.preventDefault();
-    const clienteId = parseInt(e.dataTransfer.getData('text/plain'));
-    if (clienteId) {
-      moverEstagio(clienteId, estagioId);
-    }
-  };
-
-  const abrirWhatsApp = (cliente) => {
-    const tel = String(cliente.telefone || '').replace(/\D/g, '');
-    const num = tel.length >= 10 ? (tel.startsWith('55') ? tel : `55${tel}`) : '';
-    const valor = Number(cliente.valor_acordo || cliente.total_vencido || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-    const texto = encodeURIComponent(`Olá ${cliente.nome}, tudo bem? Sou o ${usuarioLogado?.nome} da Pinhaisnet. Identificamos uma pendência no valor de ${valor}. Como podemos ajudar para regularizar?`);
-    
-    if (num) {
-      window.open(`https://web.whatsapp.com/send?phone=${num}&text=${texto}`, '_blank');
-    } else {
-      window.open(`https://web.whatsapp.com/send?text=${texto}`, '_blank');
-    }
-  };
-
-  const exportarParaCSV = () => {
-    const cabecalho = "Codigo,Nome,Valor Devedor,Valor Acordo,Parcelas,Dias Atraso,Status\n";
-    const linhas = clientes.map(c => `"${c.codigo}","${c.nome}","${c.total_vencido}","${c.valor_acordo || 0}","${c.parcelas_acordo || 1}","${c.dias_atraso}","${c.status_conexao}"`).join("\n");
-    const blob = new Blob([cabecalho + linhas], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Relatorio_Pinhaisnet_NexusCob_${new Date().toISOString().slice(0,10)}.csv`;
-    a.click();
-  };
-
-  const handleExcluirCliente = async (clienteId) => {
-    if (!window.confirm('Deseja excluir este cliente do funil?')) return;
-    try {
-      await axios.delete(`${API_URL}/api/clientes/${clienteId}`);
-      setClientes(clientes.filter(c => c.id !== clienteId));
-      if (clienteSelecionado?.id === clienteId) setClienteSelecionado(null);
-      alert('Cliente removido com sucesso!');
-    } catch (err) {
-      alert('Erro ao excluir cliente.');
-    }
-  };
-
-  const handleExcluirEmMassa = async () => {
-    if (selecionadosExclusao.length === 0) return alert('Selecione pelo menos um cliente.');
-    if (!window.confirm(`Deseja excluir ${selecionadosExclusao.length} clientes selecionados?`)) return;
-
-    try {
-      await axios.post(`${API_URL}/api/clientes/excluir-massa`, { ids: selecionadosExclusao });
-      alert('Clientes excluídos com sucesso!');
-      setSelecionadosExclusao([]);
-      carregarDados();
-    } catch (err) {
-      alert('Erro ao excluir em massa.');
-    }
-  };
-
-  const handleSalvarEdicaoCliente = async (e) => {
-    e.preventDefault();
-    if (!clienteEdicao) return;
-    try {
-      const res = await axios.put(`${API_URL}/api/clientes/${clienteEdicao.id}`, clienteEdicao);
-      setClientes(clientes.map(c => c.id === clienteEdicao.id ? res.data.cliente : c));
-      setClienteSelecionado(res.data.cliente);
-      setClienteEdicao(null);
-      alert('Cliente atualizado com sucesso!');
-    } catch (err) {
-      alert('Erro ao atualizar cliente.');
-    }
-  };
-
-  const handleSalvarEdicaoUsuario = async (e) => {
-    e.preventDefault();
-    if (!usuarioEdicao) return;
-    try {
-      const res = await axios.put(`${API_URL}/api/usuarios/${usuarioEdicao.id}`, usuarioEdicao);
-      setUsuarios(usuarios.map(u => u.id === usuarioEdicao.id ? res.data.usuario : u));
-      setUsuarioEdicao(null);
-      alert('Usuário atualizado com sucesso!');
-    } catch (err) {
-      alert('Erro ao atualizar usuário.');
-    }
-  };
-
-  const handleExcluirUsuario = async (id) => {
-    if (!window.confirm('Deseja excluir este usuário?')) return;
-    try {
-      await axios.delete(`${API_URL}/api/usuarios/${id}`);
-      setUsuarios(usuarios.filter(u => u.id !== id));
-      alert('Usuário excluído!');
-    } catch (err) {
-      alert('Erro ao excluir usuário.');
-    }
-  };
-
-  const handleAlterarSenha = async (e) => {
-    e.preventDefault();
-    if (!usuarioParaAlterarSenha || !novaSenhaInput) return alert('Digite a nova senha.');
-    try {
-      await axios.put(`${API_URL}/api/usuarios/${usuarioParaAlterarSenha.id}/senha`, { novaSenha: novaSenhaInput });
-      alert(`Senha do usuário ${usuarioParaAlterarSenha.nome} alterada com sucesso!`);
-      setUsuarioParaAlterarSenha(null);
-      setNovaSenhaInput('');
-      carregarDados();
-    } catch (err) {
-      alert('Erro ao alterar senha do usuário.');
-    }
-  };
-
-  const handleCadastrarAgendamento = async (e) => {
-    e.preventDefault();
-    if (!novoAgendamento.cliente_nome || !novoAgendamento.data_retorno) {
-      return alert('Selecione o Cliente e a Data do Retorno.');
-    }
-
-    const opEncontrado = usuarios.find(u => String(u.id) === String(novoAgendamento.usuario_id));
-    const opNome = opEncontrado ? opEncontrado.nome : (usuarioLogado?.nome || 'A definir');
-
-    try {
-      await axios.post(`${API_URL}/api/agenda`, {
+    fetch(`${API_URL}/agenda`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         ...novoAgendamento,
-        usuario_nome: opNome
-      });
-      alert('Retorno agendado com sucesso!');
-      setNovoAgendamento({ cliente_nome: '', usuario_id: '', data_retorno: '', observacao: '' });
-      carregarDados();
-    } catch (err) {
-      alert('Erro ao agendar retorno.');
-    }
-  };
-
-  const handleConcluirAgendamento = async (id) => {
-    try {
-      await axios.put(`${API_URL}/api/agenda/${id}/concluir`);
-      setAgendamentos(agendamentos.map(a => a.id === id ? { ...a, concluido: true } : a));
-    } catch (err) {
-      alert('Erro ao concluir compromisso.');
-    }
-  };
-
-  const handleExcluirAgendamento = async (id) => {
-    if (!window.confirm('Deseja excluir este agendamento?')) return;
-    try {
-      await axios.delete(`${API_URL}/api/agenda/${id}`);
-      setAgendamentos(agendamentos.filter(a => a.id !== id));
-    } catch (err) {
-      alert('Erro ao excluir agendamento.');
-    }
-  };
-
-  const handleCadastrarScript = async (e) => {
-    e.preventDefault();
-    if (!novoScript.titulo || !novoScript.conteudo) {
-      return alert('Preencha o título e o conteúdo da mensagem.');
-    }
-
-    try {
-      await axios.post(`${API_URL}/api/scripts`, novoScript);
-      alert('Script de cobrança cadastrado com sucesso!');
-      setNovoScript({ titulo: '', categoria: '30', conteudo: '' });
-      carregarDados();
-    } catch (err) {
-      alert('Erro ao cadastrar script.');
-    }
-  };
-
-  const handleExcluirScript = async (id) => {
-    if (!window.confirm('Deseja excluir este script?')) return;
-    try {
-      await axios.delete(`${API_URL}/api/scripts/${id}`);
-      setScripts(scripts.filter(s => s.id !== id));
-      alert('Script excluído com sucesso!');
-    } catch (err) {
-      alert('Erro ao excluir script.');
-    }
-  };
-
-  const handleCopiarTexto = (id, texto) => {
-    navigator.clipboard.writeText(texto);
-    setCopiadoId(id);
-    setTimeout(() => setCopiadoId(null), 2000);
-  };
-
-  const handleCadastrarClienteManual = async (e) => {
-    e.preventDefault();
-    if (!formManual.nome || !formManual.total_vencido) {
-      return alert('Preencha o Nome e o Valor Devedor.');
-    }
-
-    try {
-      const res = await axios.post(`${API_URL}/api/clientes/manual`, formManual);
-      alert(res.data.mensagem || 'Cliente cadastrado com sucesso!');
-      setFormManual({ codigo: '', nome: '', telefone: '', total_vencido: '', opcao_atraso: '30' });
-      carregarDados();
-      setSubAbaFicha('base');
-    } catch (err) {
-      alert('Erro ao cadastrar cliente manualmente.');
-    }
-  };
-
-  const handleGerarPrevia = async (e) => {
-    e.preventDefault();
-    if (!arquivo) return alert('Selecione um arquivo Excel (.xlsx)!');
-
-    const formData = new FormData();
-    formData.append('arquivo', arquivo);
-
-    setCarregando(true);
-    try {
-      const res = await axios.post(`${API_URL}/api/clientes/previa`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      if (res.data && res.data.dados) {
-        setPreviaClientes(res.data.dados);
+        usuario_id: usuario.id,
+        usuario_nome: usuario.nome
+      })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.sucesso) {
+        alert('Retorno agendado com sucesso!');
+        setNovoAgendamento({ cliente_nome: '', data_retorno: '', observacao: '', tipo: 'cobranca' });
+        carregarDados();
+      } else {
+        alert('Erro ao agendar retorno: ' + (data.detalhe || data.error));
       }
-    } catch (err) {
-      alert('Erro ao ler a planilha Excel.');
-    } finally {
-      setCarregando(false);
-    }
+    });
   };
 
-  const handleConfirmarImportacaoPrevia = async () => {
-    const selecionados = previaClientes.filter(p => p.selecionado);
-    if (selecionados.length === 0) return alert('Selecione ao menos um cliente.');
-
-    setCarregando(true);
-    try {
-      const res = await axios.post(`${API_URL}/api/clientes/confirmar-importacao`, { clientes: selecionados });
-      alert(res.data.mensagem || 'Importação realizada com sucesso!');
-      setPreviaClientes([]);
-      setArquivo(null);
-      carregarDados();
-      setAbaAtiva('pipeline');
-    } catch (err) {
-      alert('Erro ao salvar no banco.');
-    } finally {
-      setCarregando(false);
-    }
-  };
-
-  const handleCadastrarUsuario = async (e) => {
+  const handleSalvarPosVenda = (e) => {
     e.preventDefault();
-    try {
-      await axios.post(`${API_URL}/api/usuarios`, novoUsuario);
-      alert('Usuário cadastrado com sucesso!');
-      setNovoUsuario({ nome: '', email: '', cargo: 'COBRADOR', senha: '' });
-      carregarDados();
-      setSubAbaAdmin('usuarios');
-    } catch (err) {
-      alert('Erro ao cadastrar usuário.');
-    }
+    fetch(`${API_URL}/pos-venda`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(novoPV)
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.sucesso) {
+        alert('Cliente adicionado ao acompanhamento de Pós-Venda!');
+        setNovoPV({ nome: '', telefone: '', plano: 'Fibra 500 Mega', estagio: '15_dias', observacoes: '' });
+        carregarDados();
+      }
+    });
   };
 
-  const formatarData = (dataIso) => {
-    if (!dataIso) return '';
-    try {
-      const date = new Date(dataIso);
-      if (isNaN(date.getTime())) return '';
-      const dia = String(date.getDate()).padStart(2, '0');
-      const mes = String(date.getMonth() + 1).padStart(2, '0');
-      const ano = date.getFullYear();
-      const hora = String(date.getHours()).padStart(2, '0');
-      const min = String(date.getMinutes()).padStart(2, '0');
-      return `${dia}/${mes}/${ano} ${hora}:${min}`;
-    } catch (e) {
-      return '';
-    }
-  };
-
-  const hojeStr = new Date().toISOString().slice(0, 10);
-  const retornosHoje = agendamentos.filter(a => !a.concluido && a.data_retorno && a.data_retorno.startsWith(hojeStr));
-
-  // FILTROS DO FUNIL
-  const clientesFiltradosFunil = clientes.filter(c => {
-    const dias = Number(c.dias_atraso || 0);
-    const status = String(c.status_conexao || '').toLowerCase();
-
-    // Filtro da Lista de Atraso
-    let atendeAtraso = true;
-    if (filtroAtraso === '30') atendeAtraso = dias >= 1 && dias <= 30 && status !== 'cancelado';
-    else if (filtroAtraso === '60') atendeAtraso = dias >= 31 && dias <= 60 && status !== 'cancelado';
-    else if (filtroAtraso === '90') atendeAtraso = dias >= 61 && status !== 'cancelado';
-    else if (filtroAtraso === 'CANCELADOS') atendeAtraso = status === 'cancelado';
-
-    // Filtro por Operador
-    let atendeOperador = true;
-    if (filtroOperadorFunil !== 'TODOS') {
-      atendeOperador = String(c.usuario_responsavel_id) === String(filtroOperadorFunil) || String(c.operador_nome).toLowerCase() === String(filtroOperadorFunil).toLowerCase();
-    }
-
-    // Filtro por Busca do Funil
-    let atendeBusca = true;
-    if (buscaFunil) {
-      const t = buscaFunil.toLowerCase();
-      atendeBusca = String(c.nome || '').toLowerCase().includes(t) || String(c.codigo || '').toLowerCase().includes(t);
-    }
-
-    return atendeAtraso && atendeOperador && atendeBusca;
-  });
-
-  const clientesBuscaFicha = clientes.filter(c => {
-    if (!buscaClienteFicha) return true;
-    const termo = buscaClienteFicha.toLowerCase();
-    return String(c.nome || '').toLowerCase().includes(termo) || String(c.codigo || '').toLowerCase().includes(termo);
-  });
-
-  const scriptsFiltrados = scripts.filter(s => {
-    if (filtroScriptCategoria === 'TODOS') return true;
-    return String(s.categoria) === filtroScriptCategoria;
-  });
-
-  const agendamentosFiltrados = agendamentos.filter(a => {
-    if (filtroAgendaUsuario === 'TODOS') return true;
-    return String(a.usuario_id) === String(filtroAgendaUsuario);
-  });
-
-  if (!usuarioLogado) {
+  // TELA DE LOGIN COM ASSINATURA DE DESENVOLVEDOR
+  if (!usuario) {
     return (
-      <div style={{ width: '100vw', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0B1E36', fontFamily: 'system-ui, sans-serif' }}>
-        <form onSubmit={handleLogin} style={{ backgroundColor: '#1D3557', padding: '40px', borderRadius: '12px', width: '100%', maxWidth: '380px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', gap: '20px', boxSizing: 'border-box' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', fontSize: '1.8rem', fontWeight: 'bold', color: '#fff' }}>
-              <Zap size={32} color="#E63946" /> NEXUS COB
+      <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4 text-slate-100 font-sans">
+        <div className="w-full max-w-md bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl">
+          <div className="flex flex-col items-center mb-6">
+            <div className="flex items-center space-x-2 text-blue-500 font-black text-3xl tracking-wider">
+              <Wifi className="w-8 h-8 text-blue-400" />
+              <span>METRO<span className="text-white">COB</span></span>
             </div>
-            <div style={{ color: '#E63946', fontSize: '0.9rem', fontWeight: 'bold', letterSpacing: '1px', marginTop: '2px' }}>PINHAISNET</div>
-            <p style={{ color: '#cbd5e1', fontSize: '0.8rem', marginTop: '6px' }}>Gestão Inteligente de Cobranças</p>
+            <p className="text-xs text-blue-400 tracking-widest uppercase font-semibold mt-1">POWERED BY NEXUS</p>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label style={{ color: '#f8fafc', fontSize: '0.8rem', fontWeight: 'bold' }}>E-mail</label>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">E-mail do Operador</label>
               <input 
                 type="email" 
-                placeholder="admin@pinhaisnet.com.br" 
+                required
                 value={emailLogin} 
-                onChange={e => setEmailLogin(e.target.value)} 
-                required 
-                style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #457B9D', backgroundColor: '#0B1E36', color: '#fff', marginTop: '4px', boxSizing: 'border-box', outline: 'none' }}
+                onChange={e => setEmailLogin(e.target.value)}
+                placeholder="operador@metronet.com.br"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-blue-500 text-white"
               />
             </div>
+
             <div>
-              <label style={{ color: '#f8fafc', fontSize: '0.8rem', fontWeight: 'bold' }}>Senha</label>
+              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-400 mb-1">Senha de Acesso</label>
               <input 
                 type="password" 
-                placeholder="••••••••" 
+                required
                 value={senhaLogin} 
-                onChange={e => setSenhaLogin(e.target.value)} 
-                required 
-                style={{ width: '100%', padding: '12px', borderRadius: '6px', border: '1px solid #457B9D', backgroundColor: '#0B1E36', color: '#fff', marginTop: '4px', boxSizing: 'border-box', outline: 'none' }}
+                onChange={e => setSenhaLogin(e.target.value)}
+                placeholder="••••••••"
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-blue-500 text-white"
               />
             </div>
-          </div>
 
-          <button type="submit" style={{ padding: '14px', backgroundColor: '#E63946', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-            Entrar no Nexus Cob <ArrowRight size={18} />
-          </button>
-        </form>
+            <button 
+              type="submit" 
+              className="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold py-3 rounded-lg shadow-lg transition-all"
+            >
+              Acessar Painel MetroCob
+            </button>
+          </form>
+
+          <div className="mt-8 pt-4 border-t border-slate-800 text-center">
+            <p className="text-xs text-slate-500 font-medium">
+              Developer: <span className="text-blue-400 font-bold">Thiago Pauluk</span>
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
 
+  // CÁLCULO DE DASHBOARD
+  const totalClientes = clientes.length;
+  const totalEmAberto = clientes.reduce((acc, c) => acc + (parseFloat(c.total_vencido) || 0), 0);
+  const totalRecebido = clientes.filter(c => c.estagio_id === 6).reduce((acc, c) => acc + (parseFloat(c.valor_acordo) || parseFloat(c.total_vencido) || 0), 0);
+
   return (
-    <div style={{ display: 'flex', width: '100vw', height: '100vh', fontFamily: 'system-ui, sans-serif', backgroundColor: '#f1f5f9', overflow: 'hidden', margin: 0, padding: 0 }}>
-      {/* SIDEBAR */}
-      <aside style={{ width: '240px', minWidth: '240px', backgroundColor: '#0B1E36', color: '#f8fafc', padding: '18px 12px', display: 'flex', flexDirection: 'column', gap: '15px', boxSizing: 'border-box' }}>
-        <div style={{ padding: '0 8px 12px 8px', borderBottom: '1px solid #1D3557' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '1.3rem', fontWeight: 'bold', color: '#fff' }}>
-            <Zap size={24} color="#E63946" />
-            <span>NEXUS COB</span>
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex font-sans">
+      
+      {/* POPUP MOTIVACIONAL */}
+      {exibirPopup && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-blue-500/40 p-8 rounded-2xl max-w-lg w-full shadow-2xl text-center space-y-6">
+            <div className="w-16 h-16 bg-blue-600/20 text-blue-400 rounded-full flex items-center justify-center mx-auto border border-blue-500/30">
+              <Shield className="w-8 h-8" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold text-white mb-2">Bem-vindo, {usuario.nome}!</h3>
+              <p className="text-slate-300 italic text-base leading-relaxed">"{frasePopup}"</p>
+            </div>
+            <button 
+              onClick={() => setExibirPopup(false)}
+              className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-8 py-2.5 rounded-lg transition-all"
+            >
+              Iniciar Trabalho
+            </button>
           </div>
-          <div style={{ fontSize: '0.78rem', color: '#E63946', fontWeight: 'bold', letterSpacing: '1px', marginTop: '2px' }}>
-            PINHAISNET
+        </div>
+      )}
+
+      {/* SIDEBAR TEMA DARK METRONET */}
+      <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between">
+        <div>
+          <div className="p-6 border-b border-slate-800/80">
+            <div className="flex items-center space-x-2 text-blue-500 font-black text-xl tracking-wider">
+              <Wifi className="w-6 h-6 text-blue-400" />
+              <span>METRO<span className="text-white">COB</span></span>
+            </div>
+            <p className="text-[10px] text-blue-400 tracking-widest uppercase font-semibold mt-0.5">POWERED BY NEXUS</p>
           </div>
-          <div style={{ fontSize: '0.68rem', color: '#94a3b8', marginTop: '2px' }}>Gestão Inteligente de Cobranças</div>
+
+          <nav className="p-4 space-y-1 text-sm font-medium">
+            <button 
+              onClick={() => setAbaAtiva('dashboard')}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'dashboard' ? 'bg-blue-600 text-white font-semibold shadow-lg shadow-blue-600/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+            >
+              <BarChart2 className="w-5 h-5" />
+              <span>Dashboard</span>
+            </button>
+
+            <button 
+              onClick={() => setAbaAtiva('pipeline')}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'pipeline' ? 'bg-blue-600 text-white font-semibold shadow-lg shadow-blue-600/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+            >
+              <Users className="w-5 h-5" />
+              <span>Pipeline / Funis</span>
+            </button>
+
+            <button 
+              onClick={() => setAbaAtiva('agenda')}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'agenda' ? 'bg-blue-600 text-white font-semibold shadow-lg shadow-blue-600/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+            >
+              <Calendar className="w-5 h-5" />
+              <span>Agenda / Retornos</span>
+            </button>
+
+            <button 
+              onClick={() => setAbaAtiva('pos-venda')}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'pos-venda' ? 'bg-blue-600 text-white font-semibold shadow-lg shadow-blue-600/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+            >
+              <Shield className="w-5 h-5" />
+              <span>Pós-Venda Residencial</span>
+            </button>
+
+            <button 
+              onClick={() => setAbaAtiva('chat')}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'chat' ? 'bg-blue-600 text-white font-semibold shadow-lg shadow-blue-600/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+            >
+              <MessageSquare className="w-5 h-5" />
+              <span>Chat Interno</span>
+            </button>
+          </nav>
         </div>
 
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, overflowY: 'auto' }}>
-          {[
-            { id: 'pipeline', label: 'Pipeline / Funis', icon: RefreshCw, adminOnly: false },
-            { id: 'agenda', label: 'Agenda / Retornos', icon: CalendarDays, adminOnly: false },
-            { id: 'clientes', label: 'Ficha do Cliente (CRM)', icon: Users, adminOnly: false },
-            { id: 'scripts', label: 'Scripts de Cobrança', icon: MessageSquare, adminOnly: false },
-            { id: 'dashboard', label: 'Dashboard', icon: Home, adminOnly: false },
-            { id: 'importar', label: 'Importar / Prévia Excel', icon: Upload, adminOnly: true },
-            { id: 'admin', label: 'Administração / Usuários', icon: Shield, adminOnly: true },
-            { id: 'relatorios', label: 'Relatórios / Período', icon: BarChart3, adminOnly: false },
-          ].map((item) => {
-            if (item.adminOnly && !isEspecial) return null;
-            const Icon = item.icon;
-            const ativo = abaAtiva === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setAbaAtiva(item.id)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '10px 12px',
-                  border: 'none',
-                  borderRadius: '6px',
-                  backgroundColor: ativo ? '#E63946' : 'transparent',
-                  color: ativo ? '#fff' : '#cbd5e1',
-                  cursor: 'pointer',
-                  fontSize: '0.85rem',
-                  fontWeight: ativo ? 'bold' : 'normal',
-                  textAlign: 'left'
-                }}
-              >
-                <Icon size={17} /> {item.label}
-              </button>
-            );
-          })}
-        </nav>
-
-        <div style={{ padding: '10px 12px', backgroundColor: '#1D3557', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ overflow: 'hidden' }}>
-            <div style={{ fontWeight: 'bold', fontSize: '0.82rem', color: '#fff', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>{usuarioLogado.nome}</div>
-            <div style={{ fontSize: '0.68rem', color: '#E63946', fontWeight: 'bold' }}>{usuarioLogado.cargo}</div>
+        <div className="p-4 border-t border-slate-800">
+          <div className="bg-slate-950 p-3 rounded-xl mb-3 flex items-center space-x-3">
+            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white text-xs">
+              {usuario.nome.substring(0, 2)}
+            </div>
+            <div className="truncate">
+              <p className="text-xs font-bold text-white truncate">{usuario.nome}</p>
+              <p className="text-[10px] text-slate-400 uppercase">{usuario.cargo}</p>
+            </div>
           </div>
-          <button onClick={() => setUsuarioLogado(null)} title="Sair" style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}>
-            <LogOut size={16} />
+
+          <div className="text-center mb-3">
+            <p className="text-[11px] font-bold italic text-blue-400 tracking-wide">"Juntos conectamos mais pessoas!"</p>
+          </div>
+
+          <button 
+            onClick={() => setUsuario(null)}
+            className="w-full flex items-center justify-center space-x-2 text-rose-400 hover:bg-rose-500/10 py-2 rounded-lg text-xs font-semibold transition-all"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Sair do Sistema</span>
           </button>
         </div>
       </aside>
 
-      <main style={{ flex: 1, padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: '16px', overflow: 'hidden', boxSizing: 'border-box' }}>
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff', padding: '12px 18px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-          <h1 style={{ margin: 0, fontSize: '1.15rem', color: '#0B1E36', fontWeight: 'bold' }}>NEXUS COB — PINHAISNET</h1>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-            <div onClick={() => setAbaAtiva('agenda')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: retornosHoje.length > 0 ? '#fde8e8' : '#f1f5f9', padding: '6px 12px', borderRadius: '20px', border: `1px solid ${retornosHoje.length > 0 ? '#E63946' : '#cbd5e1'}` }}>
-              <Bell size={16} color={retornosHoje.length > 0 ? '#E63946' : '#64748b'} />
-              <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: retornosHoje.length > 0 ? '#E63946' : '#475569' }}>
-                {retornosHoje.length > 0 ? `${retornosHoje.length} Retornos Hoje!` : 'Sem pendências hoje'}
-              </span>
-            </div>
+      {/* ÁREA PRINCIPAL */}
+      <main className="flex-1 flex flex-col overflow-y-auto bg-slate-950">
+        
+        {/* HEADER COM BUSCA */}
+        <header className="h-16 bg-slate-900 border-b border-slate-800 px-6 flex items-center justify-between">
+          <div className="relative w-96">
+            <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+            <input 
+              type="text" 
+              placeholder="Buscar cliente, CPF, código..."
+              value={buscaGlobal}
+              onChange={e => setBuscaGlobal(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-full pl-9 pr-4 py-1.5 text-xs focus:outline-none focus:border-blue-500 text-white"
+            />
+          </div>
 
-            <div style={{ fontSize: '0.82rem', color: '#334155', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <UserCheck size={16} color="#059669" /> Operador: <span style={{ color: '#1D3557' }}>{usuarioLogado.nome}</span> ({usuarioLogado.cargo})
+          <div className="flex items-center space-x-4">
+            <div className="bg-slate-950 px-3 py-1.5 rounded-full border border-slate-800 flex items-center space-x-2">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+              <span className="text-xs text-slate-300 font-medium">Sem pendências críticas hoje</span>
             </div>
           </div>
         </header>
 
-        {/* MODAL DE DADOS DO ACORDO (AO MOVER PARA ACORDO GERADO) */}
-        {modalAcordo && (
-          <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999 }}>
-            <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '12px', width: '100%', maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '15px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }}>
-              <h3 style={{ margin: 0, color: '#0B1E36', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <DollarSign color="#10b981" /> Definir Condições do Acordo
-              </h3>
-              <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>
-                Informe o valor negociado com o cliente e a quantidade de parcelas.
-              </p>
-
+        {/* CONTEÚDO PRINCIPAL DAS ABAS */}
+        <div className="p-6">
+          
+          {/* DASHBOARD GERAL */}
+          {abaAtiva === 'dashboard' && (
+            <div className="space-y-6">
               <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Valor Acordado (R$) *</label>
-                <input 
-                  type="text" 
-                  value={modalAcordo.valor} 
-                  onChange={e => setModalAcordo({ ...modalAcordo, valor: e.target.value })}
-                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }}
-                />
+                <h1 className="text-2xl font-bold text-white">Dashboard Geral do Pipeline de Cobrança</h1>
+                <p className="text-xs text-blue-400 font-semibold tracking-wider uppercase">METRONET INTERNET DE VERDADE</p>
               </div>
 
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Número de Parcelas / Vezes *</label>
-                <select 
-                  value={modalAcordo.parcelas}
-                  onChange={e => setModalAcordo({ ...modalAcordo, parcelas: e.target.value })}
-                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }}>
-                  <option value="1">1x (À vista)</option>
-                  <option value="2">2x Parcelas</option>
-                  <option value="3">3x Parcelas</option>
-                  <option value="4">4x Parcelas</option>
-                  <option value="5">5x Parcelas</option>
-                  <option value="6">6x Parcelas</option>
-                </select>
+              {/* CARDS KPIS */}
+              <div className="grid grid-cols-4 gap-4">
+                <div className="bg-slate-900 border border-blue-500/30 p-5 rounded-2xl shadow-xl">
+                  <p className="text-xs font-medium text-slate-400">Total em Carteira</p>
+                  <p className="text-2xl font-black text-white mt-1">{totalClientes} contatos</p>
+                  <p className="text-[11px] text-emerald-400 font-semibold mt-2">↑ +12% vs. mês anterior</p>
+                </div>
+
+                <div className="bg-slate-900 border border-rose-500/30 p-5 rounded-2xl shadow-xl">
+                  <p className="text-xs font-medium text-slate-400">Total em Aberto</p>
+                  <p className="text-2xl font-black text-rose-400 mt-1">R$ {totalEmAberto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-[11px] text-rose-400 font-semibold mt-2">↗ +8% vs. mês anterior</p>
+                </div>
+
+                <div className="bg-slate-900 border border-emerald-500/30 p-5 rounded-2xl shadow-xl">
+                  <p className="text-xs font-medium text-slate-400">Total Recebido (Pagos)</p>
+                  <p className="text-2xl font-black text-emerald-400 mt-1">R$ {totalRecebido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-[11px] text-emerald-400 font-semibold mt-2">↑ +15% vs. mês anterior</p>
+                </div>
+
+                <div className="bg-slate-900 border border-purple-500/30 p-5 rounded-2xl shadow-xl">
+                  <p className="text-xs font-medium text-slate-400">Taxa de Eficiência</p>
+                  <p className="text-2xl font-black text-purple-400 mt-1">18,5%</p>
+                  <p className="text-[11px] text-purple-400 font-semibold mt-2">↑ +3,2% vs. mês anterior</p>
+                </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
-                <button onClick={() => setModalAcordo(null)} style={{ padding: '8px 14px', border: '1px solid #cbd5e1', borderRadius: '6px', backgroundColor: '#fff', cursor: 'pointer' }}>Cancelar</button>
-                <button onClick={() => moverEstagio(modalAcordo.clienteId, 6, { valor: modalAcordo.valor, parcelas: modalAcordo.parcelas })} style={{ padding: '8px 18px', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Salvar Acordo</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* FUNIL KANBAN COM DRAG & DROP E SUBMENUS */}
-        {abaAtiva === 'pipeline' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', flex: 1, overflow: 'hidden' }}>
-            {/* SUBMENU DE FILTROS DO FUNIL */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fff', padding: '10px 15px', borderRadius: '8px', boxShadow: '0 1px 2px rgba(0,0,0,0.04)', flexWrap: 'wrap', gap: '10px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '0.82rem', fontWeight: 'bold', color: '#475569', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <Filter size={15} color="#1D3557" /> Faixa:
-                </span>
-                {[
-                  { id: 'TODOS', label: 'Todas' },
-                  { id: '30', label: '30 Dias' },
-                  { id: '60', label: '60 Dias' },
-                  { id: '90', label: '90+ Dias' },
-                  { id: 'CANCELADOS', label: 'Cancelados' }
-                ].map(f => (
-                  <button
-                    key={f.id}
-                    onClick={() => setFiltroAtraso(f.id)}
-                    style={{
-                      padding: '5px 10px',
-                      borderRadius: '16px',
-                      border: 'none',
-                      backgroundColor: filtroAtraso === f.id ? '#1D3557' : '#f1f5f9',
-                      color: filtroAtraso === f.id ? '#fff' : '#475569',
-                      fontSize: '0.75rem',
-                      fontWeight: 'bold',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {f.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* FILTRO POR OPERADOR */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '0.82rem', fontWeight: 'bold', color: '#475569' }}>Operador:</span>
-                <select 
-                  value={filtroOperadorFunil} 
-                  onChange={e => setFiltroOperadorFunil(e.target.value)}
-                  style={{ padding: '5px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.8rem', fontWeight: 'bold', color: '#1D3557' }}>
-                  <option value="TODOS">Todos os Operadores</option>
-                  {usuarios.map(u => (
-                    <option key={u.id} value={u.id}>{u.nome}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* BUSCA NO FUNIL */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Search size={15} color="#1D3557" />
-                <input 
-                  type="text" 
-                  placeholder="Buscar no Funil..." 
-                  value={buscaFunil}
-                  onChange={e => setBuscaFunil(e.target.value)}
-                  style={{ padding: '5px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.8rem', width: '180px' }}
-                />
-              </div>
-            </div>
-
-            {/* COLUNAS KANBAN */}
-            <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', flex: 1, paddingBottom: '8px' }}>
-              {ESTAGIOS.map(estagio => {
-                const clientesNoEstagio = clientesFiltradosFunil.filter(c => Number(c.estagio_id) === estagio.id);
-                return (
-                  <div 
-                    key={estagio.id} 
-                    onDragOver={handleDragOver}
-                    onDrop={(e) => handleDrop(e, estagio.id)}
-                    style={{ minWidth: '240px', width: '240px', backgroundColor: '#e2e8f0', borderRadius: '8px', padding: '10px', display: 'flex', flexDirection: 'column', gap: '10px', height: '100%', boxSizing: 'border-box' }}>
-                    
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 'bold', fontSize: '0.78rem', color: '#334155' }}>
-                      <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{estagio.nome}</span>
-                      <span style={{ backgroundColor: estagio.cor, color: '#fff', padding: '2px 7px', borderRadius: '10px', fontSize: '0.72rem', flexShrink: 0 }}>
-                        {clientesNoEstagio.length}
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', flex: 1, paddingRight: '2px' }}>
-                      {clientesNoEstagio.map(cli => {
-                        const dataFormatada = formatarData(cli.atualizado_em || cli.criado_em);
-                        return (
-                          <div 
-                            key={cli.id} 
-                            draggable
-                            onDragStart={(e) => handleDragStart(e, cli.id)}
-                            onClick={() => { setClienteSelecionado(cli); setAbaAtiva('clientes'); }}
-                            style={{ 
-                              backgroundColor: '#fff', 
-                              padding: '10px 12px', 
-                              borderRadius: '6px', 
-                              boxShadow: '0 1px 2px rgba(0,0,0,0.06)', 
-                              borderLeft: `4px solid ${estagio.cor}`,
-                              cursor: 'grab'
-                            }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <div style={{ fontWeight: 'bold', color: '#0f172a', fontSize: '0.85rem' }}>{cli.nome}</div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <button 
-                                  onClick={(e) => { e.stopPropagation(); abrirWhatsApp(cli); }}
-                                  title="Chamar no WhatsApp"
-                                  style={{ background: 'none', border: 'none', color: '#10b981', cursor: 'pointer', padding: '2px' }}>
-                                  <MessageCircle size={17} />
-                                </button>
-                                {isEspecial && (
-                                  <button 
-                                    onClick={(e) => { e.stopPropagation(); handleExcluirCliente(cli.id); }}
-                                    title="Excluir do Funil"
-                                    style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '2px' }}>
-                                    <Trash2 size={15} />
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-
-                            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>ID: {cli.codigo || 'CLI-001'}</div>
-                            
-                            {/* EXIBIÇÃO DE VALOR E ACORDO */}
-                            <div style={{ fontSize: '0.88rem', fontWeight: 'bold', color: '#E63946', marginTop: '4px' }}>
-                              Devido: R$ {Number(cli.total_vencido || 0).toFixed(2)}
-                            </div>
-
-                            {cli.valor_acordo > 0 && (
-                              <div style={{ fontSize: '0.78rem', fontWeight: 'bold', color: '#059669', marginTop: '2px', backgroundColor: '#d1fae5', padding: '2px 6px', borderRadius: '4px' }}>
-                                Acordo: R$ {Number(cli.valor_acordo).toFixed(2)} ({cli.parcelas_acordo || 1}x)
-                              </div>
-                            )}
-
-                            <div style={{ fontSize: '0.68rem', color: '#1D3557', marginTop: '6px', backgroundColor: '#f0f4f8', padding: '4px 6px', borderRadius: '4px', fontWeight: 'bold', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                              <div>👤 Movido por: {cli.operador_nome || usuarioLogado.nome}</div>
-                              {dataFormatada && (
-                                <div style={{ color: '#64748b', fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                                  <Clock size={10} color="#1D3557" /> {dataFormatada}
-                                </div>
-                              )}
-                            </div>
-
-                            <div style={{ display: 'flex', gap: '4px', marginTop: '8px' }}>
-                              {estagio.id > 1 && (
-                                <button onClick={(e) => { e.stopPropagation(); moverEstagio(cli.id, estagio.id === 8 ? 6 : estagio.id - 1); }} style={{ padding: '3px 6px', fontSize: '0.68rem', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer', backgroundColor: '#fff' }}>
-                                  ← Voltar
-                                </button>
-                              )}
-                              {estagio.id < 8 && (
-                                <button onClick={(e) => { e.stopPropagation(); moverEstagio(cli.id, estagio.id === 6 ? 8 : estagio.id + 1); }} style={{ padding: '3px 6px', fontSize: '0.68rem', backgroundColor: '#1D3557', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
-                                  Avançar →
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* FICHA DO CLIENTE COM SUBMENUS & EDIÇÃO */}
-        {abaAtiva === 'clientes' && (
-          <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '15px', flex: 1, overflow: 'hidden' }}>
-            
-            {/* SUBMENU DA FICHA DO CLIENTE */}
-            <div style={{ display: 'flex', gap: '10px', borderBottom: '2px solid #e2e8f0', paddingBottom: '10px' }}>
-              <button 
-                onClick={() => setSubAbaFicha('base')}
-                style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', backgroundColor: subAbaFicha === 'base' ? '#1D3557' : '#f1f5f9', color: subAbaFicha === 'base' ? '#fff' : '#475569', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Users size={16} /> Base de Clientes Cadastrados ({clientes.length})
-              </button>
-
-              <button 
-                onClick={() => setSubAbaFicha('cadastrar')}
-                style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', backgroundColor: subAbaFicha === 'cadastrar' ? '#1D3557' : '#f1f5f9', color: subAbaFicha === 'cadastrar' ? '#fff' : '#475569', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <UserPlus size={16} /> Cadastrar Novo Cliente
-              </button>
-            </div>
-
-            {/* MODAL DE EDIÇÃO DE CLIENTE */}
-            {clienteEdicao && (
-              <form onSubmit={handleSalvarEdicaoCliente} style={{ backgroundColor: '#f0f4f8', border: '1px solid #1D3557', padding: '15px', borderRadius: '8px', display: 'grid', gridTemplateColumns: 'repeat(5, 1fr) auto', gap: '10px', alignItems: 'flex-end' }}>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Código / ID</label>
-                  <input type="text" value={clienteEdicao.codigo} onChange={e => setClienteEdicao({...clienteEdicao, codigo: e.target.value})} style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Nome do Cliente</label>
-                  <input type="text" value={clienteEdicao.nome} onChange={e => setClienteEdicao({...clienteEdicao, nome: e.target.value})} style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Telefone</label>
-                  <input type="text" value={clienteEdicao.telefone} onChange={e => setClienteEdicao({...clienteEdicao, telefone: e.target.value})} style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Valor Devedor</label>
-                  <input type="text" value={clienteEdicao.total_vencido} onChange={e => setClienteEdicao({...clienteEdicao, total_vencido: e.target.value})} style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Status Conexão</label>
-                  <input type="text" value={clienteEdicao.status_conexao} onChange={e => setClienteEdicao({...clienteEdicao, status_conexao: e.target.value})} style={{ width: '100%', padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
-                </div>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <button type="submit" style={{ padding: '7px 12px', backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>Salvar</button>
-                  <button type="button" onClick={() => setClienteEdicao(null)} style={{ padding: '7px 12px', border: '1px solid #cbd5e1', backgroundColor: '#fff', borderRadius: '4px', cursor: 'pointer' }}>Cancelar</button>
-                </div>
-              </form>
-            )}
-
-            {subAbaFicha === 'base' && (
-              <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '20px', flex: 1, overflow: 'hidden' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', backgroundColor: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                  <label style={{ fontSize: '0.82rem', fontWeight: 'bold', color: '#1D3557', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Search size={16} /> Pesquisar Cliente no Banco:
-                  </label>
-                  <input 
-                    type="text" 
-                    placeholder="Digite nome ou ID (ex: 7877 ou Paulino)..." 
-                    value={buscaClienteFicha}
-                    onChange={e => setBuscaClienteFicha(e.target.value)}
-                    style={{ padding: '9px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
-                  />
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', overflowY: 'auto', flex: 1 }}>
-                    {clientesBuscaFicha.map(c => (
-                      <div 
-                        key={c.id} 
-                        onClick={() => setClienteSelecionado(c)}
-                        style={{ padding: '8px 10px', borderRadius: '6px', backgroundColor: clienteSelecionado?.id === c.id ? '#1D3557' : '#fff', color: clienteSelecionado?.id === c.id ? '#fff' : '#0f172a', border: '1px solid #cbd5e1', cursor: 'pointer', fontSize: '0.82rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                          <strong>{c.codigo}</strong> - {c.nome}
-                        </div>
-                        <span style={{ fontWeight: 'bold', color: clienteSelecionado?.id === c.id ? '#fff' : '#E63946' }}>R$ {Number(c.total_vencido || 0).toFixed(2)}</span>
+              {/* SEÇÃO INTERMEDIÁRIA DE RESUMO */}
+              <div className="grid grid-cols-2 gap-6">
+                <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-4">
+                  <h3 className="text-sm font-bold text-white">Distribuição por Perfil de Atraso</h3>
+                  <div className="space-y-3 text-xs">
+                    <div>
+                      <div className="flex justify-between text-slate-300 font-semibold mb-1">
+                        <span>Devedores 30 Dias</span>
+                        <span>{clientes.filter(c => c.dias_atraso === 30).length} clientes</span>
                       </div>
-                    ))}
-                  </div>
-                </div>
-
-                {clienteSelecionado ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', overflowY: 'auto' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                      <div style={{ backgroundColor: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <h3 style={{ margin: 0, fontSize: '0.95rem', color: '#1D3557' }}>Dados Cadastrais</h3>
-                          <button onClick={() => setClienteEdicao(clienteSelecionado)} style={{ padding: '4px 8px', backgroundColor: '#1D3557', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Edit3 size={12} /> Editar Cliente
-                          </button>
-                        </div>
-                        <p style={{ margin: '8px 0 0 0', fontSize: '0.85rem' }}><strong>ID / Código:</strong> {clienteSelecionado.codigo}</p>
-                        <p style={{ margin: '2px 0 0 0', fontSize: '0.85rem' }}><strong>Nome:</strong> {clienteSelecionado.nome}</p>
-                        <p style={{ margin: '2px 0 0 0', fontSize: '0.85rem' }}><strong>Telefone:</strong> {clienteSelecionado.telefone || 'Não informado'}</p>
-                        
-                        <button 
-                          onClick={() => abrirWhatsApp(clienteSelecionado)} 
-                          style={{ marginTop: '10px', padding: '6px 12px', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <MessageCircle size={15} /> Disparar WhatsApp Web
-                        </button>
-                      </div>
-
-                      <div style={{ backgroundColor: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                        <h3 style={{ margin: '0 0 8px 0', fontSize: '0.95rem', color: '#E63946' }}>Situação Financeira</h3>
-                        <p style={{ margin: 0, fontSize: '0.85rem' }}><strong>Valor Total Devedor:</strong> <span style={{ color: '#E63946', fontWeight: 'bold' }}>R$ {Number(clienteSelecionado.total_vencido || 0).toFixed(2)}</span></p>
-                        {clienteSelecionado.valor_acordo > 0 && (
-                          <p style={{ margin: '2px 0 0 0', fontSize: '0.85rem', color: '#059669', fontWeight: 'bold' }}><strong>Acordo Gerado:</strong> R$ {Number(clienteSelecionado.valor_acordo).toFixed(2)} em {clienteSelecionado.parcelas_acordo || 1}x</p>
-                        )}
-                        <p style={{ margin: '2px 0 0 0', fontSize: '0.85rem' }}><strong>Atraso:</strong> {clienteSelecionado.dias_atraso || 30} dias</p>
-                        <p style={{ margin: '2px 0 0 0', fontSize: '0.85rem' }}><strong>Estágio:</strong> {ESTAGIOS.find(e => e.id === Number(clienteSelecionado.estagio_id))?.nome || '1º CONTATO'}</p>
+                      <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden">
+                        <div className="h-full bg-blue-500 w-[60%]"></div>
                       </div>
                     </div>
 
-                    <div style={{ border: '1px solid #e2e8f0', borderRadius: '8px', padding: '15px', backgroundColor: '#fff', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      <h3 style={{ margin: 0, fontSize: '0.95rem', color: '#0B1E36', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <History size={16} color="#1D3557" /> Histórico de Atendimentos & Conversas (CRM)
-                      </h3>
+                    <div>
+                      <div className="flex justify-between text-slate-300 font-semibold mb-1">
+                        <span>Devedores 60 Dias</span>
+                        <span>{clientes.filter(c => c.dias_atraso === 60).length} clientes</span>
+                      </div>
+                      <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden">
+                        <div className="h-full bg-amber-500 w-[25%]"></div>
+                      </div>
+                    </div>
 
-                      <form onSubmit={handleAdicionarObsCrm} style={{ display: 'flex', gap: '8px' }}>
-                        <input 
-                          type="text" 
-                          placeholder="Registrar nova observação (Ex: Liguei, disse que paga dia 10)..."
-                          value={novaObsCrm}
-                          onChange={e => setNovaObsCrm(e.target.value)}
-                          style={{ flex: 1, padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '0.85rem' }}
-                        />
-                        <button type="submit" style={{ padding: '8px 14px', backgroundColor: '#1D3557', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <Send size={14} /> Registrar
-                        </button>
-                      </form>
-
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto' }}>
-                        {historicoCliente.length === 0 ? (
-                          <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Nenhuma observação registrada ainda.</span>
-                        ) : (
-                          historicoCliente.map(h => (
-                            <div key={h.id} style={{ padding: '8px 10px', backgroundColor: '#f8fafc', borderRadius: '6px', borderLeft: '3px solid #1D3557', fontSize: '0.82rem' }}>
-                              <div style={{ fontWeight: 'bold', color: '#0B1E36', display: 'flex', justifyContent: 'space-between' }}>
-                                <span>👤 {h.usuario_nome}</span>
-                                <span style={{ color: '#64748b', fontSize: '0.72rem', fontWeight: 'normal' }}>{formatarData(h.criado_em)}</span>
-                              </div>
-                              <div style={{ color: '#334155', marginTop: '3px' }}>{h.observacao}</div>
-                            </div>
-                          ))
-                        )}
+                    <div>
+                      <div className="flex justify-between text-slate-300 font-semibold mb-1">
+                        <span>Devedores 90+ Dias</span>
+                        <span>{clientes.filter(c => c.dias_atraso === 90).length} clientes</span>
+                      </div>
+                      <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden">
+                        <div className="h-full bg-rose-500 w-[15%]"></div>
                       </div>
                     </div>
                   </div>
-                ) : <p style={{ color: '#64748b' }}>Nenhum cliente selecionado.</p>}
-              </div>
-            )}
-
-            {subAbaFicha === 'cadastrar' && (
-              <form onSubmit={handleCadastrarClienteManual} style={{ maxWidth: '450px', display: 'flex', flexDirection: 'column', gap: '12px', backgroundColor: '#f8fafc', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                <h3 style={{ margin: 0, fontSize: '1rem', color: '#0B1E36' }}>➕ Cadastrar Cliente Manual</h3>
-                
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>ID / Código</label>
-                  <input type="text" placeholder="Ex: 01 ou CLI-001" value={formManual.codigo} onChange={e => setFormManual({ ...formManual, codigo: e.target.value })} style={{ width: '100%', padding: '9px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '3px', boxSizing: 'border-box' }} />
                 </div>
 
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Nome do Cliente *</label>
-                  <input type="text" placeholder="Nome completo" value={formManual.nome} onChange={e => setFormManual({ ...formManual, nome: e.target.value })} required style={{ width: '100%', padding: '9px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '3px', boxSizing: 'border-box' }} />
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Telefone / WhatsApp</label>
-                  <input type="text" placeholder="(41) 99999-9999" value={formManual.telefone} onChange={e => setFormManual({ ...formManual, telefone: e.target.value })} style={{ width: '100%', padding: '9px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '3px', boxSizing: 'border-box' }} />
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Valor Devedor (R$) *</label>
-                  <input type="text" placeholder="Ex: 1872,00" value={formManual.total_vencido} onChange={e => setFormManual({ ...formManual, total_vencido: e.target.value })} required style={{ width: '100%', padding: '9px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '3px', boxSizing: 'border-box' }} />
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Faixa / Situação do Atraso</label>
-                  <select value={formManual.opcao_atraso} onChange={e => setFormManual({ ...formManual, opcao_atraso: e.target.value })} style={{ width: '100%', padding: '9px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '3px', boxSizing: 'border-box' }}>
-                    <option value="30">Devedor 30 Dias</option>
-                    <option value="60">Devedor 60 Dias</option>
-                    <option value="90">Devedor 90+ Dias</option>
-                    <option value="CANCELADOS">Cliente Cancelado</option>
-                  </select>
-                </div>
-
-                <button type="submit" style={{ padding: '11px', backgroundColor: '#1D3557', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', marginTop: '6px' }}>
-                  Salvar e Adicionar ao Funil
-                </button>
-              </form>
-            )}
-          </div>
-        )}
-
-        {/* AGENDA */}
-        {abaAtiva === 'agenda' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '20px', flex: 1, overflow: 'hidden' }}>
-            <form onSubmit={handleCadastrarAgendamento} style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1D3557', fontWeight: 'bold', fontSize: '1rem' }}>
-                <CalendarDays size={20} /> Agendar Retorno de Cobrança
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Cliente *</label>
-                <select 
-                  value={novoAgendamento.cliente_nome}
-                  onChange={e => setNovoAgendamento({ ...novoAgendamento, cliente_nome: e.target.value })}
-                  required
-                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }}>
-                  <option value="">Selecione o Cliente...</option>
-                  {clientes.map(c => (
-                    <option key={c.id} value={`${c.codigo} - ${c.nome}`}>{c.codigo} - {c.nome}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Operador Responsável *</label>
-                <select 
-                  value={novoAgendamento.usuario_id}
-                  onChange={e => setNovoAgendamento({ ...novoAgendamento, usuario_id: e.target.value })}
-                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }}>
-                  <option value="">{usuarioLogado.nome} (Você mesmo)</option>
-                  {usuarios.map(u => (
-                    <option key={u.id} value={u.id}>{u.nome} ({u.cargo})</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Data e Hora do Retorno *</label>
-                <input 
-                  type="datetime-local" 
-                  value={novoAgendamento.data_retorno}
-                  onChange={e => setNovoAgendamento({ ...novoAgendamento, data_retorno: e.target.value })}
-                  required
-                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Observação / Motivo do Agendamento</label>
-                <textarea 
-                  rows={3}
-                  placeholder="Ex: Cliente pediu para ligar após o almoço para confirmar o Pix do acordo."
-                  value={novoAgendamento.observacao}
-                  onChange={e => setNovoAgendamento({ ...novoAgendamento, observacao: e.target.value })}
-                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box', fontFamily: 'inherit' }}
-                />
-              </div>
-
-              <button type="submit" style={{ padding: '12px', backgroundColor: '#1D3557', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', marginTop: '8px' }}>
-                Salvar Compromisso na Agenda
-              </button>
-            </form>
-
-            <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '15px', overflowY: 'auto' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 style={{ margin: 0, fontSize: '1.1rem', color: '#0B1E36' }}>📅 Compromissos e Retornos Agendados</h2>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Ver Agenda do Operador:</span>
-                  <select 
-                    value={filtroAgendaUsuario} 
-                    onChange={e => setFiltroAgendaUsuario(e.target.value)}
-                    style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.82rem', fontWeight: 'bold', color: '#1D3557' }}>
-                    <option value="TODOS">Todos os Operadores</option>
-                    {usuarios.map(u => (
-                      <option key={u.id} value={u.id}>{u.nome}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {agendamentosFiltrados.length === 0 ? (
-                  <p style={{ color: '#64748b', fontSize: '0.9rem' }}>Nenhum retorno agendado para o operador selecionado.</p>
-                ) : (
-                  agendamentosFiltrados.map(a => (
-                    <div key={a.id} style={{ border: '1px solid #e2e8f0', padding: '14px', borderRadius: '8px', backgroundColor: a.concluido ? '#f0fdf4' : '#fff', opacity: a.concluido ? 0.75 : 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                        <div style={{ fontWeight: 'bold', color: '#0f172a', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          {a.cliente_nome}
-                          {a.concluido && <span style={{ backgroundColor: '#d1fae5', color: '#059669', fontSize: '0.7rem', padding: '2px 6px', borderRadius: '10px' }}>Concluído</span>}
-                        </div>
-                        <div style={{ fontSize: '0.8rem', color: '#1D3557', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <Clock size={14} /> Data do Retorno: {formatarData(a.data_retorno)} | 👤 Operador: {a.usuario_nome}
-                        </div>
-                        {a.observacao && (
-                          <div style={{ fontSize: '0.82rem', color: '#475569', marginTop: '4px', fontStyle: 'italic' }}>
-                            "{a.observacao}"
-                          </div>
-                        )}
-                      </div>
-
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        {!a.concluido && (
-                          <button onClick={() => handleConcluirAgendamento(a.id)} style={{ padding: '6px 12px', backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.78rem' }}>
-                            Marcar como Feito
-                          </button>
-                        )}
-                        <button onClick={() => handleExcluirAgendamento(a.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}>
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* SCRIPTS */}
-        {abaAtiva === 'scripts' && (
-          <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: '20px', flex: 1, overflow: 'hidden' }}>
-            <form onSubmit={handleCadastrarScript} style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#1D3557', fontWeight: 'bold', fontSize: '1rem' }}>
-                <MessageSquare size={20} /> Cadastrar Script de Cobrança
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Título do Script *</label>
-                <input 
-                  type="text" 
-                  placeholder="Ex: Lembrete de Vencimento 30 Dias" 
-                  value={novoScript.titulo} 
-                  onChange={e => setNovoScript({ ...novoScript, titulo: e.target.value })}
-                  required
-                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Tipo de Devedor / Categoria</label>
-                <select 
-                  value={novoScript.categoria} 
-                  onChange={e => setNovoScript({ ...novoScript, categoria: e.target.value })}
-                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }}>
-                  <option value="30">Devedores 30 Dias</option>
-                  <option value="60">Devedores 60 Dias</option>
-                  <option value="90">Devedores 90+ Dias</option>
-                  <option value="CANCELADOS">Clientes Cancelados</option>
-                </select>
-              </div>
-
-              <div>
-                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Mensagem / Texto para Envio *</label>
-                <textarea 
-                  rows={6}
-                  placeholder="Olá {NOME}, identificamos uma pendência no valor de {VALOR}. Podemos enviar a segunda via da fatura?" 
-                  value={novoScript.conteudo} 
-                  onChange={e => setNovoScript({ ...novoScript, conteudo: e.target.value })}
-                  required
-                  style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box', fontFamily: 'inherit' }}
-                />
-              </div>
-
-              <button type="submit" style={{ padding: '12px', backgroundColor: '#1D3557', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', marginTop: '8px' }}>
-                Salvar Modelo de Mensagem
-              </button>
-            </form>
-
-            <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '15px', overflowY: 'auto' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 style={{ margin: 0, fontSize: '1.1rem', color: '#0B1E36' }}>📜 Biblioteca de Scripts Cadastrados</h2>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Filtrar Categoria:</span>
-                  <select 
-                    value={filtroScriptCategoria} 
-                    onChange={e => setFiltroScriptCategoria(e.target.value)}
-                    style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.82rem' }}>
-                    <option value="TODOS">Todas as Categorias</option>
-                    <option value="30">30 Dias</option>
-                    <option value="60">60 Dias</option>
-                    <option value="90">90+ Dias</option>
-                    <option value="CANCELADOS">Cancelados</option>
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {scriptsFiltrados.map(s => (
-                  <div key={s.id} style={{ border: '1px solid #e2e8f0', padding: '15px', borderRadius: '8px', backgroundColor: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ fontWeight: 'bold', color: '#0f172a', fontSize: '0.95rem' }}>{s.titulo}</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <span style={{ padding: '3px 8px', borderRadius: '12px', backgroundColor: s.categoria === 'CANCELADOS' ? '#fee2e2' : '#e0f2fe', color: s.categoria === 'CANCELADOS' ? '#E63946' : '#1D3557', fontSize: '0.72rem', fontWeight: 'bold' }}>
-                          {s.categoria === 'CANCELADOS' ? 'CANCELADOS' : `${s.categoria} DIAS`}
-                        </span>
-                        {isEspecial && (
-                          <button onClick={() => handleExcluirScript(s.id)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}>
-                            <Trash2 size={16} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    <div style={{ fontSize: '0.85rem', color: '#334155', whiteSpace: 'pre-line', backgroundColor: '#fff', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
-                      {s.conteudo}
-                    </div>
-
-                    <button 
-                      onClick={() => handleCopiarTexto(s.id, s.conteudo)}
-                      style={{ padding: '8px 14px', backgroundColor: copiadoId === s.id ? '#059669' : '#1D3557', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: '6px', alignSelf: 'flex-start' }}>
-                      {copiadoId === s.id ? <><Check size={14} /> Copiado!</> : <><Copy size={14} /> Copiar Texto</>}
-                    </button>
+                <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-3">
+                  <h3 className="text-sm font-bold text-white">Resumo de Negociações</h3>
+                  <div className="bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-xl flex items-center space-x-3">
+                    <CheckCircle className="w-5 h-5 text-emerald-400" />
+                    <span className="text-xs text-emerald-300 font-semibold">Acordos Pagos e Quitados com Sucesso</span>
                   </div>
-                ))}
+                  <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl flex items-center space-x-3">
+                    <Clock className="w-5 h-5 text-amber-400" />
+                    <span className="text-xs text-amber-300 font-semibold">Acordos Gerados Aguardando Liquidação</span>
+                  </div>
+                  <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl flex items-center space-x-3">
+                    <AlertTriangle className="w-5 h-5 text-rose-400" />
+                    <span className="text-xs text-rose-300 font-semibold">Recusas e Insucessos de Negociação</span>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* DASHBOARD */}
-        {abaAtiva === 'dashboard' && <Dashboard clientes={clientes} />}
-
-        {/* RELATÓRIOS */}
-        {abaAtiva === 'relatorios' && (
-          <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '20px', flex: 1, overflowY: 'auto' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#0B1E36' }}>📈 Relatório de Cobrança por Período</h2>
+          {/* AGENDA COM BUSCA DE CLIENTES */}
+          {abaAtiva === 'agenda' && (
+            <div className="grid grid-cols-3 gap-6">
               
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button onClick={exportarParaCSV} style={{ padding: '8px 14px', backgroundColor: '#10b981', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <FileSpreadsheet size={16} /> Exportar Planilha Excel (.CSV)
-                </button>
-                <button onClick={() => window.print()} style={{ padding: '8px 14px', backgroundColor: '#1D3557', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Printer size={16} /> Imprimir Relatório PDF
-                </button>
+              {/* FORMULÁRIO DE NOVO AGENDAMENTO */}
+              <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-4">
+                <h2 className="text-base font-bold text-white flex items-center space-x-2">
+                  <Calendar className="w-5 h-5 text-blue-400" />
+                  <span>Agendar Retorno</span>
+                </h2>
+
+                <form onSubmit={handleSalvarAgendamento} className="space-y-4 text-xs">
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-semibold">Cliente *</label>
+                    <input 
+                      type="text"
+                      required
+                      placeholder="Nome do cliente"
+                      value={novoAgendamento.cliente_nome}
+                      onChange={e => setNovoAgendamento({...novoAgendamento, cliente_nome: e.target.value})}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-semibold">Data e Hora do Retorno *</label>
+                    <input 
+                      type="datetime-local"
+                      required
+                      value={novoAgendamento.data_retorno}
+                      onChange={e => setNovoAgendamento({...novoAgendamento, data_retorno: e.target.value})}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-semibold">Observação / Motivo</label>
+                    <textarea 
+                      rows="3"
+                      value={novoAgendamento.observacao}
+                      onChange={e => setNovoAgendamento({...novoAgendamento, observacao: e.target.value})}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white"
+                    ></textarea>
+                  </div>
+
+                  <button 
+                    type="submit"
+                    className="w-full bg-blue-600 hover:bg-blue-500 font-bold py-2.5 rounded-lg text-white transition-all shadow-lg"
+                  >
+                    Salvar Compromisso na Agenda
+                  </button>
+                </form>
+              </div>
+
+              {/* LISTA DE AGENDAMENTOS COM FILTRO/BUSCA DE CLIENTE */}
+              <div className="col-span-2 bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-bold text-white">Compromissos Agendados</h2>
+                  <div className="relative w-64">
+                    <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                    <input 
+                      type="text" 
+                      placeholder="Filtrar cliente na agenda..."
+                      value={buscaAgenda}
+                      onChange={e => setBuscaAgenda(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-3 max-h-[500px] overflow-y-auto">
+                  {agenda
+                    .filter(a => a.cliente_nome?.toLowerCase().includes(buscaAgenda.toLowerCase()))
+                    .map(item => (
+                      <div key={item.id} className="bg-slate-950 border border-slate-800 p-4 rounded-xl flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-bold text-white">{item.cliente_nome}</p>
+                          <p className="text-xs text-blue-400 font-semibold mt-0.5">📅 {item.data_retorno}</p>
+                          {item.observacao && <p className="text-xs text-slate-400 mt-1">{item.observacao}</p>}
+                        </div>
+                        <span className="text-[10px] bg-slate-900 border border-slate-800 text-slate-300 px-2.5 py-1 rounded-full font-semibold uppercase">
+                          {item.usuario_nome}
+                        </span>
+                      </div>
+                    ))}
+                </div>
               </div>
             </div>
+          )}
 
-            <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                <thead style={{ backgroundColor: '#0B1E36', color: '#fff' }}>
-                  <tr>
-                    <th style={{ padding: '10px', textAlign: 'left' }}>ID / Código</th>
-                    <th style={{ padding: '10px', textAlign: 'left' }}>Nome do Cliente</th>
-                    <th style={{ padding: '10px', textAlign: 'left' }}>Valor Devedor</th>
-                    <th style={{ padding: '10px', textAlign: 'left' }}>Valor Acordo</th>
-                    <th style={{ padding: '10px', textAlign: 'left' }}>Parcelas</th>
-                    <th style={{ padding: '10px', textAlign: 'left' }}>Estágio Atual</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {clientes.map(c => (
-                    <tr key={c.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                      <td style={{ padding: '10px', fontWeight: 'bold' }}>{c.codigo}</td>
-                      <td style={{ padding: '10px' }}>{c.nome}</td>
-                      <td style={{ padding: '10px', color: '#E63946', fontWeight: 'bold' }}>R$ {Number(c.total_vencido || 0).toFixed(2)}</td>
-                      <td style={{ padding: '10px', color: '#059669', fontWeight: 'bold' }}>R$ {Number(c.valor_acordo || 0).toFixed(2)}</td>
-                      <td style={{ padding: '10px' }}>{c.parcelas_acordo || 1}x</td>
-                      <td style={{ padding: '10px', fontWeight: 'bold', color: '#1D3557' }}>
-                        {ESTAGIOS.find(e => e.id === Number(c.estagio_id))?.nome || '1º CONTATO'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {/* PÓS-VENDA RESIDENCIAL */}
+          {abaAtiva === 'pos-venda' && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <h1 className="text-xl font-bold text-white">Pós-Venda Residencial — Acompanhamento de Novos Clientes</h1>
+                  <p className="text-xs text-slate-400">Garantia de Qualidade da Conexão e Retorno nos Períodos Críticos</p>
+                </div>
+              </div>
+
+              {/* FUNIL PÓS-VENDA 15, 30, 60 DIAS */}
+              <div className="grid grid-cols-3 gap-6">
+                
+                {/* 15 DIAS */}
+                <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3">
+                  <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                    <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">15 Dias de Instalação</span>
+                    <span className="bg-blue-600/20 text-blue-400 text-xs px-2 py-0.5 rounded-full font-bold">
+                      {posVendaClientes.filter(pv => pv.estagio === '15_dias').length}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {posVendaClientes.filter(pv => pv.estagio === '15_dias').map(cli => (
+                      <div key={cli.id} className="bg-slate-950 border border-slate-800 p-3 rounded-xl">
+                        <p className="text-xs font-bold text-white">{cli.nome}</p>
+                        <p className="text-[11px] text-slate-400">{cli.plano}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 30 DIAS */}
+                <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3">
+                  <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                    <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">30 Dias (1ª Fatura)</span>
+                    <span className="bg-purple-600/20 text-purple-400 text-xs px-2 py-0.5 rounded-full font-bold">
+                      {posVendaClientes.filter(pv => pv.estagio === '30_dias').length}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {posVendaClientes.filter(pv => pv.estagio === '30_dias').map(cli => (
+                      <div key={cli.id} className="bg-slate-950 border border-slate-800 p-3 rounded-xl">
+                        <p className="text-xs font-bold text-white">{cli.nome}</p>
+                        <p className="text-[11px] text-slate-400">{cli.plano}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 60 DIAS */}
+                <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3">
+                  <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                    <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">60 Dias (Fidelização)</span>
+                    <span className="bg-emerald-600/20 text-emerald-400 text-xs px-2 py-0.5 rounded-full font-bold">
+                      {posVendaClientes.filter(pv => pv.estagio === '60_dias').length}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {posVendaClientes.filter(pv => pv.estagio === '60_dias').map(cli => (
+                      <div key={cli.id} className="bg-slate-950 border border-slate-800 p-3 rounded-xl">
+                        <p className="text-xs font-bold text-white">{cli.nome}</p>
+                        <p className="text-[11px] text-slate-400">{cli.plano}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* IMPORTAÇÃO */}
-        {abaAtiva === 'importar' && isEspecial && (
-          <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '20px', flex: 1, overflowY: 'auto' }}>
-            <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#0B1E36' }}>📥 Importar Lista & Gerar Prévia do Funil</h2>
+          {/* CHAT INTERNO */}
+          {abaAtiva === 'chat' && (
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-3xl mx-auto flex flex-col h-[600px]">
+              <div className="border-b border-slate-800 pb-3 mb-4">
+                <h2 className="text-base font-bold text-white flex items-center space-x-2">
+                  <MessageSquare className="w-5 h-5 text-blue-400" />
+                  <span>Chat Interno da Operação MetroNet</span>
+                </h2>
+              </div>
 
-            {previaClientes.length === 0 ? (
-              <form onSubmit={handleGerarPrevia} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '15px', padding: '40px 0' }}>
-                <Upload size={48} color="#1D3557" />
-                <p style={{ color: '#64748b', fontSize: '0.9rem', maxWidth: '500px', textAlign: 'center' }}>
-                  Selecione sua planilha Excel (.xlsx ou .csv). O sistema gerará uma <strong>prévia completa</strong> para você categorizar antes de enviar para o Funil.
-                </p>
+              <div className="flex-1 overflow-y-auto space-y-3 p-2 bg-slate-950 rounded-xl mb-4 border border-slate-800">
+                {chatMensagens.map(msg => (
+                  <div key={msg.id} className="bg-slate-900 border border-slate-800 p-3 rounded-xl text-xs space-y-1">
+                    <div className="flex justify-between items-center font-bold text-blue-400">
+                      <span>{msg.usuario_nome}</span>
+                      <span className="text-[10px] text-slate-500">{new Date(msg.criado_em).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                    <p className="text-slate-200">{msg.mensagem}</p>
+                  </div>
+                ))}
+              </div>
+
+              <form onSubmit={handleEnviarChat} className="flex space-x-2">
                 <input 
-                  type="file" 
-                  accept=".xlsx, .xls, .csv" 
-                  onChange={e => setArquivo(e.target.files[0])}
-                  style={{ padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px' }} 
+                  type="text" 
+                  placeholder="Escreva sua mensagem para a equipe..."
+                  value={novaMsgChat}
+                  onChange={e => setNovaMsgChat(e.target.value)}
+                  className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500"
                 />
                 <button 
-                  type="submit" 
-                  disabled={carregando}
-                  style={{ padding: '12px 24px', backgroundColor: '#1D3557', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem' }}>
-                  {carregando ? 'Processando Planilha...' : 'Gerar Prévia dos Contatos'}
+                  type="submit"
+                  className="bg-blue-600 hover:bg-blue-500 text-white px-5 rounded-xl flex items-center justify-center transition-all font-bold"
+                >
+                  <Send className="w-4 h-4" />
                 </button>
               </form>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f0f4f8', padding: '12px 16px', borderRadius: '8px', border: '1px solid #1D3557' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#1D3557' }}>Definir Categoria para Toda a Lista:</label>
-                    <select 
-                      onChange={e => {
-                        const valor = e.target.value;
-                        setPreviaClientes(previaClientes.map(p => ({ ...p, opcao_atraso: valor })));
-                      }}
-                      style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #1D3557', fontSize: '0.85rem', fontWeight: 'bold' }}>
-                      <option value="30">Devedores 30 Dias</option>
-                      <option value="60">Devedores 60 Dias</option>
-                      <option value="90">Devedores 90+ Dias</option>
-                      <option value="CANCELADOS">Clientes Cancelados</option>
-                    </select>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <button onClick={() => setPreviaClientes([])} style={{ padding: '8px 14px', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer', backgroundColor: '#fff' }}>
-                      Cancelar
-                    </button>
-                    <button onClick={handleConfirmarImportacaoPrevia} style={{ padding: '8px 18px', backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
-                      Confirmar e Enviar {previaClientes.filter(p => p.selecionado).length} Contatos ao Funil
-                    </button>
-                  </div>
-                </div>
-
-                <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                    <thead style={{ backgroundColor: '#0B1E36', color: '#fff' }}>
-                      <tr>
-                        <th style={{ padding: '10px', textAlign: 'center' }}>Enviar?</th>
-                        <th style={{ padding: '10px', textAlign: 'left' }}>ID / Código</th>
-                        <th style={{ padding: '10px', textAlign: 'left' }}>Nome do Cliente</th>
-                        <th style={{ padding: '10px', textAlign: 'left' }}>Valor Devedor</th>
-                        <th style={{ padding: '10px', textAlign: 'left' }}>Faixa / Categoria do Cliente</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {previaClientes.map(item => (
-                        <tr key={item.tempId} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                          <td style={{ padding: '10px', textAlign: 'center' }}>
-                            <input 
-                              type="checkbox" 
-                              checked={item.selecionado} 
-                              onChange={e => {
-                                const checked = e.target.checked;
-                                setPreviaClientes(previaClientes.map(p => p.tempId === item.tempId ? { ...p, selecionado: checked } : p));
-                              }}
-                            />
-                          </td>
-                          <td style={{ padding: '10px', fontWeight: 'bold' }}>{item.codigo}</td>
-                          <td style={{ padding: '10px' }}>{item.nome}</td>
-                          <td style={{ padding: '10px', color: '#E63946', fontWeight: 'bold' }}>R$ {Number(item.total_vencido || 0).toFixed(2)}</td>
-                          <td style={{ padding: '10px' }}>
-                            <select 
-                              value={item.opcao_atraso || '30'}
-                              onChange={e => {
-                                const val = e.target.value;
-                                setPreviaClientes(previaClientes.map(p => p.tempId === item.tempId ? { ...p, opcao_atraso: val } : p));
-                              }}
-                              style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.8rem' }}>
-                              <option value="30">30 Dias</option>
-                              <option value="60">60 Dias</option>
-                              <option value="90">90+ Dias</option>
-                              <option value="CANCELADOS">Cancelados</option>
-                            </select>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ADMINISTRAÇÃO E EDIÇÃO/EXCLUSÃO DE USUÁRIOS */}
-        {abaAtiva === 'admin' && isEspecial && (
-          <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '15px', flex: 1, overflow: 'hidden' }}>
-            <div style={{ display: 'flex', gap: '10px', borderBottom: '2px solid #e2e8f0', paddingBottom: '10px' }}>
-              <button 
-                onClick={() => setSubAbaAdmin('usuarios')}
-                style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', backgroundColor: subAbaAdmin === 'usuarios' ? '#1D3557' : '#f1f5f9', color: subAbaAdmin === 'usuarios' ? '#fff' : '#475569', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Users size={16} /> Gerenciar Usuários & Senhas
-              </button>
-
-              <button 
-                onClick={() => setSubAbaAdmin('cadastrar')}
-                style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', backgroundColor: subAbaAdmin === 'cadastrar' ? '#1D3557' : '#f1f5f9', color: subAbaAdmin === 'cadastrar' ? '#fff' : '#475569', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <UserPlus size={16} /> Cadastrar Novo Usuário
-              </button>
-
-              <button 
-                onClick={() => setSubAbaAdmin('exclusao')}
-                style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', backgroundColor: subAbaAdmin === 'exclusao' ? '#E63946' : '#f1f5f9', color: subAbaAdmin === 'exclusao' ? '#fff' : '#475569', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Trash2 size={16} /> Exclusão de Listas em Massa
-              </button>
             </div>
+          )}
 
-            {/* FORM EDIÇÃO USUÁRIO */}
-            {usuarioEdicao && (
-              <form onSubmit={handleSalvarEdicaoUsuario} style={{ backgroundColor: '#f0f4f8', border: '1px solid #1D3557', padding: '15px', borderRadius: '8px', display: 'flex', gap: '10px', alignItems: 'flex-end' }}>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Nome</label>
-                  <input type="text" value={usuarioEdicao.nome} onChange={e => setUsuarioEdicao({...usuarioEdicao, nome: e.target.value})} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>E-mail</label>
-                  <input type="email" value={usuarioEdicao.email} onChange={e => setUsuarioEdicao({...usuarioEdicao, email: e.target.value})} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1' }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Cargo</label>
-                  <select value={usuarioEdicao.cargo} onChange={e => setUsuarioEdicao({...usuarioEdicao, cargo: e.target.value})} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #cbd5e1' }}>
-                    <option value="COBRADOR">COBRADOR</option>
-                    <option value="SUPERVISOR">SUPERVISOR</option>
-                    <option value="ADMINISTRADOR">ADMINISTRADOR</option>
-                  </select>
-                </div>
-                <button type="submit" style={{ padding: '7px 12px', backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>Salvar</button>
-                <button type="button" onClick={() => setUsuarioEdicao(null)} style={{ padding: '7px 12px', border: '1px solid #cbd5e1', backgroundColor: '#fff', borderRadius: '4px', cursor: 'pointer' }}>Cancelar</button>
-              </form>
-            )}
-
-            {subAbaAdmin === 'usuarios' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', overflowY: 'auto', flex: 1 }}>
-                <h3 style={{ margin: 0, fontSize: '1rem', color: '#0B1E36' }}>👥 Usuários Cadastrados no Sistema</h3>
-
-                {usuarioParaAlterarSenha && (
-                  <form onSubmit={handleAlterarSenha} style={{ backgroundColor: '#f0f4f8', border: '1px solid #1D3557', padding: '15px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <KeyRound size={20} color="#1D3557" />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 'bold', fontSize: '0.85rem', color: '#1D3557' }}>Alterar senha de: {usuarioParaAlterarSenha.nome}</div>
-                      <input 
-                        type="password" 
-                        placeholder="Digite a nova senha..." 
-                        value={novaSenhaInput}
-                        onChange={e => setNovaSenhaInput(e.target.value)}
-                        required
-                        style={{ padding: '8px 12px', border: '1px solid #cbd5e1', borderRadius: '6px', width: '250px', marginTop: '4px' }}
-                      />
-                    </div>
-                    <button type="submit" style={{ padding: '8px 16px', backgroundColor: '#059669', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Salvar Nova Senha</button>
-                    <button type="button" onClick={() => setUsuarioParaAlterarSenha(null)} style={{ padding: '8px 12px', border: '1px solid #cbd5e1', backgroundColor: '#fff', borderRadius: '6px', cursor: 'pointer' }}>Cancelar</button>
-                  </form>
-                )}
-
-                <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                    <thead style={{ backgroundColor: '#0B1E36', color: '#fff' }}>
-                      <tr>
-                        <th style={{ padding: '10px', textAlign: 'left' }}>Nome</th>
-                        <th style={{ padding: '10px', textAlign: 'left' }}>E-mail</th>
-                        <th style={{ padding: '10px', textAlign: 'left' }}>Cargo / Perfil</th>
-                        <th style={{ padding: '10px', textAlign: 'center' }}>Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {usuarios.map(u => (
-                        <tr key={u.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                          <td style={{ padding: '10px', fontWeight: 'bold' }}>{u.nome}</td>
-                          <td style={{ padding: '10px' }}>{u.email}</td>
-                          <td style={{ padding: '10px' }}>
-                            <span style={{ padding: '3px 8px', borderRadius: '12px', backgroundColor: u.cargo === 'ADMINISTRADOR' ? '#dbeafe' : '#f1f5f9', color: u.cargo === 'ADMINISTRADOR' ? '#1d4ed8' : '#475569', fontSize: '0.75rem', fontWeight: 'bold' }}>
-                              {u.cargo}
-                            </span>
-                          </td>
-                          <td style={{ padding: '10px', textAlign: 'center', display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                            <button 
-                              onClick={() => setUsuarioEdicao(u)}
-                              style={{ padding: '4px 8px', backgroundColor: '#1D3557', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 'bold', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                              <Edit3 size={12} /> Editar
-                            </button>
-                            <button 
-                              onClick={() => { setUsuarioParaAlterarSenha(u); setNovaSenhaInput(''); }}
-                              style={{ padding: '4px 8px', backgroundColor: '#f59e0b', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 'bold', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                              <KeyRound size={12} /> Senha
-                            </button>
-                            <button 
-                              onClick={() => handleExcluirUsuario(u.id)}
-                              style={{ padding: '4px 8px', backgroundColor: '#E63946', color: '#fff', border: 'none', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 'bold', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                              <Trash2 size={12} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {subAbaAdmin === 'cadastrar' && (
-              <form onSubmit={handleCadastrarUsuario} style={{ maxWidth: '450px', display: 'flex', flexDirection: 'column', gap: '14px', backgroundColor: '#f8fafc', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                <h3 style={{ margin: 0, fontSize: '1rem', color: '#0B1E36' }}>👤 Cadastrar Novo Usuário</h3>
-                
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Nome Completo *</label>
-                  <input type="text" placeholder="Ex: Vitoria Rodrigues" value={novoUsuario.nome} onChange={e => setNovoUsuario({ ...novoUsuario, nome: e.target.value })} required style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }} />
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>E-mail de Acesso *</label>
-                  <input type="email" placeholder="vitoria@pinhaisnet.com.br" value={novoUsuario.email} onChange={e => setNovoUsuario({ ...novoUsuario, email: e.target.value })} required style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }} />
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Senha Inicial *</label>
-                  <input type="password" placeholder="••••••••" value={novoUsuario.senha} onChange={e => setNovoUsuario({ ...novoUsuario, senha: e.target.value })} required style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }} />
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>Perfil / Cargo no Sistema</label>
-                  <select value={novoUsuario.cargo} onChange={e => setNovoUsuario({ ...novoUsuario, cargo: e.target.value })} style={{ width: '100%', padding: '10px', border: '1px solid #cbd5e1', borderRadius: '6px', marginTop: '4px', boxSizing: 'border-box' }}>
-                    <option value="COBRADOR">COBRADOR / OPERADOR (Acesso Restrito)</option>
-                    <option value="SUPERVISOR">SUPERVISOR (Acesso Total)</option>
-                    <option value="ADMINISTRADOR">ADMINISTRADOR (Acesso Total)</option>
-                  </select>
-                </div>
-
-                <button type="submit" style={{ padding: '12px', backgroundColor: '#1D3557', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', marginTop: '6px' }}>
-                  Salvar e Criar Acesso
-                </button>
-              </form>
-            )}
-
-            {subAbaAdmin === 'exclusao' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', overflowY: 'auto', flex: 1 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h3 style={{ margin: 0, fontSize: '1rem', color: '#E63946' }}>🗑️ Exclusão em Massa de Clientes e Listas</h3>
-                  {selecionadosExclusao.length > 0 && (
-                    <button onClick={handleExcluirEmMassa} style={{ padding: '8px 14px', backgroundColor: '#E63946', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Trash2 size={16} /> Excluir {selecionadosExclusao.length} Selecionados
-                    </button>
-                  )}
-                </div>
-
-                <div style={{ border: '1px solid #e2e8f0', borderRadius: '6px', overflow: 'hidden' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-                    <thead style={{ backgroundColor: '#0B1E36', color: '#fff' }}>
-                      <tr>
-                        <th style={{ padding: '10px', textAlign: 'center' }}>
-                          <input 
-                            type="checkbox" 
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelecionadosExclusao(clientes.map(c => c.id));
-                              } else {
-                                setSelecionadosExclusao([]);
-                              }
-                            }}
-                          />
-                        </th>
-                        <th style={{ padding: '10px', textAlign: 'left' }}>ID / Código</th>
-                        <th style={{ padding: '10px', textAlign: 'left' }}>Nome do Cliente</th>
-                        <th style={{ padding: '10px', textAlign: 'left' }}>Valor Devedor</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {clientes.map(c => (
-                        <tr key={c.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
-                          <td style={{ padding: '10px', textAlign: 'center' }}>
-                            <input 
-                              type="checkbox" 
-                              checked={selecionadosExclusao.includes(c.id)}
-                              onChange={(e) => {
-                                if (e.target.checked) {
-                                  setSelecionadosExclusao([...selecionadosExclusao, c.id]);
-                                } else {
-                                  setSelecionadosExclusao(selecionadosExclusao.filter(id => id !== c.id));
-                                }
-                              }}
-                            />
-                          </td>
-                          <td style={{ padding: '10px', fontWeight: 'bold' }}>{c.codigo}</td>
-                          <td style={{ padding: '10px' }}>{c.nome}</td>
-                          <td style={{ padding: '10px', color: '#E63946', fontWeight: 'bold' }}>R$ {Number(c.total_vencido || 0).toFixed(2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+        </div>
       </main>
     </div>
   );

@@ -107,9 +107,9 @@ async function initDB() {
       );
     `);
 
-    console.log('✅ BD MetroCob pronto!');
+    console.log('✅ Banco PostgreSQL MetroCob inicializado com sucesso!');
   } catch (error) {
-    console.error('❌ Erro na inicializacao do BD:', error.message);
+    console.error('❌ Erro na inicialização do BD:', error.message);
   }
 }
 initDB();
@@ -236,7 +236,7 @@ app.get('/api/dashboard/ranking-vendedores', async (req, res) => {
   }
 });
 
-// PÓS-VENDA (ROTA CORRIGIDA)
+// PÓS-VENDA
 app.get('/api/pos-venda', async (req, res) => {
   try {
     const result = await pool.query(`
@@ -253,7 +253,6 @@ app.get('/api/pos-venda', async (req, res) => {
 
 app.post('/api/pos-venda', async (req, res) => {
   const { codigo, nome, telefone, plano, satisfacao, vendedor_id, observacoes } = req.body;
-  
   try {
     const cod = codigo && String(codigo).trim() !== '' ? String(codigo).trim() : `PV-${Math.floor(1000 + Math.random() * 9000)}`;
     const vId = vendedor_id && !isNaN(parseInt(vendedor_id, 10)) ? parseInt(vendedor_id, 10) : null;
@@ -262,12 +261,12 @@ app.post('/api/pos-venda', async (req, res) => {
     const result = await pool.query(
       `INSERT INTO pos_venda_clientes (codigo, nome, telefone, plano, satisfacao, vendedor_id, observacoes, estagio_id) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, 1) RETURNING *`,
-      [cod, String(nome).trim(), telefone || '', plano || 'Fibra 500MB', nota, vId, observacoes || '']
+      [cod, String(nome || '').trim(), telefone || '', plano || 'Fibra 500MB', nota, vId, observacoes || '']
     );
 
     res.json({ sucesso: true, mensagem: 'Cliente salvo no pós-venda com sucesso!', cliente: result.rows[0] });
   } catch (err) {
-    console.error('Erro ao cadastrar Pós-Venda:', err.message);
+    console.error('Erro ao cadastrar pós-venda:', err.message);
     res.status(500).json({ error: 'Erro ao cadastrar cliente no pós-venda.' });
   }
 });
@@ -296,43 +295,28 @@ app.delete('/api/pos-venda/:id', async (req, res) => {
   }
 });
 
-// AGENDA
-app.get('/api/agenda', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM agenda ORDER BY id DESC');
-    res.json(result.rows || []);
-  } catch (err) {
-    res.json([]);
-  }
-});
-
-app.post('/api/agenda', async (req, res) => {
-  const { cliente_nome, data_retorno, observacao, usuario_id, usuario_nome, tipo } = req.body;
-  
-  if (!cliente_nome || !data_retorno) {
-    return res.status(400).json({ error: 'Cliente e Data são obrigatórios.' });
-  }
-
-  try {
-    const dataStr = String(data_retorno).replace('T', ' ');
-
-    const result = await pool.query(
-      'INSERT INTO agenda (cliente_nome, usuario_id, usuario_nome, data_retorno, observacao, tipo) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [String(cliente_nome), usuario_id || null, String(usuario_nome || 'Operador'), dataStr, String(observacao || ''), tipo || 'cobranca']
-    );
-    res.json({ sucesso: true, agendamento: result.rows[0] });
-  } catch (err) {
-    res.status(500).json({ error: 'Erro ao salvar agendamento.' });
-  }
-});
-
-// CHAT
+// CHAT & GRUPOS
 app.get('/api/chat/grupos', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM chat_grupos ORDER BY id DESC');
     res.json(result.rows || []);
   } catch (err) {
     res.json([]);
+  }
+});
+
+app.post('/api/chat/grupos', async (req, res) => {
+  const { nome } = req.body;
+  if (!nome || !nome.trim()) return res.status(400).json({ error: 'Nome do grupo obrigatório.' });
+
+  try {
+    const result = await pool.query(
+      'INSERT INTO chat_grupos (nome) VALUES ($1) RETURNING *',
+      [nome.trim()]
+    );
+    res.json({ sucesso: true, grupo: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao criar grupo.' });
   }
 });
 
@@ -371,6 +355,36 @@ app.post('/api/chat/mensagens', async (req, res) => {
     res.json({ sucesso: true, mensagem: result.rows[0] });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao enviar mensagem.' });
+  }
+});
+
+// AGENDA
+app.get('/api/agenda', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM agenda ORDER BY id DESC');
+    res.json(result.rows || []);
+  } catch (err) {
+    res.json([]);
+  }
+});
+
+app.post('/api/agenda', async (req, res) => {
+  const { cliente_nome, data_retorno, observacao, usuario_id, usuario_nome, tipo } = req.body;
+  
+  if (!cliente_nome || !data_retorno) {
+    return res.status(400).json({ error: 'Cliente e Data são obrigatórios.' });
+  }
+
+  try {
+    const dataStr = String(data_retorno).replace('T', ' ');
+
+    const result = await pool.query(
+      'INSERT INTO agenda (cliente_nome, usuario_id, usuario_nome, data_retorno, observacao, tipo) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [String(cliente_nome), usuario_id || null, String(usuario_nome || 'Operador'), dataStr, String(observacao || ''), tipo || 'cobranca']
+    );
+    res.json({ sucesso: true, agendamento: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao salvar agendamento.' });
   }
 });
 

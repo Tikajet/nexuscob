@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   BarChart2, Users, Calendar, Settings, MessageSquare, Search, LogOut, 
   Send, Wifi, Shield, Trash2, ArrowRight, Sun, Moon, Star, Filter,
-  UserPlus, Award, ChevronDown, ChevronRight, Upload, FileSpreadsheet, Edit3, ShoppingBag, HeartHandshake
+  UserPlus, Award, ChevronDown, ChevronRight, Upload, FileSpreadsheet, Edit3, ShoppingBag, HeartHandshake, PlusCircle
 } from 'lucide-react';
 
 const API_URL = '/api';
@@ -36,7 +36,7 @@ export default function App() {
   const [emailLogin, setEmailLogin] = useState('');
   const [senhaLogin, setSenhaLogin] = useState('');
   const [abaAtiva, setAbaAtiva] = useState('dashboard');
-  const [subAbaAdmin, setSubAbaAdmin] = useState('usuarios');
+  const [subAbaAdmin, setSubAbaAdmin] = useState('excel');
   const [subAbaPosVenda, setSubAbaPosVenda] = useState('funil');
   const [menuAdminAberto, setMenuAdminAberto] = useState(false);
   const [menuPosVendaAberto, setMenuPosVendaAberto] = useState(false);
@@ -62,14 +62,14 @@ export default function App() {
   const [chatTipo, setChatTipo] = useState('geral');
   const [chatDestinoId, setChatDestinoId] = useState(null);
   const [novaMsgChat, setNovaMsgChat] = useState('');
+  const [novoGrupoNome, setNovoGrupoNome] = useState('');
 
-  // Filtro de Atraso na Pipeline de Cobrança
+  // Filtro Atraso
   const [filtroAtrasoPipeline, setFiltroAtrasoPipeline] = useState('todos');
 
   // Formulários
   const [novoCliente, setNovoCliente] = useState({ codigo: '', nome: '', total_vencido: '', dias_atraso: '30' });
   const [novoPosVenda, setNovoPosVenda] = useState({ codigo: '', nome: '', telefone: '', plano: 'Fibra 500MB', satisfacao: '5', vendedor_id: '', observacoes: '' });
-  const [filtroCategoriaAtraso, setFiltroCategoriaAtraso] = useState('todos');
 
   // Modais
   const [modalAcordo, setModalAcordo] = useState({ exibir: false, clienteId: null, valor: '', parcelas: '1' });
@@ -77,7 +77,6 @@ export default function App() {
   // Buscas
   const [buscaGlobal, setBuscaGlobal] = useState('');
   const [buscaPipeline, setBuscaPipeline] = useState('');
-  const [buscaPosVenda, setBuscaPosVenda] = useState('');
   const [buscaAgenda, setBuscaAgenda] = useState('');
 
   // Edição
@@ -131,7 +130,7 @@ export default function App() {
 
   const moverEstagioCliente = (clienteId, novoEstagioId) => {
     if (novoEstagioId === 6) {
-      setModalAcordo({ exibir: true, clienteId, valor: '', parcelas: '1' });
+      setModalAcordo({ exibir: false, clienteId, valor: '', parcelas: '1' });
       return;
     }
 
@@ -165,18 +164,83 @@ export default function App() {
     });
   };
 
+  // CADASTRO DE PÓS-VENDA
   const handleCadastrarPosVenda = (e) => {
     e.preventDefault();
+
+    if (!novoPosVenda.nome.trim()) {
+      alert('Por favor, informe o nome do cliente.');
+      return;
+    }
+
+    const payload = {
+      ...novoPosVenda,
+      vendedor_id: novoPosVenda.vendedor_id || usuario.id
+    };
+
     fetch(`${API_URL}/pos-venda`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(novoPosVenda)
-    }).then(r => r.json()).then(data => {
-      if (data.sucesso) {
-        alert('Cliente de Pós-Venda registrado com sucesso!');
-        setNovoPosVenda({ codigo: '', nome: '', telefone: '', plano: 'Fibra 500MB', satisfacao: '5', vendedor_id: '', observacoes: '' });
-        carregarDados();
-      }
+      body: JSON.stringify(payload)
+    })
+      .then(r => r.json())
+      .then(data => {
+        if (data.sucesso) {
+          alert('Cliente salvo no Pós-Venda e adicionado ao Funil!');
+          setNovoPosVenda({ codigo: '', nome: '', telefone: '', plano: 'Fibra 500MB', satisfacao: '5', vendedor_id: '', observacoes: '' });
+          carregarDados();
+        } else {
+          alert('Erro ao salvar cliente no Pós-Venda.');
+        }
+      })
+      .catch(() => alert('Erro de comunicação com o servidor.'));
+  };
+
+  // EXCEL IMPORTAÇÃO
+  const handleCarregarPreviaExcel = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('arquivo', file);
+
+    fetch(`${API_URL}/clientes/previa`, { method: 'POST', body: formData })
+      .then(r => r.json())
+      .then(data => {
+        if (data.sucesso) {
+          setPreviaExcel(data.dados);
+        } else {
+          alert('Erro ao ler a planilha Excel.');
+        }
+      });
+  };
+
+  const handleConfirmarImportacaoExcel = () => {
+    if (previaExcel.length === 0) return;
+
+    fetch(`${API_URL}/clientes/confirmar-importacao`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientes: previaExcel })
+    }).then(() => {
+      alert(`${previaExcel.length} clientes da planilha salvos com sucesso no Pipeline!`);
+      setPreviaExcel([]);
+      carregarDados();
+    });
+  };
+
+  // CHAT GRUPOS
+  const handleCriarGrupoChat = (e) => {
+    e.preventDefault();
+    if (!novoGrupoNome.trim()) return;
+
+    fetch(`${API_URL}/chat/grupos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome: novoGrupoNome })
+    }).then(() => {
+      setNovoGrupoNome('');
+      carregarDados();
     });
   };
 
@@ -293,10 +357,8 @@ export default function App() {
   const totalEmAberto = clientes.reduce((acc, c) => acc + (parseFloat(c.total_vencido) || 0), 0);
   const totalRecebido = clientes.filter(c => c.estagio_id === 6).reduce((acc, c) => acc + (parseFloat(c.valor_acordo) || parseFloat(c.total_vencido) || 0), 0);
 
-  // Média CSAT
   const mediaCsat = posVendas.length > 0 ? (posVendas.reduce((acc, p) => acc + (p.satisfacao || 5), 0) / posVendas.length).toFixed(1) : '5.0';
 
-  // FILTRAGEM PIPELINE DE COBRANÇA POR DURAÇÃO DE ATRASO
   const clientesFiltradosPipeline = clientes.filter(c => {
     const combinaBusca = c.nome?.toLowerCase().includes(buscaPipeline.toLowerCase()) || c.codigo?.toLowerCase().includes(buscaPipeline.toLowerCase());
     if (!combinaBusca) return false;
@@ -546,7 +608,7 @@ export default function App() {
 
         <div className="p-6">
           
-          {/* DASHBOARD COM RANKING COBRANÇA E VENDEDORES */}
+          {/* DASHBOARD */}
           {abaAtiva === 'dashboard' && (
             <div className="space-y-6">
               <div>
@@ -580,7 +642,6 @@ export default function App() {
               </div>
 
               <div className="grid grid-cols-2 gap-6">
-                {/* RANKING COBRANÇA */}
                 <div className={`${bgCard} border p-6 rounded-2xl space-y-4 shadow-sm`}>
                   <h2 className="text-base font-bold flex items-center space-x-2 text-amber-500">
                     <Award className="w-5 h-5" />
@@ -607,7 +668,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* RANKING VENDEDORES / PÓS-VENDA */}
                 <div className={`${bgCard} border p-6 rounded-2xl space-y-4 shadow-sm`}>
                   <h2 className="text-base font-bold flex items-center space-x-2 text-emerald-400">
                     <Award className="w-5 h-5" />
@@ -638,7 +698,7 @@ export default function App() {
             </div>
           )}
 
-          {/* PIPELINE DE COBRANÇA (COM FILTRO POR TEMPO DE ATRASO) */}
+          {/* PIPELINE DE COBRANÇA */}
           {abaAtiva === 'pipeline' && (
             <div className="space-y-4">
               <div className="flex justify-between items-center bg-slate-900/50 p-3 rounded-2xl border border-slate-800">
@@ -682,7 +742,7 @@ export default function App() {
                   <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
                   <input 
                     type="text" 
-                    placeholder="Filtrar cliente na pipeline..."
+                    placeholder="Filtrar cliente..."
                     value={buscaPipeline}
                     onChange={e => setBuscaPipeline(e.target.value)}
                     className={`w-full ${bgInput} rounded-lg pl-9 pr-3 py-1.5 text-xs`}
@@ -745,11 +805,10 @@ export default function App() {
             </div>
           )}
 
-          {/* MÓDULO PÓS-VENDA (FUNIL E CADASTRO SEPARADO) */}
+          {/* MÓDULO PÓS-VENDA */}
           {abaAtiva === 'pos-venda' && (
             <div className="space-y-6">
               
-              {/* SUB-ABA FUNIL PÓS-VENDA */}
               {subAbaPosVenda === 'funil' && (
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
@@ -815,7 +874,6 @@ export default function App() {
                 </div>
               )}
 
-              {/* SUB-ABA CADASTRO CLIENTE PÓS-VENDA */}
               {subAbaPosVenda === 'cadastro' && (
                 <div className="grid grid-cols-3 gap-6">
                   <div className={`${bgCard} border p-5 rounded-2xl space-y-4 shadow-sm h-fit`}>
@@ -839,8 +897,8 @@ export default function App() {
                         <label className="block text-slate-400 mb-1 font-semibold">Vendedor Responsável *</label>
                         <select value={novoPosVenda.vendedor_id} onChange={e => setNovoPosVenda({...novoPosVenda, vendedor_id: e.target.value})} className={`w-full ${bgInput} rounded-lg p-2.5`}>
                           <option value="">Selecione o Vendedor...</option>
-                          {usuarios.filter(u => u.cargo === 'VENDEDOR' || u.cargo === 'ADMINISTRADOR').map(u => (
-                            <option key={u.id} value={u.id}>{u.nome}</option>
+                          {usuarios.map(u => (
+                            <option key={u.id} value={u.id}>{u.nome} ({u.cargo})</option>
                           ))}
                         </select>
                       </div>
@@ -856,7 +914,7 @@ export default function App() {
                         </select>
                       </div>
 
-                      <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 font-bold py-3 rounded-xl text-white transition-all">
+                      <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 font-bold py-3 rounded-xl text-white transition-all shadow-md">
                         Salvar no Pós-Venda
                       </button>
                     </form>
@@ -890,7 +948,7 @@ export default function App() {
             </div>
           )}
 
-          {/* CADASTRO DE CLIENTES COBRANÇA */}
+          {/* CADASTRO CLIENTES COBRANÇA */}
           {abaAtiva === 'cadastro-cliente' && (
             <div className="grid grid-cols-3 gap-6">
               <div className={`${bgCard} border p-5 rounded-2xl space-y-4 shadow-sm h-fit`}>
@@ -1015,23 +1073,59 @@ export default function App() {
             </div>
           )}
 
-          {/* CHAT */}
+          {/* CHAT COM CRIAR GRUPO */}
           {abaAtiva === 'chat' && (
-            <div className="grid grid-cols-4 gap-6 h-[600px]">
-              <div className={`${bgCard} border p-4 rounded-2xl space-y-4 shadow-sm`}>
-                <h3 className="text-sm font-bold">Canais / Conversas</h3>
-                <div className="space-y-2 text-xs">
-                  <button onClick={() => { setChatTipo('geral'); setChatDestinoId(null); }} className={`w-full text-left p-2.5 rounded-xl font-bold ${chatTipo === 'geral' ? 'bg-blue-600 text-white' : `${bgInput}`}`}>
+            <div className="grid grid-cols-4 gap-6 h-[620px]">
+              <div className={`${bgCard} border p-4 rounded-2xl space-y-4 shadow-sm flex flex-col justify-between`}>
+                <div className="space-y-3 overflow-y-auto pr-1">
+                  <h3 className="text-sm font-bold text-white">Canais & Conversas</h3>
+                  
+                  <button 
+                    onClick={() => { setChatTipo('geral'); setChatDestinoId(null); }} 
+                    className={`w-full text-left p-2.5 rounded-xl font-bold text-xs ${chatTipo === 'geral' ? 'bg-blue-600 text-white' : `${bgInput}`}`}
+                  >
                     # Geral (Todos)
                   </button>
 
-                  <p className="text-[10px] font-bold uppercase text-slate-400 mt-3">Usuários</p>
+                  {/* GRUPOS */}
+                  <p className="text-[10px] font-bold uppercase text-slate-400 pt-2">Grupos Criados</p>
+                  {gruposChat.map(g => (
+                    <button 
+                      key={g.id}
+                      onClick={() => { setChatTipo('grupo'); setChatDestinoId(g.id); }}
+                      className={`w-full text-left p-2 rounded-lg text-xs truncate ${chatTipo === 'grupo' && chatDestinoId === g.id ? 'bg-blue-600 text-white font-bold' : `${bgInput}`}`}
+                    >
+                      📢 {g.nome}
+                    </button>
+                  ))}
+
+                  {/* USUÁRIOS */}
+                  <p className="text-[10px] font-bold uppercase text-slate-400 pt-2">Usuários Online</p>
                   {usuarios.filter(u => u.id !== usuario.id).map(u => (
-                    <button key={u.id} onClick={() => { setChatTipo('direto'); setChatDestinoId(u.id); }} className={`w-full text-left p-2 rounded-lg truncate ${chatTipo === 'direto' && chatDestinoId === u.id ? 'bg-blue-600 text-white font-bold' : `${bgInput}`}`}>
+                    <button 
+                      key={u.id} 
+                      onClick={() => { setChatTipo('direto'); setChatDestinoId(u.id); }} 
+                      className={`w-full text-left p-2 rounded-lg text-xs truncate ${chatTipo === 'direto' && chatDestinoId === u.id ? 'bg-blue-600 text-white font-bold' : `${bgInput}`}`}
+                    >
                       👤 {u.nome} ({u.cargo})
                     </button>
                   ))}
                 </div>
+
+                {/* FORMULÁRIO CRIAR NOVO GRUPO */}
+                <form onSubmit={handleCriarGrupoChat} className="pt-2 border-t border-slate-800 space-y-2">
+                  <input 
+                    type="text" 
+                    placeholder="Nome do Novo Grupo..."
+                    value={novoGrupoNome}
+                    onChange={e => setNovoGrupoNome(e.target.value)}
+                    className={`w-full ${bgInput} rounded-lg p-2 text-xs focus:outline-none`}
+                  />
+                  <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-1.5 rounded-lg text-xs flex items-center justify-center space-x-1">
+                    <PlusCircle className="w-4 h-4" />
+                    <span>Criar Grupo</span>
+                  </button>
+                </form>
               </div>
 
               <div className={`col-span-3 ${bgCard} border rounded-2xl p-5 flex flex-col shadow-sm`}>
@@ -1057,9 +1151,82 @@ export default function App() {
             </div>
           )}
 
-          {/* ADMINISTRAÇÃO COM NOVOS CARGOS */}
+          {/* ADMINISTRAÇÃO - TELA EXCEL E USUÁRIOS CORRIGIDAS */}
           {abaAtiva === 'admin' && (
             <div className="space-y-6">
+              
+              {/* SUB-ABA SUBIR PLANILHA EXCEL */}
+              {subAbaAdmin === 'excel' && (
+                <div className={`${bgCard} border p-6 rounded-2xl space-y-6 shadow-sm`}>
+                  <div>
+                    <h2 className="text-lg font-bold flex items-center space-x-2 text-blue-500">
+                      <FileSpreadsheet className="w-6 h-6" />
+                      <span>Subir Planilha de Clientes (com Prévia)</span>
+                    </h2>
+                    <p className="text-xs text-slate-400 mt-1">Carregue o arquivo Excel para visualizar os dados antes de disparar para o pipeline.</p>
+                  </div>
+
+                  <div className="border-2 border-dashed border-blue-500/30 p-8 rounded-2xl text-center space-y-4">
+                    <Upload className="w-10 h-10 text-blue-500 mx-auto animate-bounce" />
+                    <input 
+                      type="file" 
+                      accept=".xlsx, .xls, .csv"
+                      onChange={handleCarregarPreviaExcel}
+                      className="hidden" 
+                      id="excelInput"
+                    />
+                    <label 
+                      htmlFor="excelInput"
+                      className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-6 py-3 rounded-xl cursor-pointer inline-block shadow-lg transition-all"
+                    >
+                      Selecionar Arquivo Excel / CSV
+                    </label>
+                  </div>
+
+                  {previaExcel.length > 0 && (
+                    <div className="space-y-4 pt-4 border-t border-slate-700/50">
+                      <div className="flex justify-between items-center">
+                        <h3 className="text-sm font-bold text-emerald-500">
+                          Prévia da Planilha ({previaExcel.length} Clientes Encontrados)
+                        </h3>
+                        <button 
+                          onClick={handleConfirmarImportacaoExcel}
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-6 py-2.5 rounded-xl shadow-md transition-all"
+                        >
+                          Confirmar e Salvar no Pipeline
+                        </button>
+                      </div>
+
+                      <div className="max-h-[350px] overflow-y-auto border border-slate-700/50 rounded-xl">
+                        <table className="w-full text-left text-xs">
+                          <thead className={`${bgInput} uppercase text-slate-400 border-b border-slate-700`}>
+                            <tr>
+                              <th className="p-3">#</th>
+                              <th className="p-3">ID / Código</th>
+                              <th className="p-3">Nome do Cliente</th>
+                              <th className="p-3">Valor Devedor</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {previaExcel.map((item, idx) => (
+                              <tr key={idx} className="border-b border-slate-800/40 hover:bg-slate-800/20">
+                                <td className="p-3 text-slate-400">{idx + 1}</td>
+                                <td className="p-3 font-bold">{item.codigo}</td>
+                                <td className="p-3">{item.nome}</td>
+                                <td className="p-3 font-bold text-rose-500">
+                                  R$ {parseFloat(item.total_vencido || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* SUB-ABA USUÁRIOS */}
               {subAbaAdmin === 'usuarios' && (
                 <div className="grid grid-cols-3 gap-6">
                   <div className={`${bgCard} border p-5 rounded-2xl space-y-4 shadow-sm`}>
@@ -1101,7 +1268,6 @@ export default function App() {
                         <input type="email" name="email" defaultValue={usuarioEditando?.email || ''} required className={`w-full ${bgInput} rounded-lg p-2.5`} />
                       </div>
 
-                      {/* CARGOS ATUALIZADOS SOLICITADOS */}
                       <div>
                         <label className="block text-slate-400 mb-1">Cargo / Função *</label>
                         <select name="cargo" defaultValue={usuarioEditando?.cargo || 'COBRADOR'} className={`w-full ${bgInput} rounded-lg p-2.5 font-bold`}>
@@ -1126,7 +1292,7 @@ export default function App() {
                   </div>
 
                   <div className={`col-span-2 ${bgCard} border p-5 rounded-2xl space-y-4 shadow-sm`}>
-                    <h2 className="text-base font-bold">Usuários e Cargos Cadastrados</h2>
+                    <h2 className="text-base font-bold">Usuários Cadastrados</h2>
                     <div className="space-y-2 max-h-[500px] overflow-y-auto">
                       {usuarios.map(u => (
                         <div key={u.id} className={`${bgInput} border border-slate-700/50 p-3 rounded-xl flex items-center justify-between text-xs`}>
@@ -1148,6 +1314,7 @@ export default function App() {
                   </div>
                 </div>
               )}
+
             </div>
           )}
 

@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { 
   BarChart2, Users, Calendar, FileText, Upload, Settings, 
-  MessageSquare, Search, LogOut, CheckCircle, Clock, AlertTriangle, Send, Wifi, Shield, Plus, Trash2, ArrowRight
+  MessageSquare, Search, LogOut, CheckCircle, Clock, AlertTriangle, Send, Wifi, Shield, Plus, Trash2, ArrowRight, Sun, Moon, Edit, UserPlus, Award
 } from 'lucide-react';
 
 const API_URL = '/api';
 
+// NOVOS 7 ESTÁGIOS DA PIPELINE CONFORME SOLICITADO
 const ESTAGIOS_FUNIL = [
   { id: 1, nome: 'Novos Contatos', cor: 'border-blue-500' },
-  { id: 2, nome: 'Em Negociação', cor: 'border-amber-500' },
-  { id: 3, nome: 'Acordo em Andamento', cor: 'border-purple-500' },
-  { id: 4, nome: 'Cancelados', cor: 'border-rose-500' },
-  { id: 5, nome: 'Sem Retorno', cor: 'border-slate-500' },
-  { id: 6, nome: 'Pagos / Quitados', cor: 'border-emerald-500' }
+  { id: 2, nome: 'Primeiro Contato', cor: 'border-cyan-500' },
+  { id: 3, nome: 'Segundo Contato', cor: 'border-indigo-500' },
+  { id: 4, nome: 'Terceiro Contato', cor: 'border-purple-500' },
+  { id: 5, nome: 'Promessa de Pagamento', cor: 'border-amber-500' },
+  { id: 6, nome: 'Acordo Realizado', cor: 'border-emerald-500' },
+  { id: 7, nome: 'Recusado ou Sem Contato', cor: 'border-rose-500' }
 ];
 
 const FRASES_MOTIVACIONAIS = [
@@ -24,18 +26,7 @@ const FRASES_MOTIVACIONAIS = [
   "A atitude positiva faz toda a diferença em cada ligação.",
   "Acredite no seu potencial. Hoje é um ótimo dia para bater metas!",
   "Conectar pessoas com respeito e eficiência é a nossa missão.",
-  "Seja a solução que o cliente procura com calma e determinação.",
-  "Pequenos progressos diários resultam em grandes vitórias ao fim do mês.",
-  "A persistência realiza o impossível!",
-  "Trabalho em equipe fortalece cada operação da nossa rede.",
-  "Entender o cliente é o primeiro passo para um excelente acordo.",
-  "Superar obstáculos é o que nos move rumo ao topo.",
-  "Sua energia e boa vontade contagiam toda a equipe!",
-  "Excelência não é um ato, é um hábito diário.",
-  "Hoje é mais uma oportunidade para se superar e fazer história.",
-  "Mantenha a calma, a clareza e a determinação em cada atendimento.",
-  "Juntos conectamos mais pessoas e alcançamos novos patamares!",
-  "A confiança se constrói com transparência e bom atendimento."
+  "Seja a solução que o cliente procura com calma e determinação."
 ];
 
 export default function App() {
@@ -43,24 +34,37 @@ export default function App() {
   const [emailLogin, setEmailLogin] = useState('');
   const [senhaLogin, setSenhaLogin] = useState('');
   const [abaAtiva, setAbaAtiva] = useState('dashboard');
+  const [temaClaro, setTemaClaro] = useState(false);
   const [frasePopup, setFrasePopup] = useState('');
   const [exibirPopup, setExibirPopup] = useState(false);
 
-  // Estados dos Dados
+  // Dados
   const [clientes, setClientes] = useState([]);
   const [agenda, setAgenda] = useState([]);
-  const [posVendaClientes, setPosVendaClientes] = useState([]);
-  const [chatMensagens, setChatMensagens] = useState([]);
-  const [novaMsgChat, setNovaMsgChat] = useState('');
+  const [ranking, setRanking] = useState([]);
+  const [usuarios, setUsuarios] = useState([]);
   
-  // Filtros
+  // Chat
+  const [gruposChat, setGruposChat] = useState([]);
+  const [chatMensagens, setChatMensagens] = useState([]);
+  const [chatTipo, setChatTipo] = useState('geral');
+  const [chatDestinoId, setChatDestinoId] = useState(null);
+  const [novaMsgChat, setNovaMsgChat] = useState('');
+  const [novoNomeGrupo, setNovoNomeGrupo] = useState('');
+
+  // Modais de Acordo
+  const [modalAcordo, setModalAcordo] = useState({ exibir: false, clienteId: null, valor: '', parcelas: '1' });
+
+  // Filtros de Busca
   const [buscaGlobal, setBuscaGlobal] = useState('');
+  const [buscaPipeline, setBuscaPipeline] = useState('');
   const [buscaAgenda, setBuscaAgenda] = useState('');
 
+  // Formulário Novo Cliente
+  const [novoCliente, setNovoCliente] = useState({ codigo: '', nome: '', total_vencido: '' });
+
   // Formulário Agenda
-  const [novoAgendamento, setNovoAgendamento] = useState({
-    cliente_nome: '', data_retorno: '', observacao: '', tipo: 'cobranca'
-  });
+  const [novoAgendamento, setNovoAgendamento] = useState({ cliente_nome: '', data_retorno: '', observacao: '' });
 
   useEffect(() => {
     if (usuario) {
@@ -68,17 +72,23 @@ export default function App() {
       const interval = setInterval(carregarChat, 5000);
       return () => clearInterval(interval);
     }
-  }, [usuario]);
+  }, [usuario, chatTipo, chatDestinoId]);
 
   const carregarDados = () => {
     fetch(`${API_URL}/clientes`).then(r => r.json()).then(data => setClientes(data || [])).catch(() => {});
     fetch(`${API_URL}/agenda`).then(r => r.json()).then(data => setAgenda(data || [])).catch(() => {});
-    fetch(`${API_URL}/pos-venda`).then(r => r.json()).then(data => setPosVendaClientes(data || [])).catch(() => {});
+    fetch(`${API_URL}/dashboard/ranking`).then(r => r.json()).then(data => setRanking(data || [])).catch(() => {});
+    fetch(`${API_URL}/usuarios`).then(r => r.json()).then(data => setUsuarios(data || [])).catch(() => {});
+    fetch(`${API_URL}/chat/grupos`).then(r => r.json()).then(data => setGruposChat(data || [])).catch(() => {});
     carregarChat();
   };
 
   const carregarChat = () => {
-    fetch(`${API_URL}/chat`).then(r => r.json()).then(data => setChatMensagens(data || [])).catch(() => {});
+    let url = `${API_URL}/chat/mensagens`;
+    if (chatTipo === 'direto' && chatDestinoId) url += `?destinatario_id=${chatDestinoId}`;
+    if (chatTipo === 'grupo' && chatDestinoId) url += `?grupo_id=${chatDestinoId}`;
+
+    fetch(url).then(r => r.json()).then(data => setChatMensagens(data || [])).catch(() => {});
   };
 
   const handleLogin = async (e) => {
@@ -101,14 +111,46 @@ export default function App() {
   };
 
   const moverEstagioCliente = (clienteId, novoEstagioId) => {
+    if (novoEstagioId === 6) {
+      setModalAcordo({ exibir: true, clienteId, valor: '', parcelas: '1' });
+      return;
+    }
+
     fetch(`${API_URL}/clientes/${clienteId}/estagio`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ estagio_id: novoEstagioId, usuario_nome: usuario.nome, usuario_id: usuario.id })
-    })
-    .then(r => r.json())
-    .then(data => {
-      if (data.sucesso) carregarDados();
+    }).then(() => carregarDados());
+  };
+
+  const handleConfirmarAcordo = (e) => {
+    e.preventDefault();
+    fetch(`${API_URL}/clientes/${modalAcordo.clienteId}/estagio`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        estagio_id: 6,
+        usuario_nome: usuario.nome,
+        usuario_id: usuario.id,
+        valor_acordo: modalAcordo.valor,
+        parcelas_acordo: modalAcordo.parcelas
+      })
+    }).then(() => {
+      setModalAcordo({ exibir: false, clienteId: null, valor: '', parcelas: '1' });
+      carregarDados();
+    });
+  };
+
+  const handleCadastrarCliente = (e) => {
+    e.preventDefault();
+    fetch(`${API_URL}/clientes/manual`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(novoCliente)
+    }).then(() => {
+      alert('Cliente cadastrado com sucesso!');
+      setNovoCliente({ codigo: '', nome: '', total_vencido: '' });
+      carregarDados();
     });
   };
 
@@ -116,27 +158,37 @@ export default function App() {
     e.preventDefault();
     if (!novaMsgChat.trim()) return;
 
-    fetch(`${API_URL}/chat`, {
+    fetch(`${API_URL}/chat/mensagens`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ usuario_id: usuario.id, usuario_nome: usuario.nome, mensagem: novaMsgChat })
-    }).then(() => { setNovaMsgChat(''); carregarChat(); });
-  };
-
-  const handleSalvarAgendamento = (e) => {
-    e.preventDefault();
-    fetch(`${API_URL}/agenda`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...novoAgendamento, usuario_id: usuario.id, usuario_nome: usuario.nome })
-    }).then(r => r.json()).then(data => {
-      if (data.sucesso) {
-        alert('Retorno agendado com sucesso!');
-        setNovoAgendamento({ cliente_nome: '', data_retorno: '', observacao: '', tipo: 'cobranca' });
-        carregarDados();
-      }
+      body: JSON.stringify({
+        remetente_id: usuario.id,
+        remetente_nome: usuario.nome,
+        destinatario_id: chatTipo === 'direto' ? chatDestinoId : null,
+        grupo_id: chatTipo === 'grupo' ? chatDestinoId : null,
+        mensagem: novaMsgChat
+      })
+    }).then(() => {
+      setNovaMsgChat('');
+      carregarChat();
     });
   };
+
+  const handleCriarGrupo = (e) => {
+    e.preventDefault();
+    if (!novoNomeGrupo.trim()) return;
+    fetch(`${API_URL}/chat/grupos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome: novoNomeGrupo })
+    }).then(() => {
+      setNovoNomeGrupo('');
+      carregarDados();
+    });
+  };
+
+  const bgPrincipal = temaClaro ? 'bg-slate-100 text-slate-900' : 'bg-slate-950 text-slate-100';
+  const bgCard = temaClaro ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800';
 
   if (!usuario) {
     return (
@@ -198,8 +250,9 @@ export default function App() {
   const totalRecebido = clientes.filter(c => c.estagio_id === 6).reduce((acc, c) => acc + (parseFloat(c.valor_acordo) || parseFloat(c.total_vencido) || 0), 0);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex font-sans">
+    <div className={`min-h-screen ${bgPrincipal} flex font-sans`}>
       
+      {/* POPUP MOTIVACIONAL */}
       {exibirPopup && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-blue-500/40 p-8 rounded-2xl max-w-lg w-full shadow-2xl text-center space-y-6">
@@ -220,13 +273,63 @@ export default function App() {
         </div>
       )}
 
+      {/* MODAL DIGITAR ACORDO */}
+      {modalAcordo.exibir && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-emerald-500/50 p-6 rounded-2xl max-w-md w-full space-y-4">
+            <h3 className="text-lg font-bold text-white">Registrar Acordo Realizado</h3>
+            <form onSubmit={handleConfirmarAcordo} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-slate-400 mb-1">Valor Final do Acordo (R$)</label>
+                <input 
+                  type="text" 
+                  required
+                  placeholder="Ex: 250,00"
+                  value={modalAcordo.valor}
+                  onChange={e => setModalAcordo({...modalAcordo, valor: e.target.value})}
+                  className="w-full bg-slate-950 border border-slate-800 p-2.5 rounded-lg text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 mb-1">Quantidade de Parcelas</label>
+                <input 
+                  type="number" 
+                  min="1"
+                  max="12"
+                  value={modalAcordo.parcelas}
+                  onChange={e => setModalAcordo({...modalAcordo, parcelas: e.target.value})}
+                  className="w-full bg-slate-950 border border-slate-800 p-2.5 rounded-lg text-white"
+                />
+              </div>
+
+              <div className="flex space-x-2 pt-2">
+                <button 
+                  type="button" 
+                  onClick={() => setModalAcordo({ exibir: false, clienteId: null, valor: '', parcelas: '1' })}
+                  className="w-1/2 bg-slate-800 text-slate-300 py-2 rounded-lg font-semibold"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit" 
+                  className="w-1/2 bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-lg font-bold"
+                >
+                  Salvar Acordo
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* SIDEBAR TEMA DARK METRONET */}
-      <aside className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col justify-between">
+      <aside className={`w-64 ${bgCard} border-r flex flex-col justify-between`}>
         <div>
           <div className="p-6 border-b border-slate-800/80">
             <div className="flex items-center space-x-2 text-blue-500 font-black text-xl tracking-wider">
               <Wifi className="w-6 h-6 text-blue-400" />
-              <span>METRO<span className="text-white">COB</span></span>
+              <span>METRO<span className={temaClaro ? "text-slate-900" : "text-white"}>COB</span></span>
             </div>
             <p className="text-[10px] text-blue-400 tracking-widest uppercase font-semibold mt-0.5">POWERED BY NEXUS</p>
           </div>
@@ -234,7 +337,7 @@ export default function App() {
           <nav className="p-4 space-y-1 text-sm font-medium">
             <button 
               onClick={() => setAbaAtiva('dashboard')}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'dashboard' ? 'bg-blue-600 text-white font-semibold shadow-lg shadow-blue-600/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'dashboard' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
             >
               <BarChart2 className="w-5 h-5" />
               <span>Dashboard</span>
@@ -242,198 +345,174 @@ export default function App() {
 
             <button 
               onClick={() => setAbaAtiva('pipeline')}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'pipeline' ? 'bg-blue-600 text-white font-semibold shadow-lg shadow-blue-600/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'pipeline' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
             >
               <Users className="w-5 h-5" />
-              <span>Pipeline / Funis</span>
+              <span>Pipeline (7 Estágios)</span>
+            </button>
+
+            <button 
+              onClick={() => setAbaAtiva('cadastro-cliente')}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'cadastro-cliente' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+            >
+              <UserPlus className="w-5 h-5" />
+              <span>Cadastro de Clientes</span>
             </button>
 
             <button 
               onClick={() => setAbaAtiva('agenda')}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'agenda' ? 'bg-blue-600 text-white font-semibold shadow-lg shadow-blue-600/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'agenda' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
             >
               <Calendar className="w-5 h-5" />
               <span>Agenda / Retornos</span>
             </button>
 
             <button 
-              onClick={() => setAbaAtiva('pos-venda')}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'pos-venda' ? 'bg-blue-600 text-white font-semibold shadow-lg shadow-blue-600/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+              onClick={() => setAbaAtiva('chat')}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'chat' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
             >
-              <Shield className="w-5 h-5" />
-              <span>Pós-Venda Residencial</span>
+              <MessageSquare className="w-5 h-5" />
+              <span>Chat & Grupos</span>
             </button>
 
             <button 
-              onClick={() => setAbaAtiva('chat')}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'chat' ? 'bg-blue-600 text-white font-semibold shadow-lg shadow-blue-600/30' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+              onClick={() => setAbaAtiva('admin')}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'admin' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
             >
-              <MessageSquare className="w-5 h-5" />
-              <span>Chat Interno</span>
+              <Settings className="w-5 h-5" />
+              <span>Administração</span>
             </button>
           </nav>
         </div>
 
-        <div className="p-4 border-t border-slate-800">
-          <div className="bg-slate-950 p-3 rounded-xl mb-3 flex items-center space-x-3">
-            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white text-xs">
-              {usuario.nome.substring(0, 2)}
-            </div>
-            <div className="truncate">
-              <p className="text-xs font-bold text-white truncate">{usuario.nome}</p>
-              <p className="text-[10px] text-slate-400 uppercase">{usuario.cargo}</p>
-            </div>
-          </div>
-
-          <div className="text-center mb-3">
-            <p className="text-[11px] font-bold italic text-blue-400 tracking-wide">"Juntos conectamos mais pessoas!"</p>
-          </div>
+        <div className="p-4 border-t border-slate-800 space-y-2">
+          {/* BOTÃO MUDAR TEMA CLARO/ESCURO */}
+          <button 
+            onClick={() => setTemaClaro(!temaClaro)}
+            className="w-full flex items-center justify-center space-x-2 bg-slate-800 hover:bg-slate-700 py-2 rounded-lg text-xs text-slate-200 transition-all font-semibold"
+          >
+            {temaClaro ? <Moon className="w-4 h-4 text-amber-400" /> : <Sun className="w-4 h-4 text-amber-400" />}
+            <span>{temaClaro ? 'Modo Escuro' : 'Modo Claro'}</span>
+          </button>
 
           <button 
             onClick={() => setUsuario(null)}
             className="w-full flex items-center justify-center space-x-2 text-rose-400 hover:bg-rose-500/10 py-2 rounded-lg text-xs font-semibold transition-all"
           >
             <LogOut className="w-4 h-4" />
-            <span>Sair do Sistema</span>
+            <span>Sair</span>
           </button>
         </div>
       </aside>
 
       {/* ÁREA PRINCIPAL */}
-      <main className="flex-1 flex flex-col overflow-y-auto bg-slate-950">
+      <main className="flex-1 flex flex-col overflow-y-auto">
         
-        {/* HEADER COM BUSCA */}
-        <header className="h-16 bg-slate-900 border-b border-slate-800 px-6 flex items-center justify-between">
+        {/* HEADER COM BUSCA UNIFICADA */}
+        <header className={`h-16 ${bgCard} border-b px-6 flex items-center justify-between`}>
           <div className="relative w-96">
             <Search className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
             <input 
               type="text" 
-              placeholder="Buscar cliente, CPF, código..."
+              placeholder="Buscar cliente na página inicial, CPF, ID..."
               value={buscaGlobal}
               onChange={e => setBuscaGlobal(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-full pl-9 pr-4 py-1.5 text-xs focus:outline-none focus:border-blue-500 text-white"
+              className="w-full bg-slate-950 border border-slate-800 rounded-full pl-9 pr-4 py-1.5 text-xs focus:outline-none text-white"
             />
           </div>
 
-          <div className="flex items-center space-x-4">
-            <div className="bg-slate-950 px-3 py-1.5 rounded-full border border-slate-800 flex items-center space-x-2">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-              <span className="text-xs text-slate-300 font-medium">Sem pendências críticas hoje</span>
-            </div>
+          <div className="flex items-center space-x-3">
+            <span className="text-xs font-bold text-blue-400 uppercase">{usuario.nome} ({usuario.cargo})</span>
           </div>
         </header>
 
-        {/* CONTEÚDO PRINCIPAL */}
+        {/* CONTEÚDO */}
         <div className="p-6">
           
-          {/* DASHBOARD GERAL */}
+          {/* DASHBOARD COM RANKING */}
           {abaAtiva === 'dashboard' && (
             <div className="space-y-6">
               <div>
-                <h1 className="text-2xl font-bold text-white">Dashboard Geral do Pipeline de Cobrança</h1>
+                <h1 className="text-2xl font-bold">Dashboard Geral e Ranking de Desempenho</h1>
                 <p className="text-xs text-blue-400 font-semibold tracking-wider uppercase">METRONET INTERNET DE VERDADE</p>
               </div>
 
-              {/* CARDS KPIS */}
-              <div className="grid grid-cols-4 gap-4">
-                <div className="bg-slate-900 border border-blue-500/30 p-5 rounded-2xl shadow-xl">
+              <div className="grid grid-cols-3 gap-4">
+                <div className={`${bgCard} border p-5 rounded-2xl`}>
                   <p className="text-xs font-medium text-slate-400">Total em Carteira</p>
-                  <p className="text-2xl font-black text-white mt-1">{totalClientes} contatos</p>
-                  <p className="text-[11px] text-emerald-400 font-semibold mt-2">↑ +12% vs. mês anterior</p>
+                  <p className="text-2xl font-black mt-1">{totalClientes} contatos</p>
                 </div>
 
-                <div className="bg-slate-900 border border-rose-500/30 p-5 rounded-2xl shadow-xl">
+                <div className={`${bgCard} border p-5 rounded-2xl`}>
                   <p className="text-xs font-medium text-slate-400">Total em Aberto</p>
                   <p className="text-2xl font-black text-rose-400 mt-1">R$ {totalEmAberto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                  <p className="text-[11px] text-rose-400 font-semibold mt-2">↗ +8% vs. mês anterior</p>
                 </div>
 
-                <div className="bg-slate-900 border border-emerald-500/30 p-5 rounded-2xl shadow-xl">
-                  <p className="text-xs font-medium text-slate-400">Total Recebido (Pagos)</p>
+                <div className={`${bgCard} border p-5 rounded-2xl`}>
+                  <p className="text-xs font-medium text-slate-400">Total Recuperado</p>
                   <p className="text-2xl font-black text-emerald-400 mt-1">R$ {totalRecebido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
-                  <p className="text-[11px] text-emerald-400 font-semibold mt-2">↑ +15% vs. mês anterior</p>
-                </div>
-
-                <div className="bg-slate-900 border border-purple-500/30 p-5 rounded-2xl shadow-xl">
-                  <p className="text-xs font-medium text-slate-400">Taxa de Eficiência</p>
-                  <p className="text-2xl font-black text-purple-400 mt-1">18,5%</p>
-                  <p className="text-[11px] text-purple-400 font-semibold mt-2">↑ +3,2% vs. mês anterior</p>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-6">
-                <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-4">
-                  <h3 className="text-sm font-bold text-white">Distribuição por Perfil de Atraso</h3>
-                  <div className="space-y-3 text-xs">
-                    <div>
-                      <div className="flex justify-between text-slate-300 font-semibold mb-1">
-                        <span>Devedores 30 Dias</span>
-                        <span>{clientes.filter(c => c.dias_atraso === 30).length} clientes</span>
-                      </div>
-                      <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden">
-                        <div className="h-full bg-blue-500 w-[60%]"></div>
-                      </div>
-                    </div>
+              {/* SEÇÃO RANKING OPERADORES COM GRÁFICO */}
+              <div className={`${bgCard} border p-6 rounded-2xl space-y-4`}>
+                <h2 className="text-base font-bold flex items-center space-x-2 text-amber-400">
+                  <Award className="w-5 h-5" />
+                  <span>Ranking de Operadores — Maior Volume de Acordos</span>
+                </h2>
 
-                    <div>
-                      <div className="flex justify-between text-slate-300 font-semibold mb-1">
-                        <span>Devedores 60 Dias</span>
-                        <span>{clientes.filter(c => c.dias_atraso === 60).length} clientes</span>
+                <div className="space-y-3">
+                  {ranking.map((op, idx) => (
+                    <div key={idx} className="bg-slate-950 p-4 rounded-xl flex items-center justify-between border border-slate-800">
+                      <div className="flex items-center space-x-3">
+                        <span className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center font-bold text-xs text-white">
+                          #{idx + 1}
+                        </span>
+                        <div>
+                          <p className="text-sm font-bold text-white">{op.operador}</p>
+                          <p className="text-xs text-slate-400">{op.total_acordos} acordos efetuados</p>
+                        </div>
                       </div>
-                      <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden">
-                        <div className="h-full bg-amber-500 w-[25%]"></div>
-                      </div>
+                      <span className="text-sm font-black text-emerald-400">
+                        R$ {parseFloat(op.valor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
                     </div>
-
-                    <div>
-                      <div className="flex justify-between text-slate-300 font-semibold mb-1">
-                        <span>Devedores 90+ Dias</span>
-                        <span>{clientes.filter(c => c.dias_atraso === 90).length} clientes</span>
-                      </div>
-                      <div className="w-full h-2 bg-slate-950 rounded-full overflow-hidden">
-                        <div className="h-full bg-rose-500 w-[15%]"></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-3">
-                  <h3 className="text-sm font-bold text-white">Resumo de Negociações</h3>
-                  <div className="bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-xl flex items-center space-x-3">
-                    <CheckCircle className="w-5 h-5 text-emerald-400" />
-                    <span className="text-xs text-emerald-300 font-semibold">Acordos Pagos e Quitados com Sucesso</span>
-                  </div>
-                  <div className="bg-amber-500/10 border border-amber-500/20 p-3 rounded-xl flex items-center space-x-3">
-                    <Clock className="w-5 h-5 text-amber-400" />
-                    <span className="text-xs text-amber-300 font-semibold">Acordos Gerados Aguardando Liquidação</span>
-                  </div>
-                  <div className="bg-rose-500/10 border border-rose-500/20 p-3 rounded-xl flex items-center space-x-3">
-                    <AlertTriangle className="w-5 h-5 text-rose-400" />
-                    <span className="text-xs text-rose-300 font-semibold">Recusas e Insucessos de Negociação</span>
-                  </div>
+                  ))}
                 </div>
               </div>
             </div>
           )}
 
-          {/* PIPELINE / FUNIL KANBAN RESTAURADO */}
+          {/* PIPELINE (7 ESTÁGIOS SOLICITADOS) */}
           {abaAtiva === 'pipeline' && (
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <h1 className="text-xl font-bold text-white">Pipeline de Cobrança (Funil Kanban)</h1>
+                <h1 className="text-xl font-bold">Pipeline de Cobrança</h1>
+                
+                {/* CAMPO DE BUSCA NA PIPELINE */}
+                <div className="relative w-72">
+                  <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                  <input 
+                    type="text" 
+                    placeholder="Filtrar cliente na pipeline..."
+                    value={buscaPipeline}
+                    onChange={e => setBuscaPipeline(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white"
+                  />
+                </div>
               </div>
 
-              <div className="grid grid-cols-6 gap-3 overflow-x-auto pb-4">
+              <div className="grid grid-cols-7 gap-3 overflow-x-auto pb-4">
                 {ESTAGIOS_FUNIL.map(estagio => {
                   const clientesEstagio = clientes.filter(c => 
                     (c.estagio_id || 1) === estagio.id && 
-                    (c.nome?.toLowerCase().includes(buscaGlobal.toLowerCase()) || c.codigo?.toLowerCase().includes(buscaGlobal.toLowerCase()))
+                    (c.nome?.toLowerCase().includes(buscaPipeline.toLowerCase()) || c.codigo?.toLowerCase().includes(buscaPipeline.toLowerCase()))
                   );
 
                   return (
-                    <div key={estagio.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-3 min-w-[220px] flex flex-col h-[680px]">
+                    <div key={estagio.id} className={`${bgCard} border rounded-2xl p-3 min-w-[210px] flex flex-col h-[680px]`}>
                       <div className={`border-b-2 ${estagio.cor} pb-2 mb-3 flex justify-between items-center`}>
-                        <span className="text-xs font-bold text-slate-200">{estagio.nome}</span>
+                        <span className="text-xs font-bold truncate">{estagio.nome}</span>
                         <span className="bg-slate-950 text-xs px-2 py-0.5 rounded-full font-bold text-blue-400">
                           {clientesEstagio.length}
                         </span>
@@ -441,18 +520,15 @@ export default function App() {
 
                       <div className="flex-1 overflow-y-auto space-y-2 pr-1">
                         {clientesEstagio.map(cli => (
-                          <div key={cli.id} className="bg-slate-950 border border-slate-800/80 p-3 rounded-xl space-y-2 shadow-md hover:border-blue-500/50 transition-all">
+                          <div key={cli.id} className="bg-slate-950 border border-slate-800 p-3 rounded-xl space-y-2 shadow-md">
                             <div>
                               <p className="text-xs font-bold text-white truncate">{cli.nome}</p>
-                              <p className="text-[10px] text-slate-500">{cli.codigo}</p>
+                              <p className="text-[10px] text-slate-500">ID: {cli.codigo}</p>
                             </div>
 
                             <div className="flex justify-between items-center text-xs">
                               <span className="font-black text-rose-400">
                                 R$ {parseFloat(cli.total_vencido || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                              </span>
-                              <span className="text-[10px] bg-slate-900 px-2 py-0.5 rounded border border-slate-800 text-slate-400">
-                                {cli.dias_atraso}d atraso
                               </span>
                             </div>
 
@@ -465,7 +541,7 @@ export default function App() {
                                   ← Voltar
                                 </button>
                               )}
-                              {estagio.id < 6 && (
+                              {estagio.id < 7 && (
                                 <button 
                                   onClick={() => moverEstagioCliente(cli.id, estagio.id + 1)}
                                   className="text-[10px] text-blue-400 font-bold hover:text-blue-300 ml-auto flex items-center space-x-1"
@@ -485,20 +561,180 @@ export default function App() {
             </div>
           )}
 
-          {/* AGENDA COM BUSCA DE CLIENTES */}
+          {/* CADASTRO E EDIÇÃO DE CLIENTES */}
+          {abaAtiva === 'cadastro-cliente' && (
+            <div className="grid grid-cols-3 gap-6">
+              <div className={`${bgCard} border p-5 rounded-2xl space-y-4`}>
+                <h2 className="text-base font-bold flex items-center space-x-2">
+                  <UserPlus className="w-5 h-5 text-blue-400" />
+                  <span>Cadastrar Cliente Manualmente</span>
+                </h2>
+
+                <form onSubmit={handleCadastrarCliente} className="space-y-4 text-xs">
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-semibold">ID do Cliente *</label>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="Ex: 17242"
+                      value={novoCliente.codigo}
+                      onChange={e => setNovoCliente({...novoCliente, codigo: e.target.value})}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-semibold">Nome Completo *</label>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="Nome do cliente"
+                      value={novoCliente.nome}
+                      onChange={e => setNovoCliente({...novoCliente, nome: e.target.value})}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-400 mb-1 font-semibold">Valor Devedor (R$) *</label>
+                    <input 
+                      type="text" 
+                      required
+                      placeholder="150,00"
+                      value={novoCliente.total_vencido}
+                      onChange={e => setNovoCliente({...novoCliente, total_vencido: e.target.value})}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white"
+                    />
+                  </div>
+
+                  <button 
+                    type="submit" 
+                    className="w-full bg-blue-600 hover:bg-blue-500 font-bold py-2.5 rounded-lg text-white transition-all shadow-lg"
+                  >
+                    Salvar Cliente no Banco
+                  </button>
+                </form>
+              </div>
+
+              <div className={`col-span-2 ${bgCard} border p-5 rounded-2xl space-y-4`}>
+                <h2 className="text-base font-bold">Clientes Cadastrados</h2>
+                <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                  {clientes.map(cli => (
+                    <div key={cli.id} className="bg-slate-950 border border-slate-800 p-3 rounded-xl flex items-center justify-between text-xs">
+                      <div>
+                        <p className="font-bold text-white">{cli.nome}</p>
+                        <p className="text-slate-400">ID: {cli.codigo}</p>
+                      </div>
+                      <span className="font-black text-rose-400">
+                        R$ {parseFloat(cli.total_vencido || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* CHAT COM GRUPOS E MENSAGENS INDIVIDUAIS */}
+          {abaAtiva === 'chat' && (
+            <div className="grid grid-cols-4 gap-6 h-[600px]">
+              <div className={`${bgCard} border p-4 rounded-2xl space-y-4`}>
+                <h3 className="text-sm font-bold text-white">Canais / Conversas</h3>
+                <div className="space-y-2 text-xs">
+                  <button 
+                    onClick={() => { setChatTipo('geral'); setChatDestinoId(null); }}
+                    className={`w-full text-left p-2.5 rounded-xl font-bold ${chatTipo === 'geral' ? 'bg-blue-600 text-white' : 'bg-slate-950 text-slate-300'}`}
+                  >
+                    # Geral (Todos)
+                  </button>
+
+                  <p className="text-[10px] font-bold uppercase text-slate-500 mt-3">Operadores (Individuais)</p>
+                  {usuarios.filter(u => u.id !== usuario.id).map(u => (
+                    <button 
+                      key={u.id}
+                      onClick={() => { setChatTipo('direto'); setChatDestinoId(u.id); }}
+                      className={`w-full text-left p-2 rounded-lg truncate ${chatTipo === 'direto' && chatDestinoId === u.id ? 'bg-blue-600 text-white font-bold' : 'bg-slate-950 text-slate-300'}`}
+                    >
+                      👤 {u.nome}
+                    </button>
+                  ))}
+
+                  <p className="text-[10px] font-bold uppercase text-slate-500 mt-3">Grupos</p>
+                  {gruposChat.map(g => (
+                    <button 
+                      key={g.id}
+                      onClick={() => { setChatTipo('grupo'); setChatDestinoId(g.id); }}
+                      className={`w-full text-left p-2 rounded-lg truncate ${chatTipo === 'grupo' && chatDestinoId === g.id ? 'bg-blue-600 text-white font-bold' : 'bg-slate-950 text-slate-300'}`}
+                    >
+                      👥 {g.nome}
+                    </button>
+                  ))}
+                </div>
+
+                <form onSubmit={handleCriarGrupo} className="pt-2 border-t border-slate-800 space-y-2">
+                  <input 
+                    type="text" 
+                    placeholder="Nome do Novo Grupo..."
+                    value={novoNomeGrupo}
+                    onChange={e => setNovoNomeGrupo(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white"
+                  />
+                  <button type="submit" className="w-full bg-slate-800 text-xs py-1.5 rounded-lg text-white font-bold">
+                    Criar Grupo
+                  </button>
+                </form>
+              </div>
+
+              <div className={`col-span-3 ${bgCard} border rounded-2xl p-5 flex flex-col`}>
+                <div className="flex-1 overflow-y-auto space-y-3 p-2 bg-slate-950 rounded-xl mb-4 border border-slate-800">
+                  {chatMensagens.map(msg => (
+                    <div key={msg.id} className="bg-slate-900 border border-slate-800 p-3 rounded-xl text-xs space-y-1">
+                      <div className="flex justify-between items-center font-bold text-blue-400">
+                        <span>{msg.remetente_nome}</span>
+                        <span className="text-[10px] text-slate-500">{new Date(msg.criado_em).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                      <p className="text-slate-200">{msg.mensagem}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <form onSubmit={handleEnviarChat} className="flex space-x-2">
+                  <input 
+                    type="text" 
+                    placeholder="Escreva sua mensagem..."
+                    value={novaMsgChat}
+                    onChange={e => setNovaMsgChat(e.target.value)}
+                    className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none"
+                  />
+                  <button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white px-5 rounded-xl font-bold">
+                    <Send className="w-4 h-4" />
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* AGENDA COM CAMPO DE BUSCA */}
           {abaAtiva === 'agenda' && (
             <div className="grid grid-cols-3 gap-6">
-              <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-4">
-                <h2 className="text-base font-bold text-white flex items-center space-x-2">
+              <div className={`${bgCard} border p-5 rounded-2xl space-y-4`}>
+                <h2 className="text-base font-bold flex items-center space-x-2">
                   <Calendar className="w-5 h-5 text-blue-400" />
                   <span>Agendar Retorno</span>
                 </h2>
 
-                <form onSubmit={handleSalvarAgendamento} className="space-y-4 text-xs">
+                <form onSubmit={e => {
+                  e.preventDefault();
+                  fetch(`${API_URL}/agenda`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...novoAgendamento, usuario_id: usuario.id, usuario_nome: usuario.nome })
+                  }).then(() => { setNovoAgendamento({ cliente_nome: '', data_retorno: '', observacao: '' }); carregarDados(); });
+                }} className="space-y-4 text-xs">
                   <div>
-                    <label className="block text-slate-400 mb-1 font-semibold">Cliente *</label>
+                    <label className="block text-slate-400 mb-1">Cliente *</label>
                     <input 
-                      type="text"
+                      type="text" 
                       required
                       placeholder="Nome do cliente"
                       value={novoAgendamento.cliente_nome}
@@ -508,9 +744,9 @@ export default function App() {
                   </div>
 
                   <div>
-                    <label className="block text-slate-400 mb-1 font-semibold">Data e Hora do Retorno *</label>
+                    <label className="block text-slate-400 mb-1">Data e Hora *</label>
                     <input 
-                      type="datetime-local"
+                      type="datetime-local" 
                       required
                       value={novoAgendamento.data_retorno}
                       onChange={e => setNovoAgendamento({...novoAgendamento, data_retorno: e.target.value})}
@@ -519,27 +755,24 @@ export default function App() {
                   </div>
 
                   <div>
-                    <label className="block text-slate-400 mb-1 font-semibold">Observação / Motivo</label>
+                    <label className="block text-slate-400 mb-1">Observação</label>
                     <textarea 
-                      rows="3"
+                      rows="2"
                       value={novoAgendamento.observacao}
                       onChange={e => setNovoAgendamento({...novoAgendamento, observacao: e.target.value})}
                       className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white"
                     ></textarea>
                   </div>
 
-                  <button 
-                    type="submit"
-                    className="w-full bg-blue-600 hover:bg-blue-500 font-bold py-2.5 rounded-lg text-white transition-all shadow-lg"
-                  >
-                    Salvar Compromisso na Agenda
+                  <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 font-bold py-2.5 rounded-lg text-white">
+                    Salvar na Agenda
                   </button>
                 </form>
               </div>
 
-              <div className="col-span-2 bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-4">
+              <div className={`col-span-2 ${bgCard} border p-5 rounded-2xl space-y-4`}>
                 <div className="flex items-center justify-between">
-                  <h2 className="text-base font-bold text-white">Compromissos Agendados</h2>
+                  <h2 className="text-base font-bold">Compromissos Agendados</h2>
                   <div className="relative w-64">
                     <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
                     <input 
@@ -556,13 +789,13 @@ export default function App() {
                   {agenda
                     .filter(a => a.cliente_nome?.toLowerCase().includes(buscaAgenda.toLowerCase()))
                     .map(item => (
-                      <div key={item.id} className="bg-slate-950 border border-slate-800 p-4 rounded-xl flex items-center justify-between">
+                      <div key={item.id} className="bg-slate-950 border border-slate-800 p-4 rounded-xl flex items-center justify-between text-xs">
                         <div>
-                          <p className="text-sm font-bold text-white">{item.cliente_nome}</p>
-                          <p className="text-xs text-blue-400 font-semibold mt-0.5">📅 {item.data_retorno}</p>
-                          {item.observacao && <p className="text-xs text-slate-400 mt-1">{item.observacao}</p>}
+                          <p className="font-bold text-white">{item.cliente_nome}</p>
+                          <p className="text-blue-400">📅 {item.data_retorno}</p>
+                          <p className="text-slate-400">{item.observacao}</p>
                         </div>
-                        <span className="text-[10px] bg-slate-900 border border-slate-800 text-slate-300 px-2.5 py-1 rounded-full font-semibold uppercase">
+                        <span className="bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-full text-slate-300 uppercase">
                           {item.usuario_nome}
                         </span>
                       </div>
@@ -572,106 +805,66 @@ export default function App() {
             </div>
           )}
 
-          {/* PÓS-VENDA RESIDENCIAL */}
-          {abaAtiva === 'pos-venda' && (
+          {/* MÓDULO ADMINISTRATIVO (USUÁRIOS E IMPORTAÇÃO EM MASSA EXCEL) */}
+          {abaAtiva === 'admin' && (
             <div className="space-y-6">
-              <div>
-                <h1 className="text-xl font-bold text-white">Pós-Venda Residencial — Acompanhamento de Novos Clientes</h1>
-                <p className="text-xs text-slate-400">Garantia de Qualidade da Conexão e Retorno nos Períodos Críticos</p>
-              </div>
+              <h1 className="text-xl font-bold">Módulo Administrativo — Gestão e Carga do Sistema</h1>
 
-              <div className="grid grid-cols-3 gap-6">
-                <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3">
-                  <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-                    <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">15 Dias de Instalação</span>
-                    <span className="bg-blue-600/20 text-blue-400 text-xs px-2 py-0.5 rounded-full font-bold">
-                      {posVendaClientes.filter(pv => pv.estagio === '15_dias').length}
-                    </span>
-                  </div>
-                  <div className="space-y-2">
-                    {posVendaClientes.filter(pv => pv.estagio === '15_dias').map(cli => (
-                      <div key={cli.id} className="bg-slate-950 border border-slate-800 p-3 rounded-xl">
-                        <p className="text-xs font-bold text-white">{cli.nome}</p>
-                        <p className="text-[11px] text-slate-400">{cli.plano}</p>
-                      </div>
-                    ))}
-                  </div>
+              <div className="grid grid-cols-2 gap-6">
+                {/* GESTÃO DE USUÁRIOS */}
+                <div className={`${bgCard} border p-5 rounded-2xl space-y-4`}>
+                  <h2 className="text-base font-bold text-white">Cadastrar Novo Usuário</h2>
+                  <form onSubmit={e => {
+                    e.preventDefault();
+                    const nome = e.target.nome.value;
+                    const email = e.target.email.value;
+                    const cargo = e.target.cargo.value;
+                    fetch(`${API_URL}/usuarios`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ nome, email, cargo, senha: '123456' })
+                    }).then(() => { e.target.reset(); carregarDados(); });
+                  }} className="space-y-3 text-xs">
+                    <input type="text" name="nome" placeholder="Nome Completo" required className="w-full bg-slate-950 border border-slate-800 p-2.5 rounded-lg text-white" />
+                    <input type="email" name="email" placeholder="E-mail de Acesso" required className="w-full bg-slate-950 border border-slate-800 p-2.5 rounded-lg text-white" />
+                    <select name="cargo" className="w-full bg-slate-950 border border-slate-800 p-2.5 rounded-lg text-white">
+                      <option value="OPERADOR">OPERADOR</option>
+                      <option value="ADMINISTRADOR">ADMINISTRADOR</option>
+                    </select>
+                    <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 rounded-lg">Salvar Usuário</button>
+                  </form>
                 </div>
 
-                <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3">
-                  <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-                    <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">30 Dias (1ª Fatura)</span>
-                    <span className="bg-purple-600/20 text-purple-400 text-xs px-2 py-0.5 rounded-full font-bold">
-                      {posVendaClientes.filter(pv => pv.estagio === '30_dias').length}
-                    </span>
-                  </div>
-                  <div className="space-y-2">
-                    {posVendaClientes.filter(pv => pv.estagio === '30_dias').map(cli => (
-                      <div key={cli.id} className="bg-slate-950 border border-slate-800 p-3 rounded-xl">
-                        <p className="text-xs font-bold text-white">{cli.nome}</p>
-                        <p className="text-[11px] text-slate-400">{cli.plano}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                {/* CARGA EM MASSA EXCEL */}
+                <div className={`${bgCard} border p-5 rounded-2xl space-y-4`}>
+                  <h2 className="text-base font-bold text-white">Carga em Massa de Clientes via Excel</h2>
+                  <p className="text-xs text-slate-400">Selecione uma planilha contendo colunas com ID/Código, Nome e Valor Devedor.</p>
+                  
+                  <input 
+                    type="file" 
+                    accept=".xlsx, .xls, .csv"
+                    onChange={e => {
+                      const file = e.target.files[0];
+                      if (!file) return;
+                      const formData = new FormData();
+                      formData.append('arquivo', file);
 
-                <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3">
-                  <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-                    <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">60 Dias (Fidelização)</span>
-                    <span className="bg-emerald-600/20 text-emerald-400 text-xs px-2 py-0.5 rounded-full font-bold">
-                      {posVendaClientes.filter(pv => pv.estagio === '60_dias').length}
-                    </span>
-                  </div>
-                  <div className="space-y-2">
-                    {posVendaClientes.filter(pv => pv.estagio === '60_dias').map(cli => (
-                      <div key={cli.id} className="bg-slate-950 border border-slate-800 p-3 rounded-xl">
-                        <p className="text-xs font-bold text-white">{cli.nome}</p>
-                        <p className="text-[11px] text-slate-400">{cli.plano}</p>
-                      </div>
-                    ))}
-                  </div>
+                      fetch(`${API_URL}/clientes/previa`, { method: 'POST', body: formData })
+                        .then(r => r.json())
+                        .then(data => {
+                          if (data.sucesso) {
+                            fetch(`${API_URL}/clientes/confirmar-importacao`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ clientes: data.dados })
+                            }).then(() => { alert('Base de clientes atualizada com sucesso!'); carregarDados(); });
+                          }
+                        });
+                    }}
+                    className="w-full bg-slate-950 border border-slate-800 p-3 rounded-lg text-xs text-white"
+                  />
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* CHAT INTERNO */}
-          {abaAtiva === 'chat' && (
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-3xl mx-auto flex flex-col h-[600px]">
-              <div className="border-b border-slate-800 pb-3 mb-4">
-                <h2 className="text-base font-bold text-white flex items-center space-x-2">
-                  <MessageSquare className="w-5 h-5 text-blue-400" />
-                  <span>Chat Interno da Operação MetroNet</span>
-                </h2>
-              </div>
-
-              <div className="flex-1 overflow-y-auto space-y-3 p-2 bg-slate-950 rounded-xl mb-4 border border-slate-800">
-                {chatMensagens.map(msg => (
-                  <div key={msg.id} className="bg-slate-900 border border-slate-800 p-3 rounded-xl text-xs space-y-1">
-                    <div className="flex justify-between items-center font-bold text-blue-400">
-                      <span>{msg.usuario_nome}</span>
-                      <span className="text-[10px] text-slate-500">{new Date(msg.criado_em).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
-                    <p className="text-slate-200">{msg.mensagem}</p>
-                  </div>
-                ))}
-              </div>
-
-              <form onSubmit={handleEnviarChat} className="flex space-x-2">
-                <input 
-                  type="text" 
-                  placeholder="Escreva sua mensagem para a equipe..."
-                  value={novaMsgChat}
-                  onChange={e => setNovaMsgChat(e.target.value)}
-                  className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500"
-                />
-                <button 
-                  type="submit"
-                  className="bg-blue-600 hover:bg-blue-500 text-white px-5 rounded-xl flex items-center justify-center transition-all font-bold"
-                >
-                  <Send className="w-4 h-4" />
-                </button>
-              </form>
             </div>
           )}
 

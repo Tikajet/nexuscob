@@ -33,7 +33,7 @@ async function initDB() {
         nome VARCHAR(255) NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
         senha_hash VARCHAR(255) DEFAULT '123456',
-        cargo VARCHAR(50) DEFAULT 'OPERADOR',
+        cargo VARCHAR(50) DEFAULT 'COBRADOR',
         ativo BOOLEAN DEFAULT TRUE,
         criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
@@ -53,6 +53,22 @@ async function initDB() {
         estagio_id INT DEFAULT 1,
         usuario_responsavel_id INT,
         atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS pos_venda_clientes (
+        id SERIAL PRIMARY KEY,
+        codigo VARCHAR(50),
+        nome VARCHAR(255) NOT NULL,
+        telefone VARCHAR(50),
+        plano VARCHAR(100),
+        data_instalacao DATE DEFAULT CURRENT_DATE,
+        estagio_id INT DEFAULT 1,
+        satisfacao INT DEFAULT 5,
+        vendedor_id INT,
+        observacoes TEXT,
+        criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
@@ -91,7 +107,7 @@ async function initDB() {
       );
     `);
 
-    console.log('✅ Banco PostgreSQL MetroCob pronto com suporte a categorias de atraso!');
+    console.log('✅ BD MetroCob pronto com Pós-Vendas, Cargos (COBRADOR, ADMINISTRADOR, SUPERVISOR, VENDEDOR) e Ranking!');
   } catch (error) {
     console.error('❌ Erro na inicializacao do BD:', error.message);
   }
@@ -127,7 +143,7 @@ app.post('/api/login', async (req, res) => {
     }
     
     const nome = emailLimpo.split('@')[0].toUpperCase();
-    const cargo = (emailLimpo.includes('admin') || emailLimpo.includes('pinhaisnet')) ? 'ADMINISTRADOR' : 'OPERADOR';
+    const cargo = (emailLimpo.includes('admin') || emailLimpo.includes('pinhaisnet')) ? 'ADMINISTRADOR' : 'COBRADOR';
     
     const newRes = await pool.query(
       'INSERT INTO usuarios (nome, email, senha_hash, cargo) VALUES ($1, $2, $3, $4) RETURNING *',
@@ -156,7 +172,7 @@ app.post('/api/usuarios', async (req, res) => {
   try {
     const result = await pool.query(
       'INSERT INTO usuarios (nome, email, senha_hash, cargo) VALUES ($1, $2, $3, $4) RETURNING id, nome, email, cargo',
-      [nome, email, senha || '123456', cargo || 'OPERADOR']
+      [nome, email, senha || '123456', cargo || 'COBRADOR']
     );
     res.json({ sucesso: true, usuario: result.rows[0] });
   } catch (err) {
@@ -188,8 +204,8 @@ app.delete('/api/usuarios/:id', async (req, res) => {
   }
 });
 
-// RANKING DE OPERADORES
-app.get('/api/dashboard/ranking', async (req, res) => {
+// RANKINGS E DASHBOARD
+app.get('/api/dashboard/ranking-cobranca', async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT u.nome as operador, COUNT(c.id) as total_acordos, COALESCE(SUM(c.valor_acordo), 0) as valor_total
@@ -205,7 +221,105 @@ app.get('/api/dashboard/ranking', async (req, res) => {
   }
 });
 
-// CHAT INTERNO
+app.get('/api/dashboard/ranking-vendedores', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT u.nome as vendedor, COUNT(p.id) as total_pos_vendas, AVG(p.satisfacao) as media_satisfacao
+      FROM pos_venda_clientes p
+      JOIN usuarios u ON p.vendedor_id = u.id
+      GROUP BY u.nome
+      ORDER BY total_pos_vendas DESC
+    `);
+    res.json(result.rows || []);
+  } catch (err) {
+    res.json([]);
+  }
+});
+
+// PÓS-VENDA
+app.get('/api/pos-venda', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT p.*, u.nome as vendedor_nome 
+      FROM pos_venda_clientes p 
+      LEFT JOIN usuarios u ON p.vendedor_id = u.id 
+      ORDER BY p.id DESC
+    `);
+    res.json(result.rows || []);
+  } catch (err) {
+    res.json([]);
+  }
+});
+
+app.post('/api/pos-venda', async (req, res) => {
+  const { codigo, nome, telefone, plano, satisfacao, vendedor_id, observacoes } = req.body;
+  try {
+    const result = await pool.query(
+      `INSERT INTO pos_venda_clientes (codigo, nome, telefone, plano, satisfacao, vendedor_id, observacoes, estagio_id) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 1) RETURNING *`,
+      [codigo || `PV-${Math.floor(1000 + Math.random() * 9000)}`, nome, telefone || '', plano || 'Fibra 500MB', parseInt(satisfacao, 10) || 5, vendedor_id || null, observacoes || '']
+    );
+    res.json({ sucesso: true, cliente: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao cadastrar cliente no pós-venda.' });
+  }
+});
+
+app.put('/api/pos-venda/:id/estagio', async (req, res) => {
+  const { id } = req.params;
+  const { estagio_id } = req.body;
+  try {
+    const result = await pool.query(
+      'UPDATE pos_venda_clientes SET estagio_id = $1 WHERE id = $2 RETURNING *',
+      [estagio_id, id]
+    );
+    res.json({ sucesso: true, cliente: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao atualizar estágio do pós-venda.' });
+  }
+});
+
+app.delete('/api/pos-venda/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM pos_venda_clientes WHERE id = $1', [id]);
+    res.json({ sucesso: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao excluir pós-venda.' });
+  }
+});
+
+// AGENDA
+app.get('/api/agenda', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM agenda ORDER BY id DESC');
+    res.json(result.rows || []);
+  } catch (err) {
+    res.json([]);
+  }
+});
+
+app.post('/api/agenda', async (req, res) => {
+  const { cliente_nome, data_retorno, observacao, usuario_id, usuario_nome, tipo } = req.body;
+  
+  if (!cliente_nome || !data_retorno) {
+    return res.status(400).json({ error: 'Cliente e Data são obrigatórios.' });
+  }
+
+  try {
+    const dataStr = String(data_retorno).replace('T', ' ');
+
+    const result = await pool.query(
+      'INSERT INTO agenda (cliente_nome, usuario_id, usuario_nome, data_retorno, observacao, tipo) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [String(cliente_nome), usuario_id || null, String(usuario_nome || 'Operador'), dataStr, String(observacao || ''), tipo || 'cobranca']
+    );
+    res.json({ sucesso: true, agendamento: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao salvar agendamento.' });
+  }
+});
+
+// CHAT
 app.get('/api/chat/grupos', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM chat_grupos ORDER BY id DESC');
@@ -253,37 +367,7 @@ app.post('/api/chat/mensagens', async (req, res) => {
   }
 });
 
-// AGENDA
-app.get('/api/agenda', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM agenda ORDER BY id DESC');
-    res.json(result.rows || []);
-  } catch (err) {
-    res.json([]);
-  }
-});
-
-app.post('/api/agenda', async (req, res) => {
-  const { cliente_nome, data_retorno, observacao, usuario_id, usuario_nome } = req.body;
-  
-  if (!cliente_nome || !data_retorno) {
-    return res.status(400).json({ error: 'Cliente e Data são obrigatórios.' });
-  }
-
-  try {
-    const dataStr = String(data_retorno).replace('T', ' ');
-
-    const result = await pool.query(
-      'INSERT INTO agenda (cliente_nome, usuario_id, usuario_nome, data_retorno, observacao, tipo) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [String(cliente_nome), usuario_id || null, String(usuario_nome || 'Operador'), dataStr, String(observacao || ''), 'cobranca']
-    );
-    res.json({ sucesso: true, agendamento: result.rows[0] });
-  } catch (err) {
-    res.status(500).json({ error: 'Erro ao salvar agendamento.' });
-  }
-});
-
-// CLIENTES (CADASTRO MANUAL, LISTAGEM E PIPELINE)
+// CLIENTES COBRANÇA
 app.get('/api/clientes', async (req, res) => {
   try {
     const result = await pool.query(`
@@ -354,7 +438,7 @@ app.delete('/api/clientes/:id', async (req, res) => {
   }
 });
 
-// IMPORTAÇÃO EXCEL
+// EXCEL IMPORTAÇÃO
 app.post('/api/clientes/previa', upload.single('arquivo'), async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
@@ -409,7 +493,6 @@ app.post('/api/clientes/confirmar-importacao', async (req, res) => {
   }
 });
 
-// SERVIR BUILD
 const clientBuildPath = path.join(__dirname, '../client/dist');
 if (fs.existsSync(clientBuildPath)) {
   app.use(express.static(clientBuildPath));

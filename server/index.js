@@ -51,7 +51,7 @@ async function initDB() {
       );
     `);
 
-    // Tabela da Agenda (Geral)
+    // Tabela da Agenda
     await pool.query(`
       CREATE TABLE IF NOT EXISTS agenda (
         id SERIAL PRIMARY KEY,
@@ -66,7 +66,6 @@ async function initDB() {
         criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
-    await pool.query(`ALTER TABLE agenda ADD COLUMN IF NOT EXISTS tipo VARCHAR(50) DEFAULT 'cobranca';`).catch(() => {});
 
     // Tabela de Clientes Pós-Venda
     await pool.query(`
@@ -186,7 +185,7 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-// AGENDA (COBRANÇA E PÓS-VENDA)
+// AGENDA
 app.get('/api/agenda', async (req, res) => {
   try {
     const { tipo } = req.query;
@@ -271,18 +270,7 @@ app.post('/api/pos-venda', async (req, res) => {
   }
 });
 
-app.put('/api/pos-venda/:id/estagio', async (req, res) => {
-  const { id } = req.params;
-  const { estagio } = req.body;
-  try {
-    const result = await pool.query('UPDATE pos_venda_clientes SET estagio = $1 WHERE id = $2 RETURNING *', [estagio, id]);
-    res.json({ sucesso: true, cliente: result.rows[0] });
-  } catch (err) {
-    res.status(500).json({ error: 'Erro ao alterar estágio pós-venda.' });
-  }
-});
-
-// SCRIPTS, CLIENTES, CRM
+// CLIENTES, SCRIPTS
 app.get('/api/scripts', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM scripts ORDER BY id DESC');
@@ -306,58 +294,14 @@ app.get('/api/clientes', async (req, res) => {
   }
 });
 
-app.post('/api/clientes/manual', async (req, res) => {
-  const { codigo, nome, telefone, total_vencido, opcao_atraso } = req.body;
-  let diasAtraso = 30;
-  let statusConexao = 'Ativo';
-
-  if (opcao_atraso === '30') diasAtraso = 30;
-  else if (opcao_atraso === '60') diasAtraso = 60;
-  else if (opcao_atraso === '90') diasAtraso = 90;
-  else if (opcao_atraso === 'CANCELADOS') {
-    diasAtraso = 120;
-    statusConexao = 'Cancelado';
-  }
-
-  try {
-    const cod = codigo && String(codigo).trim() !== '' ? String(codigo).trim() : `CLI-${Math.floor(1000 + Math.random() * 9000)}`;
-    const val = formatarValorExcel(total_vencido);
-
-    const result = await pool.query(
-      `INSERT INTO clientes (codigo, nome, telefone, total_vencido, dias_atraso, status_conexao, estagio_id, atualizado_em) 
-       VALUES ($1, $2, $3, $4, $5, $6, 1, CURRENT_TIMESTAMP) RETURNING *`,
-      [cod, String(nome).trim(), telefone || '', val, diasAtraso, statusConexao]
-    );
-
-    res.json({ sucesso: true, mensagem: 'Cliente cadastrado com sucesso!', cliente: result.rows[0] });
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao cadastrar cliente.' });
-  }
-});
-
-app.put('/api/clientes/:id/estagio', async (req, res) => {
-  const { id } = req.params;
-  const { estagio_id, usuario_nome, usuario_id, valor_acordo, parcelas_acordo } = req.body;
-  try {
-    let uId = usuario_id ? parseInt(usuario_id, 10) : null;
-    const vAcordo = valor_acordo !== undefined ? formatarValorExcel(valor_acordo) : null;
-    const pAcordo = parcelas_acordo !== undefined ? parseInt(parcelas_acordo, 10) : null;
-
-    const result = await pool.query(
-      `UPDATE clientes 
-       SET estagio_id = $1, 
-           usuario_responsavel_id = COALESCE($2, usuario_responsavel_id), 
-           valor_acordo = COALESCE($3, valor_acordo),
-           parcelas_acordo = COALESCE($4, parcelas_acordo),
-           atualizado_em = CURRENT_TIMESTAMP 
-       WHERE id = $5 RETURNING *`,
-      [estagio_id, uId, vAcordo, pAcordo, id]
-    );
-    res.json({ sucesso: true, mensagem: `Cliente movido por ${usuario_nome}`, cliente: result.rows[0] });
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao atualizar estágio.' });
-  }
-});
+// SERVIR OS ARQUIVOS ESTÁTICOS DO CLIENT REACT
+const clientBuildPath = path.join(__dirname, '../client/dist');
+if (fs.existsSync(clientBuildPath)) {
+  app.use(express.static(clientBuildPath));
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(clientBuildPath, 'index.html'));
+  });
+}
 
 app.listen(PORT, () => {
   console.log(`🚀 METROCOB API rodando na porta ${PORT}`);

@@ -107,7 +107,7 @@ async function initDB() {
       );
     `);
 
-    console.log('✅ Banco PostgreSQL MetroCob inicializado com sucesso!');
+    console.log('✅ BD MetroCob verificado!');
   } catch (error) {
     console.error('❌ Erro na inicialização do BD:', error.message);
   }
@@ -236,11 +236,11 @@ app.get('/api/dashboard/ranking-vendedores', async (req, res) => {
   }
 });
 
-// PÓS-VENDA
+// PÓS-VENDA (TRATAMENTO SEGURO DE VENDEDOR_ID)
 app.get('/api/pos-venda', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT p.*, u.nome as vendedor_nome 
+      SELECT p.*, COALESCE(u.nome, 'Sem Vendedor') as vendedor_nome 
       FROM pos_venda_clientes p 
       LEFT JOIN usuarios u ON p.vendedor_id = u.id 
       ORDER BY p.id DESC
@@ -253,9 +253,11 @@ app.get('/api/pos-venda', async (req, res) => {
 
 app.post('/api/pos-venda', async (req, res) => {
   const { codigo, nome, telefone, plano, satisfacao, vendedor_id, observacoes } = req.body;
+  
   try {
     const cod = codigo && String(codigo).trim() !== '' ? String(codigo).trim() : `PV-${Math.floor(1000 + Math.random() * 9000)}`;
-    const vId = vendedor_id && !isNaN(parseInt(vendedor_id, 10)) ? parseInt(vendedor_id, 10) : null;
+    const parsedVendedor = vendedor_id ? parseInt(vendedor_id, 10) : null;
+    const vId = !isNaN(parsedVendedor) && parsedVendedor > 0 ? parsedVendedor : null;
     const nota = satisfacao ? parseInt(satisfacao, 10) : 5;
 
     const result = await pool.query(
@@ -266,8 +268,8 @@ app.post('/api/pos-venda', async (req, res) => {
 
     res.json({ sucesso: true, mensagem: 'Cliente salvo no pós-venda com sucesso!', cliente: result.rows[0] });
   } catch (err) {
-    console.error('Erro ao cadastrar pós-venda:', err.message);
-    res.status(500).json({ error: 'Erro ao cadastrar cliente no pós-venda.' });
+    console.error('Erro ao cadastrar Pós-Venda:', err.message);
+    res.status(500).json({ error: 'Erro ao cadastrar cliente no pós-venda: ' + err.message });
   }
 });
 

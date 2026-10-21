@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  BarChart2, Users, Calendar, FileText, Upload, Settings, 
-  MessageSquare, Search, LogOut, CheckCircle, Clock, AlertTriangle, Send, Wifi, Shield, Plus, Trash2, ArrowRight, Sun, Moon, Edit, UserPlus, Award
+  BarChart2, Users, Calendar, Settings, MessageSquare, Search, LogOut, 
+  CheckCircle, Send, Wifi, Shield, Trash2, ArrowRight, Sun, Moon, 
+  UserPlus, Award, ChevronDown, ChevronRight, Upload, FileSpreadsheet, Edit3
 } from 'lucide-react';
 
 const API_URL = '/api';
 
-// NOVOS 7 ESTÁGIOS DA PIPELINE CONFORME SOLICITADO
 const ESTAGIOS_FUNIL = [
   { id: 1, nome: 'Novos Contatos', cor: 'border-blue-500' },
   { id: 2, nome: 'Primeiro Contato', cor: 'border-cyan-500' },
@@ -22,11 +22,7 @@ const FRASES_MOTIVACIONAIS = [
   "Cada cliente atendido com excelência reforça o nosso compromisso com a qualidade.",
   "Grandes conquistas são construídas através de pequenas ações diárias.",
   "Sua dedicação hoje é o sucesso da MetroNet amanhã!",
-  "Foco, resiliência e empatia transformam qualquer desafio em negociação concluída.",
-  "A atitude positiva faz toda a diferença em cada ligação.",
-  "Acredite no seu potencial. Hoje é um ótimo dia para bater metas!",
-  "Conectar pessoas com respeito e eficiência é a nossa missão.",
-  "Seja a solução que o cliente procura com calma e determinação."
+  "Foco, resiliência e empatia transformam qualquer desafio em negociação concluída."
 ];
 
 export default function App() {
@@ -34,7 +30,10 @@ export default function App() {
   const [emailLogin, setEmailLogin] = useState('');
   const [senhaLogin, setSenhaLogin] = useState('');
   const [abaAtiva, setAbaAtiva] = useState('dashboard');
+  const [subAbaAdmin, setSubAbaAdmin] = useState('usuarios');
+  const [menuAdminAberto, setMenuAdminAberto] = useState(false);
   const [temaClaro, setTemaClaro] = useState(false);
+  
   const [frasePopup, setFrasePopup] = useState('');
   const [exibirPopup, setExibirPopup] = useState(false);
 
@@ -44,27 +43,28 @@ export default function App() {
   const [ranking, setRanking] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
   
+  // Prévia Excel
+  const [previaExcel, setPreviaExcel] = useState([]);
+  const [carregandoPrevia, setCarregandoPrevia] = useState(false);
+
   // Chat
   const [gruposChat, setGruposChat] = useState([]);
   const [chatMensagens, setChatMensagens] = useState([]);
   const [chatTipo, setChatTipo] = useState('geral');
   const [chatDestinoId, setChatDestinoId] = useState(null);
   const [novaMsgChat, setNovaMsgChat] = useState('');
-  const [novoNomeGrupo, setNovoNomeGrupo] = useState('');
 
-  // Modais de Acordo
+  // Modais e Drag
   const [modalAcordo, setModalAcordo] = useState({ exibir: false, clienteId: null, valor: '', parcelas: '1' });
+  const [clienteArrastadoId, setClienteArrastadoId] = useState(null);
 
-  // Filtros de Busca
+  // Filtros
   const [buscaGlobal, setBuscaGlobal] = useState('');
   const [buscaPipeline, setBuscaPipeline] = useState('');
   const [buscaAgenda, setBuscaAgenda] = useState('');
 
-  // Formulário Novo Cliente
-  const [novoCliente, setNovoCliente] = useState({ codigo: '', nome: '', total_vencido: '' });
-
-  // Formulário Agenda
-  const [novoAgendamento, setNovoAgendamento] = useState({ cliente_nome: '', data_retorno: '', observacao: '' });
+  // Edição de Usuário
+  const [usuarioEditando, setUsuarioEditando] = useState(null);
 
   useEffect(() => {
     if (usuario) {
@@ -106,7 +106,26 @@ export default function App() {
         setExibirPopup(true);
       }
     } catch (err) {
-      alert('Erro de conexão ao realizar login.');
+      alert('Erro ao conectar.');
+    }
+  };
+
+  // LÓGICA DRAG AND DROP
+  const handleDragStart = (e, clienteId) => {
+    setClienteArrastadoId(clienteId);
+    e.dataTransfer.setData('text/plain', clienteId);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e, novoEstagioId) => {
+    e.preventDefault();
+    const id = e.dataTransfer.getData('text/plain') || clienteArrastadoId;
+    if (id) {
+      moverEstagioCliente(parseInt(id, 10), novoEstagioId);
+      setClienteArrastadoId(null);
     }
   };
 
@@ -121,6 +140,13 @@ export default function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ estagio_id: novoEstagioId, usuario_nome: usuario.nome, usuario_id: usuario.id })
     }).then(() => carregarDados());
+  };
+
+  const handleExcluirCliente = (clienteId) => {
+    if (confirm('Tem certeza que deseja excluir este cliente do pipeline?')) {
+      fetch(`${API_URL}/clientes/${clienteId}`, { method: 'DELETE' })
+        .then(() => carregarDados());
+    }
   };
 
   const handleConfirmarAcordo = (e) => {
@@ -141,15 +167,37 @@ export default function App() {
     });
   };
 
-  const handleCadastrarCliente = (e) => {
-    e.preventDefault();
-    fetch(`${API_URL}/clientes/manual`, {
+  // ENVIAR PLANILHA COM PRÉVIA
+  const handleCarregarPreviaExcel = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setCarregandoPrevia(true);
+    const formData = new FormData();
+    formData.append('arquivo', file);
+
+    fetch(`${API_URL}/clientes/previa`, { method: 'POST', body: formData })
+      .then(r => r.json())
+      .then(data => {
+        setCarregandoPrevia(false);
+        if (data.sucesso) {
+          setPreviaExcel(data.dados);
+        } else {
+          alert('Erro ao processar planilha.');
+        }
+      });
+  };
+
+  const handleConfirmarImportacaoExcel = () => {
+    if (previaExcel.length === 0) return;
+
+    fetch(`${API_URL}/clientes/confirmar-importacao`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(novoCliente)
+      body: JSON.stringify({ clientes: previaExcel })
     }).then(() => {
-      alert('Cliente cadastrado com sucesso!');
-      setNovoCliente({ codigo: '', nome: '', total_vencido: '' });
+      alert(`${previaExcel.length} clientes salvos no Pipeline com sucesso!`);
+      setPreviaExcel([]);
       carregarDados();
     });
   };
@@ -174,21 +222,10 @@ export default function App() {
     });
   };
 
-  const handleCriarGrupo = (e) => {
-    e.preventDefault();
-    if (!novoNomeGrupo.trim()) return;
-    fetch(`${API_URL}/chat/grupos`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nome: novoNomeGrupo })
-    }).then(() => {
-      setNovoNomeGrupo('');
-      carregarDados();
-    });
-  };
-
+  // ESTILOS DINÂMICOS MODO CLARO / ESCURO
   const bgPrincipal = temaClaro ? 'bg-slate-100 text-slate-900' : 'bg-slate-950 text-slate-100';
-  const bgCard = temaClaro ? 'bg-white border-slate-200' : 'bg-slate-900 border-slate-800';
+  const bgCard = temaClaro ? 'bg-white border-slate-200 text-slate-800' : 'bg-slate-900 border-slate-800 text-slate-100';
+  const bgInput = temaClaro ? 'bg-slate-50 border-slate-300 text-slate-900' : 'bg-slate-950 border-slate-800 text-white';
 
   if (!usuario) {
     return (
@@ -250,7 +287,7 @@ export default function App() {
   const totalRecebido = clientes.filter(c => c.estagio_id === 6).reduce((acc, c) => acc + (parseFloat(c.valor_acordo) || parseFloat(c.total_vencido) || 0), 0);
 
   return (
-    <div className={`min-h-screen ${bgPrincipal} flex font-sans`}>
+    <div className={`min-h-screen ${bgPrincipal} flex font-sans transition-colors duration-200`}>
       
       {/* POPUP MOTIVACIONAL */}
       {exibirPopup && (
@@ -323,8 +360,8 @@ export default function App() {
         </div>
       )}
 
-      {/* SIDEBAR TEMA DARK METRONET */}
-      <aside className={`w-64 ${bgCard} border-r flex flex-col justify-between`}>
+      {/* SIDEBAR TEMA METRONET */}
+      <aside className={`w-64 ${bgCard} border-r flex flex-col justify-between transition-colors`}>
         <div>
           <div className="p-6 border-b border-slate-800/80">
             <div className="flex items-center space-x-2 text-blue-500 font-black text-xl tracking-wider">
@@ -375,13 +412,39 @@ export default function App() {
               <span>Chat & Grupos</span>
             </button>
 
-            <button 
-              onClick={() => setAbaAtiva('admin')}
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'admin' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
-            >
-              <Settings className="w-5 h-5" />
-              <span>Administração</span>
-            </button>
+            {/* SUBMENU ADMINISTRAÇÃO */}
+            <div>
+              <button 
+                onClick={() => setMenuAdminAberto(!menuAdminAberto)}
+                className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${abaAtiva === 'admin' ? 'bg-blue-600 text-white font-semibold' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+              >
+                <div className="flex items-center space-x-3">
+                  <Settings className="w-5 h-5" />
+                  <span>Administração</span>
+                </div>
+                {menuAdminAberto ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+              </button>
+
+              {menuAdminAberto && (
+                <div className="ml-8 mt-1 space-y-1 text-xs font-semibold">
+                  <button 
+                    onClick={() => { setAbaAtiva('admin'); setSubAbaAdmin('excel'); }}
+                    className={`w-full text-left py-2 px-3 rounded-lg flex items-center space-x-2 ${subAbaAdmin === 'excel' && abaAtiva === 'admin' ? 'text-blue-400 bg-slate-800' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    <FileSpreadsheet className="w-4 h-4" />
+                    <span>Subir Planilha Excel</span>
+                  </button>
+
+                  <button 
+                    onClick={() => { setAbaAtiva('admin'); setSubAbaAdmin('usuarios'); }}
+                    className={`w-full text-left py-2 px-3 rounded-lg flex items-center space-x-2 ${subAbaAdmin === 'usuarios' && abaAtiva === 'admin' ? 'text-blue-400 bg-slate-800' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    <Users className="w-4 h-4" />
+                    <span>Gerenciamento Usuários</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </nav>
         </div>
 
@@ -417,12 +480,12 @@ export default function App() {
               placeholder="Buscar cliente na página inicial, CPF, ID..."
               value={buscaGlobal}
               onChange={e => setBuscaGlobal(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-full pl-9 pr-4 py-1.5 text-xs focus:outline-none text-white"
+              className={`w-full ${bgInput} rounded-full pl-9 pr-4 py-1.5 text-xs focus:outline-none`}
             />
           </div>
 
           <div className="flex items-center space-x-3">
-            <span className="text-xs font-bold text-blue-400 uppercase">{usuario.nome} ({usuario.cargo})</span>
+            <span className="text-xs font-bold text-blue-500 uppercase">{usuario.nome} ({usuario.cargo})</span>
           </div>
         </header>
 
@@ -434,46 +497,46 @@ export default function App() {
             <div className="space-y-6">
               <div>
                 <h1 className="text-2xl font-bold">Dashboard Geral e Ranking de Desempenho</h1>
-                <p className="text-xs text-blue-400 font-semibold tracking-wider uppercase">METRONET INTERNET DE VERDADE</p>
+                <p className="text-xs text-blue-500 font-semibold tracking-wider uppercase">METRONET INTERNET DE VERDADE</p>
               </div>
 
               <div className="grid grid-cols-3 gap-4">
-                <div className={`${bgCard} border p-5 rounded-2xl`}>
+                <div className={`${bgCard} border p-5 rounded-2xl shadow-sm`}>
                   <p className="text-xs font-medium text-slate-400">Total em Carteira</p>
                   <p className="text-2xl font-black mt-1">{totalClientes} contatos</p>
                 </div>
 
-                <div className={`${bgCard} border p-5 rounded-2xl`}>
+                <div className={`${bgCard} border p-5 rounded-2xl shadow-sm`}>
                   <p className="text-xs font-medium text-slate-400">Total em Aberto</p>
-                  <p className="text-2xl font-black text-rose-400 mt-1">R$ {totalEmAberto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-2xl font-black text-rose-500 mt-1">R$ {totalEmAberto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                 </div>
 
-                <div className={`${bgCard} border p-5 rounded-2xl`}>
+                <div className={`${bgCard} border p-5 rounded-2xl shadow-sm`}>
                   <p className="text-xs font-medium text-slate-400">Total Recuperado</p>
-                  <p className="text-2xl font-black text-emerald-400 mt-1">R$ {totalRecebido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                  <p className="text-2xl font-black text-emerald-500 mt-1">R$ {totalRecebido.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
                 </div>
               </div>
 
-              {/* SEÇÃO RANKING OPERADORES COM GRÁFICO */}
-              <div className={`${bgCard} border p-6 rounded-2xl space-y-4`}>
-                <h2 className="text-base font-bold flex items-center space-x-2 text-amber-400">
+              {/* SEÇÃO RANKING OPERADORES */}
+              <div className={`${bgCard} border p-6 rounded-2xl space-y-4 shadow-sm`}>
+                <h2 className="text-base font-bold flex items-center space-x-2 text-amber-500">
                   <Award className="w-5 h-5" />
                   <span>Ranking de Operadores — Maior Volume de Acordos</span>
                 </h2>
 
                 <div className="space-y-3">
                   {ranking.map((op, idx) => (
-                    <div key={idx} className="bg-slate-950 p-4 rounded-xl flex items-center justify-between border border-slate-800">
+                    <div key={idx} className={`${bgInput} p-4 rounded-xl flex items-center justify-between border border-slate-700/50`}>
                       <div className="flex items-center space-x-3">
                         <span className="w-7 h-7 rounded-full bg-blue-600 flex items-center justify-center font-bold text-xs text-white">
                           #{idx + 1}
                         </span>
                         <div>
-                          <p className="text-sm font-bold text-white">{op.operador}</p>
+                          <p className="text-sm font-bold">{op.operador}</p>
                           <p className="text-xs text-slate-400">{op.total_acordos} acordos efetuados</p>
                         </div>
                       </div>
-                      <span className="text-sm font-black text-emerald-400">
+                      <span className="text-sm font-black text-emerald-500">
                         R$ {parseFloat(op.valor_total || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </span>
                     </div>
@@ -483,13 +546,12 @@ export default function App() {
             </div>
           )}
 
-          {/* PIPELINE (7 ESTÁGIOS SOLICITADOS) */}
+          {/* PIPELINE COM DRAG AND DROP E BOTÃO EXCLUIR */}
           {abaAtiva === 'pipeline' && (
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <h1 className="text-xl font-bold">Pipeline de Cobrança</h1>
+                <h1 className="text-xl font-bold">Pipeline de Cobrança (Arraste com o Rato)</h1>
                 
-                {/* CAMPO DE BUSCA NA PIPELINE */}
                 <div className="relative w-72">
                   <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
                   <input 
@@ -497,7 +559,7 @@ export default function App() {
                     placeholder="Filtrar cliente na pipeline..."
                     value={buscaPipeline}
                     onChange={e => setBuscaPipeline(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white"
+                    className={`w-full ${bgInput} rounded-lg pl-9 pr-3 py-1.5 text-xs`}
                   />
                 </div>
               </div>
@@ -510,33 +572,52 @@ export default function App() {
                   );
 
                   return (
-                    <div key={estagio.id} className={`${bgCard} border rounded-2xl p-3 min-w-[210px] flex flex-col h-[680px]`}>
+                    <div 
+                      key={estagio.id} 
+                      onDragOver={handleDragOver}
+                      onDrop={(e) => handleDrop(e, estagio.id)}
+                      className={`${bgCard} border rounded-2xl p-3 min-w-[210px] flex flex-col h-[680px] transition-colors hover:border-blue-500/30`}
+                    >
                       <div className={`border-b-2 ${estagio.cor} pb-2 mb-3 flex justify-between items-center`}>
                         <span className="text-xs font-bold truncate">{estagio.nome}</span>
-                        <span className="bg-slate-950 text-xs px-2 py-0.5 rounded-full font-bold text-blue-400">
+                        <span className="bg-blue-600/20 text-blue-400 text-xs px-2 py-0.5 rounded-full font-bold">
                           {clientesEstagio.length}
                         </span>
                       </div>
 
                       <div className="flex-1 overflow-y-auto space-y-2 pr-1">
                         {clientesEstagio.map(cli => (
-                          <div key={cli.id} className="bg-slate-950 border border-slate-800 p-3 rounded-xl space-y-2 shadow-md">
-                            <div>
-                              <p className="text-xs font-bold text-white truncate">{cli.nome}</p>
-                              <p className="text-[10px] text-slate-500">ID: {cli.codigo}</p>
+                          <div 
+                            key={cli.id} 
+                            draggable
+                            onDragStart={(e) => handleDragStart(e, cli.id)}
+                            className={`${bgInput} border border-slate-700/50 p-3 rounded-xl space-y-2 shadow-sm cursor-grab active:cursor-grabbing hover:border-blue-500 transition-all`}
+                          >
+                            <div className="flex justify-between items-start">
+                              <div className="truncate pr-1">
+                                <p className="text-xs font-bold truncate">{cli.nome}</p>
+                                <p className="text-[10px] text-slate-400">ID: {cli.codigo}</p>
+                              </div>
+                              <button 
+                                onClick={() => handleExcluirCliente(cli.id)}
+                                title="Excluir do Pipeline"
+                                className="text-rose-400 hover:text-rose-600 p-1 rounded transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
 
                             <div className="flex justify-between items-center text-xs">
-                              <span className="font-black text-rose-400">
+                              <span className="font-black text-rose-500">
                                 R$ {parseFloat(cli.total_vencido || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                               </span>
                             </div>
 
-                            <div className="pt-2 border-t border-slate-900 flex justify-between items-center">
+                            <div className="pt-2 border-t border-slate-800 flex justify-between items-center">
                               {estagio.id > 1 && (
                                 <button 
                                   onClick={() => moverEstagioCliente(cli.id, estagio.id - 1)}
-                                  className="text-[10px] text-slate-400 hover:text-white"
+                                  className="text-[10px] text-slate-400 hover:text-blue-400"
                                 >
                                   ← Voltar
                                 </button>
@@ -544,7 +625,7 @@ export default function App() {
                               {estagio.id < 7 && (
                                 <button 
                                   onClick={() => moverEstagioCliente(cli.id, estagio.id + 1)}
-                                  className="text-[10px] text-blue-400 font-bold hover:text-blue-300 ml-auto flex items-center space-x-1"
+                                  className="text-[10px] text-blue-500 font-bold hover:text-blue-400 ml-auto flex items-center space-x-1"
                                 >
                                   <span>Avançar</span>
                                   <ArrowRight className="w-3 h-3" />
@@ -561,139 +642,121 @@ export default function App() {
             </div>
           )}
 
-          {/* CADASTRO E EDIÇÃO DE CLIENTES */}
-          {abaAtiva === 'cadastro-cliente' && (
+          {/* AGENDA */}
+          {abaAtiva === 'agenda' && (
             <div className="grid grid-cols-3 gap-6">
-              <div className={`${bgCard} border p-5 rounded-2xl space-y-4`}>
+              <div className={`${bgCard} border p-5 rounded-2xl space-y-4 shadow-sm`}>
                 <h2 className="text-base font-bold flex items-center space-x-2">
-                  <UserPlus className="w-5 h-5 text-blue-400" />
-                  <span>Cadastrar Cliente Manualmente</span>
+                  <Calendar className="w-5 h-5 text-blue-500" />
+                  <span>Agendar Retorno</span>
                 </h2>
 
-                <form onSubmit={handleCadastrarCliente} className="space-y-4 text-xs">
+                <form onSubmit={e => {
+                  e.preventDefault();
+                  const dataForm = new FormData(e.target);
+                  fetch(`${API_URL}/agenda`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      cliente_nome: dataForm.get('cliente_nome'),
+                      data_retorno: dataForm.get('data_retorno'),
+                      observacao: dataForm.get('observacao'),
+                      usuario_id: usuario.id,
+                      usuario_nome: usuario.nome
+                    })
+                  }).then(() => { e.target.reset(); carregarDados(); });
+                }} className="space-y-4 text-xs">
                   <div>
-                    <label className="block text-slate-400 mb-1 font-semibold">ID do Cliente *</label>
-                    <input 
-                      type="text" 
-                      required
-                      placeholder="Ex: 17242"
-                      value={novoCliente.codigo}
-                      onChange={e => setNovoCliente({...novoCliente, codigo: e.target.value})}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white"
-                    />
+                    <label className="block text-slate-400 mb-1 font-semibold">Cliente *</label>
+                    <input type="text" name="cliente_nome" required placeholder="Nome do cliente" className={`w-full ${bgInput} rounded-lg p-2.5`} />
                   </div>
 
                   <div>
-                    <label className="block text-slate-400 mb-1 font-semibold">Nome Completo *</label>
-                    <input 
-                      type="text" 
-                      required
-                      placeholder="Nome do cliente"
-                      value={novoCliente.nome}
-                      onChange={e => setNovoCliente({...novoCliente, nome: e.target.value})}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white"
-                    />
+                    <label className="block text-slate-400 mb-1 font-semibold">Data e Hora *</label>
+                    <input type="datetime-local" name="data_retorno" required className={`w-full ${bgInput} rounded-lg p-2.5`} />
                   </div>
 
                   <div>
-                    <label className="block text-slate-400 mb-1 font-semibold">Valor Devedor (R$) *</label>
-                    <input 
-                      type="text" 
-                      required
-                      placeholder="150,00"
-                      value={novoCliente.total_vencido}
-                      onChange={e => setNovoCliente({...novoCliente, total_vencido: e.target.value})}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white"
-                    />
+                    <label className="block text-slate-400 mb-1 font-semibold">Observação</label>
+                    <textarea name="observacao" rows="3" className={`w-full ${bgInput} rounded-lg p-2.5`}></textarea>
                   </div>
 
-                  <button 
-                    type="submit" 
-                    className="w-full bg-blue-600 hover:bg-blue-500 font-bold py-2.5 rounded-lg text-white transition-all shadow-lg"
-                  >
-                    Salvar Cliente no Banco
+                  <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 font-bold py-2.5 rounded-lg text-white transition-all">
+                    Salvar na Agenda
                   </button>
                 </form>
               </div>
 
-              <div className={`col-span-2 ${bgCard} border p-5 rounded-2xl space-y-4`}>
-                <h2 className="text-base font-bold">Clientes Cadastrados</h2>
-                <div className="space-y-2 max-h-[500px] overflow-y-auto">
-                  {clientes.map(cli => (
-                    <div key={cli.id} className="bg-slate-950 border border-slate-800 p-3 rounded-xl flex items-center justify-between text-xs">
-                      <div>
-                        <p className="font-bold text-white">{cli.nome}</p>
-                        <p className="text-slate-400">ID: {cli.codigo}</p>
+              <div className={`col-span-2 ${bgCard} border p-5 rounded-2xl space-y-4 shadow-sm`}>
+                <div className="flex items-center justify-between">
+                  <h2 className="text-base font-bold">Compromissos Agendados</h2>
+                  <div className="relative w-64">
+                    <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                    <input 
+                      type="text" 
+                      placeholder="Filtrar cliente na agenda..."
+                      value={buscaAgenda}
+                      onChange={e => setBuscaAgenda(e.target.value)}
+                      className={`w-full ${bgInput} rounded-lg pl-9 pr-3 py-1.5 text-xs`}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-3 max-h-[500px] overflow-y-auto">
+                  {agenda
+                    .filter(a => a.cliente_nome?.toLowerCase().includes(buscaAgenda.toLowerCase()))
+                    .map(item => (
+                      <div key={item.id} className={`${bgInput} border border-slate-700/50 p-4 rounded-xl flex items-center justify-between text-xs`}>
+                        <div>
+                          <p className="font-bold">{item.cliente_nome}</p>
+                          <p className="text-blue-500 font-semibold">📅 {item.data_retorno}</p>
+                          <p className="text-slate-400 mt-1">{item.observacao}</p>
+                        </div>
+                        <span className="bg-slate-800 px-3 py-1 rounded-full text-slate-200 text-[10px] font-bold uppercase">
+                          {item.usuario_nome}
+                        </span>
                       </div>
-                      <span className="font-black text-rose-400">
-                        R$ {parseFloat(cli.total_vencido || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               </div>
             </div>
           )}
 
-          {/* CHAT COM GRUPOS E MENSAGENS INDIVIDUAIS */}
+          {/* CHAT */}
           {abaAtiva === 'chat' && (
             <div className="grid grid-cols-4 gap-6 h-[600px]">
-              <div className={`${bgCard} border p-4 rounded-2xl space-y-4`}>
-                <h3 className="text-sm font-bold text-white">Canais / Conversas</h3>
+              <div className={`${bgCard} border p-4 rounded-2xl space-y-4 shadow-sm`}>
+                <h3 className="text-sm font-bold">Canais / Conversas</h3>
                 <div className="space-y-2 text-xs">
                   <button 
                     onClick={() => { setChatTipo('geral'); setChatDestinoId(null); }}
-                    className={`w-full text-left p-2.5 rounded-xl font-bold ${chatTipo === 'geral' ? 'bg-blue-600 text-white' : 'bg-slate-950 text-slate-300'}`}
+                    className={`w-full text-left p-2.5 rounded-xl font-bold ${chatTipo === 'geral' ? 'bg-blue-600 text-white' : `${bgInput}`}`}
                   >
                     # Geral (Todos)
                   </button>
 
-                  <p className="text-[10px] font-bold uppercase text-slate-500 mt-3">Operadores (Individuais)</p>
+                  <p className="text-[10px] font-bold uppercase text-slate-400 mt-3">Operadores</p>
                   {usuarios.filter(u => u.id !== usuario.id).map(u => (
                     <button 
                       key={u.id}
                       onClick={() => { setChatTipo('direto'); setChatDestinoId(u.id); }}
-                      className={`w-full text-left p-2 rounded-lg truncate ${chatTipo === 'direto' && chatDestinoId === u.id ? 'bg-blue-600 text-white font-bold' : 'bg-slate-950 text-slate-300'}`}
+                      className={`w-full text-left p-2 rounded-lg truncate ${chatTipo === 'direto' && chatDestinoId === u.id ? 'bg-blue-600 text-white font-bold' : `${bgInput}`}`}
                     >
                       👤 {u.nome}
                     </button>
                   ))}
-
-                  <p className="text-[10px] font-bold uppercase text-slate-500 mt-3">Grupos</p>
-                  {gruposChat.map(g => (
-                    <button 
-                      key={g.id}
-                      onClick={() => { setChatTipo('grupo'); setChatDestinoId(g.id); }}
-                      className={`w-full text-left p-2 rounded-lg truncate ${chatTipo === 'grupo' && chatDestinoId === g.id ? 'bg-blue-600 text-white font-bold' : 'bg-slate-950 text-slate-300'}`}
-                    >
-                      👥 {g.nome}
-                    </button>
-                  ))}
                 </div>
-
-                <form onSubmit={handleCriarGrupo} className="pt-2 border-t border-slate-800 space-y-2">
-                  <input 
-                    type="text" 
-                    placeholder="Nome do Novo Grupo..."
-                    value={novoNomeGrupo}
-                    onChange={e => setNovoNomeGrupo(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white"
-                  />
-                  <button type="submit" className="w-full bg-slate-800 text-xs py-1.5 rounded-lg text-white font-bold">
-                    Criar Grupo
-                  </button>
-                </form>
               </div>
 
-              <div className={`col-span-3 ${bgCard} border rounded-2xl p-5 flex flex-col`}>
-                <div className="flex-1 overflow-y-auto space-y-3 p-2 bg-slate-950 rounded-xl mb-4 border border-slate-800">
+              <div className={`col-span-3 ${bgCard} border rounded-2xl p-5 flex flex-col shadow-sm`}>
+                <div className={`flex-1 overflow-y-auto space-y-3 p-3 ${bgInput} rounded-xl mb-4 border border-slate-700/50`}>
                   {chatMensagens.map(msg => (
-                    <div key={msg.id} className="bg-slate-900 border border-slate-800 p-3 rounded-xl text-xs space-y-1">
-                      <div className="flex justify-between items-center font-bold text-blue-400">
+                    <div key={msg.id} className={`${bgCard} p-3 rounded-xl text-xs space-y-1 shadow-sm`}>
+                      <div className="flex justify-between items-center font-bold text-blue-500">
                         <span>{msg.remetente_nome}</span>
-                        <span className="text-[10px] text-slate-500">{new Date(msg.criado_em).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        <span className="text-[10px] text-slate-400">{new Date(msg.criado_em).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                       </div>
-                      <p className="text-slate-200">{msg.mensagem}</p>
+                      <p>{msg.mensagem}</p>
                     </div>
                   ))}
                 </div>
@@ -704,7 +767,7 @@ export default function App() {
                     placeholder="Escreva sua mensagem..."
                     value={novaMsgChat}
                     onChange={e => setNovaMsgChat(e.target.value)}
-                    className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none"
+                    className={`flex-1 ${bgInput} rounded-xl px-4 py-2.5 text-xs focus:outline-none`}
                   />
                   <button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white px-5 rounded-xl font-bold">
                     <Send className="w-4 h-4" />
@@ -714,157 +777,169 @@ export default function App() {
             </div>
           )}
 
-          {/* AGENDA COM CAMPO DE BUSCA */}
-          {abaAtiva === 'agenda' && (
-            <div className="grid grid-cols-3 gap-6">
-              <div className={`${bgCard} border p-5 rounded-2xl space-y-4`}>
-                <h2 className="text-base font-bold flex items-center space-x-2">
-                  <Calendar className="w-5 h-5 text-blue-400" />
-                  <span>Agendar Retorno</span>
-                </h2>
-
-                <form onSubmit={e => {
-                  e.preventDefault();
-                  fetch(`${API_URL}/agenda`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...novoAgendamento, usuario_id: usuario.id, usuario_nome: usuario.nome })
-                  }).then(() => { setNovoAgendamento({ cliente_nome: '', data_retorno: '', observacao: '' }); carregarDados(); });
-                }} className="space-y-4 text-xs">
-                  <div>
-                    <label className="block text-slate-400 mb-1">Cliente *</label>
-                    <input 
-                      type="text" 
-                      required
-                      placeholder="Nome do cliente"
-                      value={novoAgendamento.cliente_nome}
-                      onChange={e => setNovoAgendamento({...novoAgendamento, cliente_nome: e.target.value})}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-400 mb-1">Data e Hora *</label>
-                    <input 
-                      type="datetime-local" 
-                      required
-                      value={novoAgendamento.data_retorno}
-                      onChange={e => setNovoAgendamento({...novoAgendamento, data_retorno: e.target.value})}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-400 mb-1">Observação</label>
-                    <textarea 
-                      rows="2"
-                      value={novoAgendamento.observacao}
-                      onChange={e => setNovoAgendamento({...novoAgendamento, observacao: e.target.value})}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-white"
-                    ></textarea>
-                  </div>
-
-                  <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 font-bold py-2.5 rounded-lg text-white">
-                    Salvar na Agenda
-                  </button>
-                </form>
-              </div>
-
-              <div className={`col-span-2 ${bgCard} border p-5 rounded-2xl space-y-4`}>
-                <div className="flex items-center justify-between">
-                  <h2 className="text-base font-bold">Compromissos Agendados</h2>
-                  <div className="relative w-64">
-                    <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
-                    <input 
-                      type="text" 
-                      placeholder="Filtrar cliente na agenda..."
-                      value={buscaAgenda}
-                      onChange={e => setBuscaAgenda(e.target.value)}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-lg pl-9 pr-3 py-1.5 text-xs text-white"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-3 max-h-[500px] overflow-y-auto">
-                  {agenda
-                    .filter(a => a.cliente_nome?.toLowerCase().includes(buscaAgenda.toLowerCase()))
-                    .map(item => (
-                      <div key={item.id} className="bg-slate-950 border border-slate-800 p-4 rounded-xl flex items-center justify-between text-xs">
-                        <div>
-                          <p className="font-bold text-white">{item.cliente_nome}</p>
-                          <p className="text-blue-400">📅 {item.data_retorno}</p>
-                          <p className="text-slate-400">{item.observacao}</p>
-                        </div>
-                        <span className="bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-full text-slate-300 uppercase">
-                          {item.usuario_nome}
-                        </span>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* MÓDULO ADMINISTRATIVO (USUÁRIOS E IMPORTAÇÃO EM MASSA EXCEL) */}
+          {/* SUBMENU ADMINISTRAÇÃO */}
           {abaAtiva === 'admin' && (
             <div className="space-y-6">
-              <h1 className="text-xl font-bold">Módulo Administrativo — Gestão e Carga do Sistema</h1>
+              
+              {/* SUB-ABA: IMPORTAR EXCEL COM PRÉVIA */}
+              {subAbaAdmin === 'excel' && (
+                <div className={`${bgCard} border p-6 rounded-2xl space-y-6 shadow-sm`}>
+                  <div>
+                    <h2 className="text-lg font-bold flex items-center space-x-2 text-blue-500">
+                      <FileSpreadsheet className="w-6 h-6" />
+                      <span>Subir Planilha de Clientes (com Prévia)</span>
+                    </h2>
+                    <p className="text-xs text-slate-400 mt-1">Carregue o arquivo Excel para visualizar a lista antes de salvar no pipeline.</p>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-6">
-                {/* GESTÃO DE USUÁRIOS */}
-                <div className={`${bgCard} border p-5 rounded-2xl space-y-4`}>
-                  <h2 className="text-base font-bold text-white">Cadastrar Novo Usuário</h2>
-                  <form onSubmit={e => {
-                    e.preventDefault();
-                    const nome = e.target.nome.value;
-                    const email = e.target.email.value;
-                    const cargo = e.target.cargo.value;
-                    fetch(`${API_URL}/usuarios`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ nome, email, cargo, senha: '123456' })
-                    }).then(() => { e.target.reset(); carregarDados(); });
-                  }} className="space-y-3 text-xs">
-                    <input type="text" name="nome" placeholder="Nome Completo" required className="w-full bg-slate-950 border border-slate-800 p-2.5 rounded-lg text-white" />
-                    <input type="email" name="email" placeholder="E-mail de Acesso" required className="w-full bg-slate-950 border border-slate-800 p-2.5 rounded-lg text-white" />
-                    <select name="cargo" className="w-full bg-slate-950 border border-slate-800 p-2.5 rounded-lg text-white">
-                      <option value="OPERADOR">OPERADOR</option>
-                      <option value="ADMINISTRADOR">ADMINISTRADOR</option>
-                    </select>
-                    <button type="submit" className="w-full bg-blue-600 text-white font-bold py-2 rounded-lg">Salvar Usuário</button>
-                  </form>
+                  <div className="border-2 border-dashed border-blue-500/30 p-8 rounded-2xl text-center space-y-4">
+                    <Upload className="w-10 h-10 text-blue-500 mx-auto animate-bounce" />
+                    <input 
+                      type="file" 
+                      accept=".xlsx, .xls, .csv"
+                      onChange={handleCarregarPreviaExcel}
+                      className="hidden" 
+                      id="excelInput"
+                    />
+                    <label 
+                      htmlFor="excelInput"
+                      className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-6 py-3 rounded-xl cursor-pointer inline-block shadow-lg"
+                    >
+                      Selecionar Arquivo Excel / CSV
+                    </label>
+                  </div>
+
+                  {/* TABELA DE PRÉVIA */}
+                  {previaExcel.length > 0 && (
+                    <div className="space-y-4 pt-4 border-t border-slate-700/50">
+                      <div className="flex justify-between items-center">
+                        <h3 className="text-sm font-bold text-emerald-500">
+                          Prévia da Planilha ({previaExcel.length} Clientes Encontrados)
+                        </h3>
+                        <button 
+                          onClick={handleConfirmarImportacaoExcel}
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-6 py-2.5 rounded-xl shadow-md"
+                        >
+                          Confirmar e Salvar no Pipeline
+                        </button>
+                      </div>
+
+                      <div className="max-h-[350px] overflow-y-auto border border-slate-700/50 rounded-xl">
+                        <table className="w-full text-left text-xs">
+                          <thead className={`${bgInput} uppercase text-slate-400 border-b border-slate-700`}>
+                            <tr>
+                              <th className="p-3">#</th>
+                              <th className="p-3">ID / Código</th>
+                              <th className="p-3">Nome do Cliente</th>
+                              <th className="p-3">Valor Devedor</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {previaExcel.map((item, idx) => (
+                              <tr key={idx} className="border-b border-slate-800/40 hover:bg-slate-800/20">
+                                <td className="p-3 text-slate-400">{idx + 1}</td>
+                                <td className="p-3 font-bold">{item.codigo}</td>
+                                <td className="p-3">{item.nome}</td>
+                                <td className="p-3 font-bold text-rose-500">
+                                  R$ {parseFloat(item.total_vencido || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
                 </div>
+              )}
 
-                {/* CARGA EM MASSA EXCEL */}
-                <div className={`${bgCard} border p-5 rounded-2xl space-y-4`}>
-                  <h2 className="text-base font-bold text-white">Carga em Massa de Clientes via Excel</h2>
-                  <p className="text-xs text-slate-400">Selecione uma planilha contendo colunas com ID/Código, Nome e Valor Devedor.</p>
-                  
-                  <input 
-                    type="file" 
-                    accept=".xlsx, .xls, .csv"
-                    onChange={e => {
-                      const file = e.target.files[0];
-                      if (!file) return;
-                      const formData = new FormData();
-                      formData.append('arquivo', file);
+              {/* SUB-ABA: GERENCIAMENTO DE USUÁRIOS */}
+              {subAbaAdmin === 'usuarios' && (
+                <div className="grid grid-cols-3 gap-6">
+                  <div className={`${bgCard} border p-5 rounded-2xl space-y-4 shadow-sm`}>
+                    <h2 className="text-base font-bold flex items-center space-x-2">
+                      <UserPlus className="w-5 h-5 text-blue-500" />
+                      <span>{usuarioEditando ? 'Editar Usuário' : 'Cadastrar Novo Usuário'}</span>
+                    </h2>
 
-                      fetch(`${API_URL}/clientes/previa`, { method: 'POST', body: formData })
-                        .then(r => r.json())
-                        .then(data => {
-                          if (data.sucesso) {
-                            fetch(`${API_URL}/clientes/confirmar-importacao`, {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ clientes: data.dados })
-                            }).then(() => { alert('Base de clientes atualizada com sucesso!'); carregarDados(); });
-                          }
-                        });
-                    }}
-                    className="w-full bg-slate-950 border border-slate-800 p-3 rounded-lg text-xs text-white"
-                  />
+                    <form onSubmit={e => {
+                      e.preventDefault();
+                      const formData = new FormData(e.target);
+                      const payload = {
+                        nome: formData.get('nome'),
+                        email: formData.get('email'),
+                        cargo: formData.get('cargo'),
+                        senha: '123456'
+                      };
+
+                      const url = usuarioEditando ? `${API_URL}/usuarios/${usuarioEditando.id}` : `${API_URL}/usuarios`;
+                      const method = usuarioEditando ? 'PUT' : 'POST';
+
+                      fetch(url, {
+                        method,
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                      }).then(() => {
+                        e.target.reset();
+                        setUsuarioEditando(null);
+                        carregarDados();
+                      });
+                    }} className="space-y-3 text-xs">
+                      <div>
+                        <label className="block text-slate-400 mb-1">Nome Completo</label>
+                        <input type="text" name="nome" defaultValue={usuarioEditando?.nome || ''} required className={`w-full ${bgInput} rounded-lg p-2.5`} />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-400 mb-1">E-mail de Acesso</label>
+                        <input type="email" name="email" defaultValue={usuarioEditando?.email || ''} required className={`w-full ${bgInput} rounded-lg p-2.5`} />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-400 mb-1">Cargo</label>
+                        <select name="cargo" defaultValue={usuarioEditando?.cargo || 'OPERADOR'} className={`w-full ${bgInput} rounded-lg p-2.5`}>
+                          <option value="OPERADOR">OPERADOR</option>
+                          <option value="ADMINISTRADOR">ADMINISTRADOR</option>
+                        </select>
+                      </div>
+
+                      <div className="flex space-x-2 pt-2">
+                        {usuarioEditando && (
+                          <button type="button" onClick={() => setUsuarioEditando(null)} className="w-1/2 bg-slate-700 text-white font-bold py-2 rounded-lg">
+                            Cancelar
+                          </button>
+                        )}
+                        <button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-lg">
+                          {usuarioEditando ? 'Salvar Alterações' : 'Salvar Usuário'}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+
+                  <div className={`col-span-2 ${bgCard} border p-5 rounded-2xl space-y-4 shadow-sm`}>
+                    <h2 className="text-base font-bold">Usuários Cadastrados</h2>
+                    <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                      {usuarios.map(u => (
+                        <div key={u.id} className={`${bgInput} border border-slate-700/50 p-3 rounded-xl flex items-center justify-between text-xs`}>
+                          <div>
+                            <p className="font-bold">{u.nome}</p>
+                            <p className="text-slate-400">{u.email}</p>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <span className="bg-blue-600/20 text-blue-400 px-2.5 py-0.5 rounded-full text-[10px] font-bold">
+                              {u.cargo}
+                            </span>
+                            <button onClick={() => setUsuarioEditando(u)} className="p-1.5 text-blue-400 hover:bg-slate-800 rounded">
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
+
             </div>
           )}
 

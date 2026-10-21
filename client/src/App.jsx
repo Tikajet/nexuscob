@@ -4,7 +4,7 @@ import {
   MessageSquare, User, Search, Bell, LogOut, CheckCircle, Clock, AlertTriangle, Send, Wifi, Shield
 } from 'lucide-react';
 
-const API_URL = window.location.origin.includes('localhost') ? 'http://localhost:5000/api' : '/api';
+const API_URL = '/api';
 
 const FRASES_MOTIVACIONAIS = [
   "A consistência é a chave para transformar metas em resultados extraordinários!",
@@ -85,23 +85,26 @@ export default function App() {
     fetch(`${API_URL}/chat`).then(r => r.json()).then(data => setChatMensagens(data || [])).catch(() => {});
   };
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    fetch(`${API_URL}/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: emailLogin, senha: senhaLogin })
-    })
-    .then(r => r.json())
-    .then(data => {
+    try {
+      const res = await fetch(`${API_URL}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailLogin, senha: senhaLogin })
+      });
+      const data = await res.json();
       if (data.sucesso) {
         setUsuario(data.usuario);
         const fraseSorteada = FRASES_MOTIVACIONAIS[Math.floor(Math.random() * FRASES_MOTIVACIONAIS.length)];
         setFrasePopup(fraseSorteada);
         setExibirPopup(true);
+      } else {
+        alert(data.error || 'Falha na autenticação. Verifique e-mail e senha.');
       }
-    })
-    .catch(() => alert('Erro de conexão ao realizar login.'));
+    } catch (err) {
+      alert('Erro ao conectar ao servidor. Verifique a conexão com a internet ou o status da API.');
+    }
   };
 
   const handleEnviarChat = (e) => {
@@ -149,7 +152,7 @@ export default function App() {
     });
   };
 
-  // TELA DE LOGIN COM ASSINATURA DE DESENVOLVEDOR
+  // TELA DE LOGIN
   if (!usuario) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4 text-slate-100 font-sans">

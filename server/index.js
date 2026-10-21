@@ -21,12 +21,6 @@ const pool = new Pool({
 
 async function initDB() {
   try {
-    const schemaPath = path.join(__dirname, 'schema.sql');
-    if (fs.existsSync(schemaPath)) {
-      const sql = fs.readFileSync(schemaPath, 'utf8');
-      await pool.query(sql);
-    }
-    
     await pool.query(`
       CREATE TABLE IF NOT EXISTS usuarios (
         id SERIAL PRIMARY KEY,
@@ -72,6 +66,13 @@ async function initDB() {
       );
     `);
 
+    // Garante as colunas em bancos ja criados sem recriar a tabela
+    await pool.query(`ALTER TABLE pos_venda_clientes ADD COLUMN IF NOT EXISTS estagio_id INT DEFAULT 1;`);
+    await pool.query(`ALTER TABLE pos_venda_clientes ADD COLUMN IF NOT EXISTS vendedor_id INT;`);
+    await pool.query(`ALTER TABLE pos_venda_clientes ADD COLUMN IF NOT EXISTS satisfacao INT DEFAULT 5;`);
+    await pool.query(`ALTER TABLE pos_venda_clientes ADD COLUMN IF NOT EXISTS plano VARCHAR(100);`);
+    await pool.query(`ALTER TABLE pos_venda_clientes ADD COLUMN IF NOT EXISTS codigo VARCHAR(50);`);
+
     await pool.query(`
       CREATE TABLE IF NOT EXISTS agenda (
         id SERIAL PRIMARY KEY,
@@ -107,9 +108,9 @@ async function initDB() {
       );
     `);
 
-    console.log('✅ Banco PostgreSQL MetroCob inicializado!');
+    console.log('✅ Banco de dados PostgreSQL ajustado!');
   } catch (error) {
-    console.error('❌ Erro na inicializacao do BD:', error.message);
+    console.error('❌ Erro no banco de dados:', error.message);
   }
 }
 initDB();
@@ -236,7 +237,7 @@ app.get('/api/dashboard/ranking-vendedores', async (req, res) => {
   }
 });
 
-// PÓS-VENDA (SALVAMENTO CORRIGIDO COM TRATAMENTO DE ERROS E VALIDAÇÃO DE ID)
+// PÓS-VENDA
 app.get('/api/pos-venda', async (req, res) => {
   try {
     const result = await pool.query(`
@@ -255,13 +256,8 @@ app.post('/api/pos-venda', async (req, res) => {
   const { codigo, nome, telefone, plano, satisfacao, vendedor_id, observacoes } = req.body;
   
   try {
-    if (!nome || !String(nome).trim()) {
-      return res.status(400).json({ sucesso: false, error: 'O nome do cliente é obrigatório.' });
-    }
-
     const cod = codigo && String(codigo).trim() !== '' ? String(codigo).trim() : `PV-${Math.floor(1000 + Math.random() * 9000)}`;
     
-    // Tratamento de segurança para o vendedor_id
     let vId = null;
     if (vendedor_id && !isNaN(parseInt(vendedor_id, 10)) && parseInt(vendedor_id, 10) > 0) {
       vId = parseInt(vendedor_id, 10);
@@ -272,13 +268,13 @@ app.post('/api/pos-venda', async (req, res) => {
     const result = await pool.query(
       `INSERT INTO pos_venda_clientes (codigo, nome, telefone, plano, satisfacao, vendedor_id, observacoes, estagio_id) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, 1) RETURNING *`,
-      [cod, String(nome).trim(), String(telefone || ''), String(plano || 'Fibra 500MB'), nota, vId, String(observacoes || '')]
+      [cod, String(nome || 'Cliente Pós-Venda').trim(), String(telefone || ''), String(plano || 'Fibra 500MB'), nota, vId, String(observacoes || '')]
     );
 
-    res.json({ sucesso: true, mensagem: 'Cliente salvo no Pós-Venda com sucesso!', cliente: result.rows[0] });
+    res.json({ sucesso: true, mensagem: 'Cliente cadastrado no Pós-Venda com sucesso!', cliente: result.rows[0] });
   } catch (err) {
-    console.error('❌ Erro no salvamento do Pós-Venda:', err.message);
-    res.status(500).json({ sucesso: false, error: 'Erro no servidor: ' + err.message });
+    console.error('❌ Erro no salvamento pós-venda:', err.message);
+    res.status(500).json({ sucesso: false, error: err.message });
   }
 });
 

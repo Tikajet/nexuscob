@@ -107,7 +107,7 @@ async function initDB() {
       );
     `);
 
-    console.log('✅ BD MetroCob pronto com Pós-Vendas, Cargos (COBRADOR, ADMINISTRADOR, SUPERVISOR, VENDEDOR) e Ranking!');
+    console.log('✅ BD MetroCob pronto!');
   } catch (error) {
     console.error('❌ Erro na inicializacao do BD:', error.message);
   }
@@ -236,7 +236,7 @@ app.get('/api/dashboard/ranking-vendedores', async (req, res) => {
   }
 });
 
-// PÓS-VENDA
+// PÓS-VENDA (ROTA CORRIGIDA)
 app.get('/api/pos-venda', async (req, res) => {
   try {
     const result = await pool.query(`
@@ -253,14 +253,21 @@ app.get('/api/pos-venda', async (req, res) => {
 
 app.post('/api/pos-venda', async (req, res) => {
   const { codigo, nome, telefone, plano, satisfacao, vendedor_id, observacoes } = req.body;
+  
   try {
+    const cod = codigo && String(codigo).trim() !== '' ? String(codigo).trim() : `PV-${Math.floor(1000 + Math.random() * 9000)}`;
+    const vId = vendedor_id && !isNaN(parseInt(vendedor_id, 10)) ? parseInt(vendedor_id, 10) : null;
+    const nota = satisfacao ? parseInt(satisfacao, 10) : 5;
+
     const result = await pool.query(
       `INSERT INTO pos_venda_clientes (codigo, nome, telefone, plano, satisfacao, vendedor_id, observacoes, estagio_id) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, 1) RETURNING *`,
-      [codigo || `PV-${Math.floor(1000 + Math.random() * 9000)}`, nome, telefone || '', plano || 'Fibra 500MB', parseInt(satisfacao, 10) || 5, vendedor_id || null, observacoes || '']
+      [cod, String(nome).trim(), telefone || '', plano || 'Fibra 500MB', nota, vId, observacoes || '']
     );
-    res.json({ sucesso: true, cliente: result.rows[0] });
+
+    res.json({ sucesso: true, mensagem: 'Cliente salvo no pós-venda com sucesso!', cliente: result.rows[0] });
   } catch (err) {
+    console.error('Erro ao cadastrar Pós-Venda:', err.message);
     res.status(500).json({ error: 'Erro ao cadastrar cliente no pós-venda.' });
   }
 });

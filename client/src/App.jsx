@@ -1,10 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { 
   BarChart2, Users, Calendar, FileText, Upload, Settings, 
-  MessageSquare, User, Search, Bell, LogOut, CheckCircle, Clock, AlertTriangle, Send, Wifi, Shield
+  MessageSquare, Search, LogOut, CheckCircle, Clock, AlertTriangle, Send, Wifi, Shield, Plus, Trash2, ArrowRight
 } from 'lucide-react';
 
 const API_URL = '/api';
+
+const ESTAGIOS_FUNIL = [
+  { id: 1, nome: 'Novos Contatos', cor: 'border-blue-500' },
+  { id: 2, nome: 'Em Negociação', cor: 'border-amber-500' },
+  { id: 3, nome: 'Acordo em Andamento', cor: 'border-purple-500' },
+  { id: 4, nome: 'Cancelados', cor: 'border-rose-500' },
+  { id: 5, nome: 'Sem Retorno', cor: 'border-slate-500' },
+  { id: 6, nome: 'Pagos / Quitados', cor: 'border-emerald-500' }
+];
 
 const FRASES_MOTIVACIONAIS = [
   "A consistência é a chave para transformar metas em resultados extraordinários!",
@@ -26,17 +35,7 @@ const FRASES_MOTIVACIONAIS = [
   "Hoje é mais uma oportunidade para se superar e fazer história.",
   "Mantenha a calma, a clareza e a determinação em cada atendimento.",
   "Juntos conectamos mais pessoas e alcançamos novos patamares!",
-  "A confiança se constrói com transparência e bom atendimento.",
-  "Desafios são convites para demonstrarmos nossa força e capacidade.",
-  "Um bom negociador ouve com atenção e responde com empatia.",
-  "Tenha orgulho do trabalho que você faz todos os dias!",
-  "Cada meta batida é o reflexo da sua dedicação constante.",
-  "Transforme objeções em oportunidades de fechamento.",
-  "Sua postura profissional faz a MetroNet crescer a cada minuto.",
-  "Persista com sabedoria, colha resultados com orgulho.",
-  "O sucesso é a soma de pequenos esforços repetidos dia após dia.",
-  "Com foco na solução, nenhum problema permanece sem resposta.",
-  "Vamos juntos fazer deste dia um exemplo de conquista e produtividade!"
+  "A confiança se constrói com transparência e bom atendimento."
 ];
 
 export default function App() {
@@ -47,23 +46,20 @@ export default function App() {
   const [frasePopup, setFrasePopup] = useState('');
   const [exibirPopup, setExibirPopup] = useState(false);
 
-  // Dados Globais
+  // Estados dos Dados
   const [clientes, setClientes] = useState([]);
   const [agenda, setAgenda] = useState([]);
   const [posVendaClientes, setPosVendaClientes] = useState([]);
   const [chatMensagens, setChatMensagens] = useState([]);
   const [novaMsgChat, setNovaMsgChat] = useState('');
   
-  // Filtros de Busca
+  // Filtros
   const [buscaGlobal, setBuscaGlobal] = useState('');
   const [buscaAgenda, setBuscaAgenda] = useState('');
 
-  // Formulário de Agenda
+  // Formulário Agenda
   const [novoAgendamento, setNovoAgendamento] = useState({
-    cliente_nome: '',
-    data_retorno: '',
-    observacao: '',
-    tipo: 'cobranca'
+    cliente_nome: '', data_retorno: '', observacao: '', tipo: 'cobranca'
   });
 
   useEffect(() => {
@@ -96,15 +92,24 @@ export default function App() {
       const data = await res.json();
       if (data.sucesso) {
         setUsuario(data.usuario);
-        const fraseSorteada = FRASES_MOTIVACIONAIS[Math.floor(Math.random() * FRASES_MOTIVACIONAIS.length)];
-        setFrasePopup(fraseSorteada);
+        setFrasePopup(FRASES_MOTIVACIONAIS[Math.floor(Math.random() * FRASES_MOTIVACIONAIS.length)]);
         setExibirPopup(true);
-      } else {
-        alert(data.error || 'Falha na autenticação. Verifique e-mail e senha.');
       }
     } catch (err) {
-      alert('Erro ao conectar ao servidor. Verifique a conexão com a internet ou o status da API.');
+      alert('Erro de conexão ao realizar login.');
     }
+  };
+
+  const moverEstagioCliente = (clienteId, novoEstagioId) => {
+    fetch(`${API_URL}/clientes/${clienteId}/estagio`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ estagio_id: novoEstagioId, usuario_nome: usuario.nome, usuario_id: usuario.id })
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.sucesso) carregarDados();
+    });
   };
 
   const handleEnviarChat = (e) => {
@@ -114,19 +119,8 @@ export default function App() {
     fetch(`${API_URL}/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        usuario_id: usuario.id,
-        usuario_nome: usuario.nome,
-        mensagem: novaMsgChat
-      })
-    })
-    .then(r => r.json())
-    .then(data => {
-      if (data.sucesso) {
-        setNovaMsgChat('');
-        carregarChat();
-      }
-    });
+      body: JSON.stringify({ usuario_id: usuario.id, usuario_nome: usuario.nome, mensagem: novaMsgChat })
+    }).then(() => { setNovaMsgChat(''); carregarChat(); });
   };
 
   const handleSalvarAgendamento = (e) => {
@@ -134,25 +128,16 @@ export default function App() {
     fetch(`${API_URL}/agenda`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...novoAgendamento,
-        usuario_id: usuario.id,
-        usuario_nome: usuario.nome
-      })
-    })
-    .then(r => r.json())
-    .then(data => {
+      body: JSON.stringify({ ...novoAgendamento, usuario_id: usuario.id, usuario_nome: usuario.nome })
+    }).then(r => r.json()).then(data => {
       if (data.sucesso) {
         alert('Retorno agendado com sucesso!');
         setNovoAgendamento({ cliente_nome: '', data_retorno: '', observacao: '', tipo: 'cobranca' });
         carregarDados();
-      } else {
-        alert('Erro ao agendar retorno: ' + (data.detalhe || data.error));
       }
     });
   };
 
-  // TELA DE LOGIN
   if (!usuario) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center p-4 text-slate-100 font-sans">
@@ -208,7 +193,6 @@ export default function App() {
     );
   }
 
-  // CÁLCULO DE DASHBOARD
   const totalClientes = clientes.length;
   const totalEmAberto = clientes.reduce((acc, c) => acc + (parseFloat(c.total_vencido) || 0), 0);
   const totalRecebido = clientes.filter(c => c.estagio_id === 6).reduce((acc, c) => acc + (parseFloat(c.valor_acordo) || parseFloat(c.total_vencido) || 0), 0);
@@ -216,7 +200,6 @@ export default function App() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex font-sans">
       
-      {/* POPUP MOTIVACIONAL */}
       {exibirPopup && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-blue-500/40 p-8 rounded-2xl max-w-lg w-full shadow-2xl text-center space-y-6">
@@ -340,7 +323,7 @@ export default function App() {
           </div>
         </header>
 
-        {/* CONTEÚDO PRINCIPAL DAS ABAS */}
+        {/* CONTEÚDO PRINCIPAL */}
         <div className="p-6">
           
           {/* DASHBOARD GERAL */}
@@ -378,7 +361,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* SEÇÃO INTERMEDIÁRIA DE RESUMO */}
               <div className="grid grid-cols-2 gap-6">
                 <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-4">
                   <h3 className="text-sm font-bold text-white">Distribuição por Perfil de Atraso</h3>
@@ -434,11 +416,78 @@ export default function App() {
             </div>
           )}
 
+          {/* PIPELINE / FUNIL KANBAN RESTAURADO */}
+          {abaAtiva === 'pipeline' && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h1 className="text-xl font-bold text-white">Pipeline de Cobrança (Funil Kanban)</h1>
+              </div>
+
+              <div className="grid grid-cols-6 gap-3 overflow-x-auto pb-4">
+                {ESTAGIOS_FUNIL.map(estagio => {
+                  const clientesEstagio = clientes.filter(c => 
+                    (c.estagio_id || 1) === estagio.id && 
+                    (c.nome?.toLowerCase().includes(buscaGlobal.toLowerCase()) || c.codigo?.toLowerCase().includes(buscaGlobal.toLowerCase()))
+                  );
+
+                  return (
+                    <div key={estagio.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-3 min-w-[220px] flex flex-col h-[680px]">
+                      <div className={`border-b-2 ${estagio.cor} pb-2 mb-3 flex justify-between items-center`}>
+                        <span className="text-xs font-bold text-slate-200">{estagio.nome}</span>
+                        <span className="bg-slate-950 text-xs px-2 py-0.5 rounded-full font-bold text-blue-400">
+                          {clientesEstagio.length}
+                        </span>
+                      </div>
+
+                      <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                        {clientesEstagio.map(cli => (
+                          <div key={cli.id} className="bg-slate-950 border border-slate-800/80 p-3 rounded-xl space-y-2 shadow-md hover:border-blue-500/50 transition-all">
+                            <div>
+                              <p className="text-xs font-bold text-white truncate">{cli.nome}</p>
+                              <p className="text-[10px] text-slate-500">{cli.codigo}</p>
+                            </div>
+
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="font-black text-rose-400">
+                                R$ {parseFloat(cli.total_vencido || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                              </span>
+                              <span className="text-[10px] bg-slate-900 px-2 py-0.5 rounded border border-slate-800 text-slate-400">
+                                {cli.dias_atraso}d atraso
+                              </span>
+                            </div>
+
+                            <div className="pt-2 border-t border-slate-900 flex justify-between items-center">
+                              {estagio.id > 1 && (
+                                <button 
+                                  onClick={() => moverEstagioCliente(cli.id, estagio.id - 1)}
+                                  className="text-[10px] text-slate-400 hover:text-white"
+                                >
+                                  ← Voltar
+                                </button>
+                              )}
+                              {estagio.id < 6 && (
+                                <button 
+                                  onClick={() => moverEstagioCliente(cli.id, estagio.id + 1)}
+                                  className="text-[10px] text-blue-400 font-bold hover:text-blue-300 ml-auto flex items-center space-x-1"
+                                >
+                                  <span>Avançar</span>
+                                  <ArrowRight className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* AGENDA COM BUSCA DE CLIENTES */}
           {abaAtiva === 'agenda' && (
             <div className="grid grid-cols-3 gap-6">
-              
-              {/* FORMULÁRIO DE NOVO AGENDAMENTO */}
               <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-4">
                 <h2 className="text-base font-bold text-white flex items-center space-x-2">
                   <Calendar className="w-5 h-5 text-blue-400" />
@@ -488,7 +537,6 @@ export default function App() {
                 </form>
               </div>
 
-              {/* LISTA DE AGENDAMENTOS COM FILTRO/BUSCA DE CLIENTE */}
               <div className="col-span-2 bg-slate-900 border border-slate-800 p-5 rounded-2xl space-y-4">
                 <div className="flex items-center justify-between">
                   <h2 className="text-base font-bold text-white">Compromissos Agendados</h2>
@@ -527,17 +575,12 @@ export default function App() {
           {/* PÓS-VENDA RESIDENCIAL */}
           {abaAtiva === 'pos-venda' && (
             <div className="space-y-6">
-              <div className="flex justify-between items-center">
-                <div>
-                  <h1 className="text-xl font-bold text-white">Pós-Venda Residencial — Acompanhamento de Novos Clientes</h1>
-                  <p className="text-xs text-slate-400">Garantia de Qualidade da Conexão e Retorno nos Períodos Críticos</p>
-                </div>
+              <div>
+                <h1 className="text-xl font-bold text-white">Pós-Venda Residencial — Acompanhamento de Novos Clientes</h1>
+                <p className="text-xs text-slate-400">Garantia de Qualidade da Conexão e Retorno nos Períodos Críticos</p>
               </div>
 
-              {/* FUNIL PÓS-VENDA 15, 30, 60 DIAS */}
               <div className="grid grid-cols-3 gap-6">
-                
-                {/* 15 DIAS */}
                 <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3">
                   <div className="flex justify-between items-center border-b border-slate-800 pb-3">
                     <span className="text-xs font-bold text-blue-400 uppercase tracking-wider">15 Dias de Instalação</span>
@@ -545,7 +588,6 @@ export default function App() {
                       {posVendaClientes.filter(pv => pv.estagio === '15_dias').length}
                     </span>
                   </div>
-
                   <div className="space-y-2">
                     {posVendaClientes.filter(pv => pv.estagio === '15_dias').map(cli => (
                       <div key={cli.id} className="bg-slate-950 border border-slate-800 p-3 rounded-xl">
@@ -556,7 +598,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* 30 DIAS */}
                 <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3">
                   <div className="flex justify-between items-center border-b border-slate-800 pb-3">
                     <span className="text-xs font-bold text-purple-400 uppercase tracking-wider">30 Dias (1ª Fatura)</span>
@@ -564,7 +605,6 @@ export default function App() {
                       {posVendaClientes.filter(pv => pv.estagio === '30_dias').length}
                     </span>
                   </div>
-
                   <div className="space-y-2">
                     {posVendaClientes.filter(pv => pv.estagio === '30_dias').map(cli => (
                       <div key={cli.id} className="bg-slate-950 border border-slate-800 p-3 rounded-xl">
@@ -575,7 +615,6 @@ export default function App() {
                   </div>
                 </div>
 
-                {/* 60 DIAS */}
                 <div className="bg-slate-900 border border-slate-800 p-4 rounded-2xl space-y-3">
                   <div className="flex justify-between items-center border-b border-slate-800 pb-3">
                     <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">60 Dias (Fidelização)</span>
@@ -583,7 +622,6 @@ export default function App() {
                       {posVendaClientes.filter(pv => pv.estagio === '60_dias').length}
                     </span>
                   </div>
-
                   <div className="space-y-2">
                     {posVendaClientes.filter(pv => pv.estagio === '60_dias').map(cli => (
                       <div key={cli.id} className="bg-slate-950 border border-slate-800 p-3 rounded-xl">

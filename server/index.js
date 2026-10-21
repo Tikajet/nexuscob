@@ -107,9 +107,9 @@ async function initDB() {
       );
     `);
 
-    console.log('✅ BD MetroCob verificado!');
+    console.log('✅ Banco PostgreSQL MetroCob inicializado!');
   } catch (error) {
-    console.error('❌ Erro na inicialização do BD:', error.message);
+    console.error('❌ Erro na inicializacao do BD:', error.message);
   }
 }
 initDB();
@@ -224,7 +224,7 @@ app.get('/api/dashboard/ranking-cobranca', async (req, res) => {
 app.get('/api/dashboard/ranking-vendedores', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT u.nome as vendedor, COUNT(p.id) as total_pos_vendas, AVG(p.satisfacao) as media_satisfacao
+      SELECT u.nome as vendedor, COUNT(p.id) as total_pos_vendas, COALESCE(AVG(p.satisfacao), 5) as media_satisfacao
       FROM pos_venda_clientes p
       JOIN usuarios u ON p.vendedor_id = u.id
       GROUP BY u.nome
@@ -236,7 +236,7 @@ app.get('/api/dashboard/ranking-vendedores', async (req, res) => {
   }
 });
 
-// PÓS-VENDA (TRATAMENTO SEGURO DE VENDEDOR_ID)
+// PÓS-VENDA (SALVAMENTO CORRIGIDO COM TRATAMENTO DE ERROS E VALIDAÇÃO DE ID)
 app.get('/api/pos-venda', async (req, res) => {
   try {
     const result = await pool.query(`
@@ -255,21 +255,30 @@ app.post('/api/pos-venda', async (req, res) => {
   const { codigo, nome, telefone, plano, satisfacao, vendedor_id, observacoes } = req.body;
   
   try {
+    if (!nome || !String(nome).trim()) {
+      return res.status(400).json({ sucesso: false, error: 'O nome do cliente é obrigatório.' });
+    }
+
     const cod = codigo && String(codigo).trim() !== '' ? String(codigo).trim() : `PV-${Math.floor(1000 + Math.random() * 9000)}`;
-    const parsedVendedor = vendedor_id ? parseInt(vendedor_id, 10) : null;
-    const vId = !isNaN(parsedVendedor) && parsedVendedor > 0 ? parsedVendedor : null;
+    
+    // Tratamento de segurança para o vendedor_id
+    let vId = null;
+    if (vendedor_id && !isNaN(parseInt(vendedor_id, 10)) && parseInt(vendedor_id, 10) > 0) {
+      vId = parseInt(vendedor_id, 10);
+    }
+
     const nota = satisfacao ? parseInt(satisfacao, 10) : 5;
 
     const result = await pool.query(
       `INSERT INTO pos_venda_clientes (codigo, nome, telefone, plano, satisfacao, vendedor_id, observacoes, estagio_id) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, 1) RETURNING *`,
-      [cod, String(nome || '').trim(), telefone || '', plano || 'Fibra 500MB', nota, vId, observacoes || '']
+      [cod, String(nome).trim(), String(telefone || ''), String(plano || 'Fibra 500MB'), nota, vId, String(observacoes || '')]
     );
 
-    res.json({ sucesso: true, mensagem: 'Cliente salvo no pós-venda com sucesso!', cliente: result.rows[0] });
+    res.json({ sucesso: true, mensagem: 'Cliente salvo no Pós-Venda com sucesso!', cliente: result.rows[0] });
   } catch (err) {
-    console.error('Erro ao cadastrar Pós-Venda:', err.message);
-    res.status(500).json({ error: 'Erro ao cadastrar cliente no pós-venda: ' + err.message });
+    console.error('❌ Erro no salvamento do Pós-Venda:', err.message);
+    res.status(500).json({ sucesso: false, error: 'Erro no servidor: ' + err.message });
   }
 });
 

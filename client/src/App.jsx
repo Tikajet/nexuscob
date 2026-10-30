@@ -100,7 +100,7 @@ export default function App() {
   
   const [novoUsuario, setNovoUsuario] = useState({ nome: '', email: '', cargo: 'COBRADOR', senha: '123456' });
   const [novoClienteCob, setNovoClienteCob] = useState({ codigo: '', nome: '', telefone: '', total_vencido: '', dias_atraso: '30 Dias' });
-  const [novoPosVenda, setNovoPosVenda] = useState({ codigo: '', nome: '', telefone: '', plano: 'Fibra 300MB' });
+  const [novoPosVenda, setNovoPosVenda] = useState({ codigo: '', nome: '', telefone: '', plano: 'Fibra 300MB', valor_plano: '' });
   const [novoScript, setNovoScript] = useState({ titulo: '', conteudo: '' });
   const [novaMensagem, setNovaMensagem] = useState('');
 
@@ -139,6 +139,8 @@ export default function App() {
     if (tipoPipeline === 'cobranca') {
       if (estagioId === 6) {
         setModalAcordo({ exibir: true, clienteId: id, valor: '', parcelas: '1' });
+      } else if (estagioId === 7) {
+        setClientes(c => c.map(x => x.id == id ? {...x, estagio_id: estagioId, valor_acordo_pago: x.valor_acordo || x.total_vencido || 0, operador_atual: usuario.nome} : x));
       } else {
         setClientes(c => c.map(x => x.id == id ? {...x, estagio_id: estagioId, operador_atual: usuario.nome} : x));
       }
@@ -149,7 +151,7 @@ export default function App() {
 
   const confirmarAcordo = (e) => {
     e.preventDefault();
-    setClientes(c => c.map(x => x.id == modalAcordo.clienteId ? {...x, estagio_id: 6, valor_acordo: modalAcordo.valor, operador_atual: usuario.nome} : x));
+    setClientes(c => c.map(x => x.id == modalAcordo.clienteId ? {...x, estagio_id: 6, valor_acordo: modalAcordo.valor, valor_acordo_pago: modalAcordo.valor, operador_atual: usuario.nome} : x));
     setModalAcordo({ exibir: false, clienteId: null, valor: '', parcelas: '1' });
   };
 
@@ -208,13 +210,14 @@ export default function App() {
       nome: novoPosVenda.nome,
       telefone: novoPosVenda.telefone,
       plano: novoPosVenda.plano,
+      valor_plano: novoPosVenda.valor_plano || '0.00',
       estagio_id: 1,
       vendedor: usuario.nome,
       operador_atual: usuario.nome
     };
     setPosVendas(atual => [novo, ...atual]);
     alert('Cliente cadastrado com sucesso no Pós-Vendas!');
-    setNovoPosVenda({ codigo: '', nome: '', telefone: '', plano: 'Fibra 300MB' });
+    setNovoPosVenda({ codigo: '', nome: '', telefone: '', plano: 'Fibra 300MB', valor_plano: '' });
     setAbaAtiva('pos_pipeline');
   };
 
@@ -264,7 +267,8 @@ export default function App() {
         telefone: indice('telefone', 'celular', 'whatsapp', 'fone', 'telefone1'),
         valor: indice('valordevedor', 'totalvencido', 'valorvencido', 'devedor', 'valor', 'saldo', 'total', 'debito'),
         atraso: indice('diasatraso', 'atraso', 'categoria', 'faixaatraso'),
-        plano: indice('plano', 'planocontratado', 'planoatual')
+        plano: indice('plano', 'planocontratado', 'planoatual'),
+        valor_plano: indice('valorplano', 'valordoplano', 'precoplano')
       };
       if (col.nome < 0) throw new Error('Não encontrei a coluna Nome/Cliente. Confira o cabeçalho da planilha.');
       const registros = linhas.slice(1).map((linha, i) => {
@@ -282,6 +286,9 @@ export default function App() {
           registro.dias_atraso = valor(col.atraso, categoriaCobranca) || categoriaCobranca;
         } else {
           registro.plano = valor(col.plano, 'Não informado');
+          const brutoValPlano = valor(col.valor_plano, '0');
+          const limpoValPlano = String(brutoValPlano).replace(/R\$\s*/g, '').replace(/\s+/g, '').replace(/\./g, '').replace(',', '.').trim();
+          registro.valor_plano = !isNaN(Number(limpoValPlano)) && limpoValPlano !== '' ? limpoValPlano : '0.00';
         }
         return registro;
       }).filter(r => r.nome.trim());
@@ -504,10 +511,68 @@ export default function App() {
           
           {/* DASHBOARD */}
           {abaAtiva === 'dashboard' && (
-            <div className="grid grid-cols-3 gap-6">
-              <div className={`${CardStyle} border p-5 rounded-3xl`}><h3 className="font-bold border-b border-zinc-500/30 pb-3 mb-3">Total Carteira (Cobrança)</h3><p className="text-3xl font-black text-tema-primario">{clientes.length} Clientes</p></div>
-              <div className={`${CardStyle} border p-5 rounded-3xl`}><h3 className="font-bold border-b border-zinc-500/30 pb-3 mb-3">Vendas Ativas (Pos)</h3><p className="text-3xl font-black text-cyan-500">{contatosAtivos.length} Registros</p></div>
-              <div className={`${CardStyle} border p-5 rounded-3xl`}><h3 className="font-bold border-b border-zinc-500/30 pb-3 mb-3">Listas de Up-Grade</h3><p className="text-3xl font-black text-purple-500">{listaUpgrade.length} Prontos</p></div>
+            <div className="space-y-6">
+              <div className="grid grid-cols-3 gap-6">
+                <div className={`${CardStyle} border p-5 rounded-3xl`}><h3 className="font-bold border-b border-zinc-500/30 pb-3 mb-3">Total Carteira (Cobrança)</h3><p className="text-3xl font-black text-tema-primario">{clientes.length} Clientes</p></div>
+                <div className={`${CardStyle} border p-5 rounded-3xl`}><h3 className="font-bold border-b border-zinc-500/30 pb-3 mb-3">Vendas Ativas (Pos)</h3><p className="text-3xl font-black text-cyan-500">{contatosAtivos.length} Registros</p></div>
+                <div className={`${CardStyle} border p-5 rounded-3xl`}><h3 className="font-bold border-b border-zinc-500/30 pb-3 mb-3">Listas de Up-Grade</h3><p className="text-3xl font-black text-purple-500">{listaUpgrade.length} Prontos</p></div>
+              </div>
+
+              {/* RANKING E VALORES DE ACORDOS PAGOS E VENDAS */}
+              <div className="grid grid-cols-2 gap-6">
+                <div className={`${CardStyle} border p-6 rounded-3xl space-y-4`}>
+                  <h3 className="font-bold text-tema-primario border-b border-zinc-500/30 pb-2">Ranking de Acordos Pagos (Valores)</h3>
+                  <div className="space-y-3">
+                    {(() => {
+                      const pagos = clientes.filter(c => c.estagio_id === 7 || (c.estagio_id === 6 && c.valor_acordo_pago));
+                      const porOperador = {};
+                      pagos.forEach(c => {
+                        const op = c.operador_atual || 'Geral';
+                        const val = parseFloat(c.valor_acordo_pago || c.valor_acordo || 0);
+                        if (!porOperador[op]) porOperador[op] = { valor: 0, qtd: 0 };
+                        porOperador[op].valor += val;
+                        porOperador[op].qtd += 1;
+                      });
+                      const ranking = Object.entries(porOperador).sort((a,b) => b[1].valor - a[1].valor);
+                      return ranking.map(([op, dados], idx) => (
+                        <div key={idx} className="p-3 bg-zinc-500/10 border border-zinc-500/20 rounded-xl text-xs flex justify-between items-center">
+                          <div>
+                            <p className="font-bold">{idx + 1}. {op}</p>
+                            <p className="opacity-70 text-[10px]">{dados.qtd} acordo(s) pago(s)</p>
+                          </div>
+                          <span className="text-green-500 font-black text-sm">R$ {dados.valor.toFixed(2)}</span>
+                        </div>
+                    ));
+                    })()}
+                  </div>
+                </div>
+
+                <div className={`${CardStyle} border p-6 rounded-3xl space-y-4`}>
+                  <h3 className="font-bold text-tema-primario border-b border-zinc-500/30 pb-2">Ranking de Vendas (Valores e Quantidades)</h3>
+                  <div className="space-y-3">
+                    {(() => {
+                      const porVendedor = {};
+                      posVendas.forEach(v => {
+                        const vend = v.vendedor || 'Geral';
+                        const val = parseFloat(v.valor_plano || 0);
+                        if (!porVendedor[vend]) porVendedor[vend] = { valor: 0, qtd: 0 };
+                        porVendedor[vend].valor += val;
+                        porVendedor[vend].qtd += 1;
+                      });
+                      const rankingV = Object.entries(porVendedor).sort((a,b) => b[1].valor - a[1].valor);
+                      return rankingV.map(([vend, dados], idx) => (
+                        <div key={idx} className="p-3 bg-zinc-500/10 border border-zinc-500/20 rounded-xl text-xs flex justify-between items-center">
+                          <div>
+                            <p className="font-bold">{idx + 1}. {vend}</p>
+                            <p className="opacity-70 text-[10px]">{dados.qtd} venda(s) registrada(s)</p>
+                          </div>
+                          <span className="text-cyan-500 font-black text-sm">R$ {dados.valor.toFixed(2)}</span>
+                        </div>
+                    ));
+                    })()}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -675,7 +740,7 @@ export default function App() {
                             </div>
                             <button onClick={() => excluirClientePipeline(cli.id, 'pos-venda')} className="text-red-500 hover:bg-red-500/15 p-1.5 rounded-lg" title="Excluir cliente"><Trash2 className="w-4 h-4"/></button>
                           </div>
-                          <p className="text-[10px] text-cyan-400 font-semibold mt-1">Plano: {cli.plano}</p>
+                          <p className="text-[10px] text-cyan-400 font-semibold mt-1">Plano: {cli.plano} - R$ {parseFloat(cli.valor_plano || 0).toFixed(2)}</p>
                           <div className="mt-2 pt-2 border-t border-zinc-500/30 text-[9px] opacity-70 flex justify-between">
                             <span>Vendedor: {cli.vendedor}</span>
                             <span>Movido: {cli.operador_atual || 'N/A'}</span>
@@ -705,6 +770,7 @@ export default function App() {
                     <option value="Fibra 1GB">Fibra 1GB</option>
                   </select>
                 </div>
+                <div><label className="block mb-1 font-semibold opacity-70">Valor do Plano (R$)</label><input type="text" required placeholder="99.90" value={novoPosVenda.valor_plano} onChange={e=>setNovoPosVenda({...novoPosVenda, valor_plano: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} /></div>
                 <button type="submit" className="w-full bg-tema-primario py-3 rounded-xl font-bold uppercase tracking-wider">Cadastrar e Enviar ao Pipeline</button>
               </form>
             </div>
@@ -818,7 +884,7 @@ export default function App() {
                 )}
                 <input type="file" accept=".csv,.txt,text/csv,text/plain" onChange={handleSimularUpload} className="w-full text-xs opacity-70 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-zinc-500/20 hover:file:bg-zinc-500/30 cursor-pointer"/>
                 
-                <p className="text-[10px] opacity-60">Importação real de CSV/TXT. Colunas aceitas: ID, NOME, VALOR DEVEDOR.</p>
+                <p className="text-[10px] opacity-60">Importação real de CSV/TXT. Colunas aceitas: ID, NOME, VALOR DEVEDOR, VALOR PLANO.</p>
                 {mensagemSistema && <p className="text-xs text-green-500">{mensagemSistema}</p>}
                 {previaPlanilha.length > 0 && (
                   <div className="p-4 bg-zinc-500/10 border border-zinc-500/20 rounded-2xl text-xs space-y-2">
@@ -855,7 +921,7 @@ export default function App() {
                     </div>
                   </div>
                   <div className="max-h-56 overflow-y-auto space-y-1">
-                    {filtrados.map(item=><label key={item.id} className="flex items-center gap-3 p-2 rounded-lg bg-zinc-500/5 hover:bg-zinc-500/10 text-xs cursor-pointer"><input type="checkbox" checked={selecionados.includes(item.id)} onChange={()=>alternarSelecaoLista(tipo,item.id)} /><span className="font-semibold">{item.nome}</span><span className="opacity-50">{item.codigo || ''}</span><span className="ml-auto opacity-60">{tipo === 'cobranca' && item.total_vencido ? `Devedor: R$ ${parseFloat(item.total_vencido || 0).toFixed(2)}` : (item.telefone || '')}</span></label>)}
+                    {filtrados.map(item=><label key={item.id} className="flex items-center gap-3 p-2 rounded-lg bg-zinc-500/5 hover:bg-zinc-500/10 text-xs cursor-pointer"><input type="checkbox" checked={selecionados.includes(item.id)} onChange={()=>alternarSelecaoLista(tipo,item.id)} /><span className="font-semibold">{item.nome}</span><span className="opacity-50">{item.codigo || ''}</span><span className="ml-auto opacity-60">{tipo === 'cobranca' && item.total_vencido ? `Devedor: R$ ${parseFloat(item.total_vencido || 0).toFixed(2)}` : (tipo === 'pos_vendas' && item.valor_plano ? `Plano: R$ ${parseFloat(item.valor_plano || 0).toFixed(2)}` : (item.telefone || ''))}</span></label>)}
                     {!filtrados.length && <p className="text-xs opacity-50 text-center py-3">Nenhum registro nesta lista ou filtro sem resultados.</p>}
                   </div>
                 </section>;

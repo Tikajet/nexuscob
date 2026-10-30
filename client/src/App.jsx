@@ -218,7 +218,7 @@ export default function App() {
     setAbaAtiva('pos_pipeline');
   };
 
-  // --- IMPORTAÇÃO DE LISTAS CORRIGIDA (ID, NOME, DEVEDOR) ---
+  // --- IMPORTAÇÃO DE LISTAS COM AJUSTE DE VALOR DEVEDOR ---
   const normalizarCabecalho = (valor) => String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
   const lerCSV = (texto, delimitador) => {
@@ -262,7 +262,7 @@ export default function App() {
         codigo: indice('codigo', 'id', 'codigocliente', 'contrato'),
         nome: indice('nome', 'cliente', 'nomecliente', 'razaosocial'),
         telefone: indice('telefone', 'celular', 'whatsapp', 'fone', 'telefone1'),
-        valor: indice('totalvencido', 'valorvencido', 'devedor', 'valor', 'saldo', 'total', 'debito'),
+        valor: indice('valordevedor', 'totalvencido', 'valorvencido', 'devedor', 'valor', 'saldo', 'total', 'debito'),
         atraso: indice('diasatraso', 'atraso', 'categoria', 'faixaatraso'),
         plano: indice('plano', 'planocontratado', 'planoatual')
       };
@@ -277,7 +277,7 @@ export default function App() {
         };
         if (tipoImportacao === 'cobranca') {
           const brutoValor = valor(col.valor, '0');
-          const limpoValor = String(brutoValor).replace(/^R\$\s?/, '').replace(/\./g, '').replace(',', '.').trim();
+          const limpoValor = String(brutoValor).replace(/R\$\s*/g, '').replace(/\s+/g, '').replace(/\./g, '').replace(',', '.').trim();
           registro.total_vencido = !isNaN(Number(limpoValor)) && limpoValor !== '' ? limpoValor : '0.00';
           registro.dias_atraso = valor(col.atraso, categoriaCobranca) || categoriaCobranca;
         } else {
@@ -818,7 +818,7 @@ export default function App() {
                 )}
                 <input type="file" accept=".csv,.txt,text/csv,text/plain" onChange={handleSimularUpload} className="w-full text-xs opacity-70 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-zinc-500/20 hover:file:bg-zinc-500/30 cursor-pointer"/>
                 
-                <p className="text-[10px] opacity-60">Importação real de CSV/TXT. Colunas aceitas: Código/ID, Nome/Cliente, Telefone, Valor Devedor, Dias de Atraso e Plano.</p>
+                <p className="text-[10px] opacity-60">Importação real de CSV/TXT. Colunas aceitas: ID, NOME, VALOR DEVEDOR.</p>
                 {mensagemSistema && <p className="text-xs text-green-500">{mensagemSistema}</p>}
                 {previaPlanilha.length > 0 && (
                   <div className="p-4 bg-zinc-500/10 border border-zinc-500/20 rounded-2xl text-xs space-y-2">
@@ -855,13 +855,13 @@ export default function App() {
                     </div>
                   </div>
                   <div className="max-h-56 overflow-y-auto space-y-1">
-                    {filtrados.map(item=><label key={item.id} className="flex items-center gap-3 p-2 rounded-lg bg-zinc-500/5 hover:bg-zinc-500/10 text-xs cursor-pointer"><input type="checkbox" checked={selecionados.includes(item.id)} onChange={()=>alternarSelecaoLista(tipo,item.id)} /><span className="font-semibold">{item.nome}</span><span className="opacity-50">{item.codigo || ''}</span><span className="ml-auto opacity-60">{tipo === 'cobranca' && item.total_vencido ? `Devedor: R$ ${item.total_vencido}` : (item.telefone || '')}</span></label>)}
+                    {filtrados.map(item=><label key={item.id} className="flex items-center gap-3 p-2 rounded-lg bg-zinc-500/5 hover:bg-zinc-500/10 text-xs cursor-pointer"><input type="checkbox" checked={selecionados.includes(item.id)} onChange={()=>alternarSelecaoLista(tipo,item.id)} /><span className="font-semibold">{item.nome}</span><span className="opacity-50">{item.codigo || ''}</span><span className="ml-auto opacity-60">{tipo === 'cobranca' && item.total_vencido ? `Devedor: R$ ${parseFloat(item.total_vencido || 0).toFixed(2)}` : (item.telefone || '')}</span></label>)}
                     {!filtrados.length && <p className="text-xs opacity-50 text-center py-3">Nenhum registro nesta lista ou filtro sem resultados.</p>}
                   </div>
                 </section>;
               })}
             </div>
-            </>
+          </>
           )}
 
         </div>

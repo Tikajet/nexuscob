@@ -347,12 +347,12 @@ export default function App() {
     setListasSelecionadas(atual => ({ ...atual, [tipo]: [] }));
   };
 
-  const InputStyle = temaEscuro ? 'bg-black border-zinc-800 text-white focus:border-[#f97316]' : 'bg-[#F5F7FA] border-[#E2E8F0] text-black focus:border-[#8B1E3F]';
-  const CardStyle = temaEscuro ? 'bg-[#121212] border-zinc-800' : 'bg-white border-[#E2E8F0] shadow-sm';
+  const InputStyle = temaEscuro ? 'bg-black border-zinc-800 text-white focus:border-[#f97316]' : 'bg-[#EFECE6] border-[#DCD6CC] text-black focus:border-[#8B1E3F]';
+  const CardStyle = temaEscuro ? 'bg-[#121212] border-zinc-800' : 'bg-[#F4F1EA] border-[#DCD6CC] shadow-sm';
 
   if (!usuario) {
     return (
-      <div className={`min-h-screen ${temaEscuro ? 'bg-black' : 'bg-[#F5F7FA]'} flex flex-col justify-center items-center p-4 font-sans`}>
+      <div className={`min-h-screen ${temaEscuro ? 'bg-black' : 'bg-[#EAE5DC]'} flex flex-col justify-center items-center p-4 font-sans`}>
         <div className={`w-full max-w-md ${CardStyle} border p-8 rounded-3xl space-y-6 shadow-2xl`}>
           <div className="flex flex-col items-center text-center">
             <div className="w-14 h-14 bg-tema-primario rounded-2xl flex items-center justify-center font-black text-2xl mb-3 shadow-lg">N</div>
@@ -372,7 +372,7 @@ export default function App() {
 
 
   return (
-    <div className={`min-h-screen flex font-sans ${temaEscuro ? 'bg-black text-white' : 'bg-[#F5F7FA] text-[#2C3E50]'}`}>
+    <div className={`min-h-screen flex font-sans ${temaEscuro ? 'bg-black text-white' : 'bg-[#EAE5DC] text-[#2C3E50]'}`}>
       
       {/* MODAL AGENDA RÁPIDA */}
       {modalAgendaRapida.exibir && (
@@ -406,7 +406,7 @@ export default function App() {
       )}
 
       {/* SIDEBAR */}
-      <aside className={`w-[260px] ${temaEscuro ? 'bg-[#0a0a0a] border-zinc-900' : 'bg-white border-[#E2E8F0]'} border-r flex flex-col justify-between p-4 shadow-xl z-10 shrink-0`}>
+      <aside className={`w-[260px] ${temaEscuro ? 'bg-[#0a0a0a] border-zinc-900' : 'bg-[#EAE5DC] border-[#DCD6CC]'} border-r flex flex-col justify-between p-4 shadow-xl z-10 shrink-0`}>
         <div className="space-y-6">
           <div className="flex items-center space-x-3 px-2">
             <div className="w-10 h-10 bg-tema-primario rounded-xl flex items-center justify-center font-black text-xl">N</div>
@@ -417,7 +417,7 @@ export default function App() {
           </div>
 
           <nav className="space-y-1.5 text-xs font-semibold">
-            <button onClick={() => setAbaAtiva('dashboard')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl ${abaAtiva === 'dashboard' ? 'bg-tema-primario' : 'opacity-70 hover:opacity-100'}`}>
+            <button onClick={() => setAbaAtiva('dashboard')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl ${abaAtiva === 'dashboard' ? 'bg-tema-primario text-white' : 'opacity-70 hover:opacity-100'}`}>
               <BarChart2 className="w-4 h-4"/> <span>Dashboard / Ranking</span>
             </button>
 
@@ -429,12 +429,12 @@ export default function App() {
               </button>
               {menuCobranca && (
                 <div className="ml-4 mt-1 border-l border-zinc-500/30 space-y-1 pl-2 text-[11px]">
-                  <button onClick={() => setAbaAtiva('cob_pipeline')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'cob_pipeline' ? 'text-tema-primario bg-tema-primario/10' : 'opacity-70 hover:opacity-100'}`}>Pipeline Cobrança</button>
-                  <button onClick={() => setAbaAtiva('cob_cadastro')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'cob_cadastro' ? 'text-tema-primario bg-tema-primario/10' : 'opacity-70 hover:opacity-100'}`}>Cadastro de Cliente</button>
-                  <button onClick={() => setAbaAtiva('cob_agenda')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'cob_agenda' ? 'text-tema-primario bg-tema-primario/10' : 'opacity-70 hover:opacity-100'}`}>Sua Agenda</button>
-                  <button onClick={() => setAbaAtiva('cob_scripts')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'cob_scripts' ? 'text-tema-primario bg-tema-primario/10' : 'opacity-70 hover:opacity-100'}`}>Script de Cobrança</button>
-                  <button onClick={() => setAbaAtiva('cob_contatos')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'cob_contatos' ? 'text-tema-primario bg-tema-primario/10' : 'opacity-70 hover:opacity-100'}`}>Contatos (Lista Telefônica)</button>
-                  <button onClick={() => setAbaAtiva('cob_chat')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'cob_chat' ? 'text-tema-primario bg-tema-primario/10' : 'opacity-70 hover:opacity-100'}`}>Chat Interno (Cob)</button>
+                  <button onClick={() => setAbaAtiva('cob_pipeline')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'cob_pipeline' ? 'text-tema-primario bg-tema-primario/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Pipeline Cobrança</button>
+                  <button onClick={() => setAbaAtiva('cob_cadastro')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'cob_cadastro' ? 'text-tema-primario bg-tema-primario/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Cadastro de Cliente</button>
+                  <button onClick={() => setAbaAtiva('cob_agenda')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'cob_agenda' ? 'text-tema-primario bg-tema-primario/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Sua Agenda</button>
+                  <button onClick={() => setAbaAtiva('cob_scripts')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'cob_scripts' ? 'text-tema-primario bg-tema-primario/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Script de Cobrança</button>
+                  <button onClick={() => setAbaAtiva('cob_contatos')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'cob_contatos' ? 'text-tema-primario bg-tema-primario/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Contatos (Lista Telefônica)</button>
+                  <button onClick={() => setAbaAtiva('cob_chat')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'cob_chat' ? 'text-tema-primario bg-tema-primario/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Chat Interno (Cob)</button>
                 </div>
               )}
             </div>
@@ -447,13 +447,13 @@ export default function App() {
               </button>
               {menuPosVenda && (
                 <div className="ml-4 mt-1 border-l border-zinc-500/30 space-y-1 pl-2 text-[11px]">
-                  <button onClick={() => setAbaAtiva('pos_pipeline')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'pos_pipeline' ? 'text-tema-primario bg-tema-primario/10' : 'opacity-70 hover:opacity-100'}`}>Pipeline Vendas</button>
-                  <button onClick={() => setAbaAtiva('pos_cadastro')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'pos_cadastro' ? 'text-tema-primario bg-tema-primario/10' : 'opacity-70 hover:opacity-100'}`}>Cadastro de Cliente</button>
-                  <button onClick={() => setAbaAtiva('pos_agenda')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'pos_agenda' ? 'text-tema-primario bg-tema-primario/10' : 'opacity-70 hover:opacity-100'}`}>Agenda (Vendas)</button>
-                  <button onClick={() => setAbaAtiva('pos_contatos')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'pos_contatos' ? 'text-tema-primario bg-tema-primario/10' : 'opacity-70 hover:opacity-100'}`}>Contatos Ativos (Lista)</button>
-                  <button onClick={() => setAbaAtiva('pos_upgrade')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'pos_upgrade' ? 'text-tema-primario bg-tema-primario/10' : 'opacity-70 hover:opacity-100'}`}>Lista Up-Grade</button>
-                  <button onClick={() => setAbaAtiva('pos_scripts')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'pos_scripts' ? 'text-tema-primario bg-tema-primario/10' : 'opacity-70 hover:opacity-100'}`}>Script de Vendas</button>
-                  <button onClick={() => setAbaAtiva('pos_chat')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'pos_chat' ? 'text-tema-primario bg-tema-primario/10' : 'opacity-70 hover:opacity-100'}`}>Chat Interno (Vendas)</button>
+                  <button onClick={() => setAbaAtiva('pos_pipeline')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'pos_pipeline' ? 'text-tema-primario bg-tema-primario/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Pipeline Vendas</button>
+                  <button onClick={() => setAbaAtiva('pos_cadastro')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'pos_cadastro' ? 'text-tema-primario bg-tema-primario/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Cadastro de Cliente</button>
+                  <button onClick={() => setAbaAtiva('pos_agenda')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'pos_agenda' ? 'text-tema-primario bg-tema-primario/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Agenda (Vendas)</button>
+                  <button onClick={() => setAbaAtiva('pos_contatos')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'pos_contatos' ? 'text-tema-primario bg-tema-primario/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Contatos Ativos (Lista)</button>
+                  <button onClick={() => setAbaAtiva('pos_upgrade')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'pos_upgrade' ? 'text-tema-primario bg-tema-primario/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Lista Up-Grade</button>
+                  <button onClick={() => setAbaAtiva('pos_scripts')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'pos_scripts' ? 'text-tema-primario bg-tema-primario/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Script de Vendas</button>
+                  <button onClick={() => setAbaAtiva('pos_chat')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'pos_chat' ? 'text-tema-primario bg-tema-primario/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Chat Interno (Vendas)</button>
                 </div>
               )}
             </div>
@@ -466,8 +466,8 @@ export default function App() {
               </button>
               {menuAdmin && (
                 <div className="ml-4 mt-1 border-l border-zinc-500/30 space-y-1 pl-2 text-[11px]">
-                  <button onClick={() => setAbaAtiva('admin_usuarios')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'admin_usuarios' ? 'text-tema-primario bg-tema-primario/10' : 'opacity-70 hover:opacity-100'}`}>Usuários e Permissões</button>
-                  <button onClick={() => setAbaAtiva('admin_listas')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'admin_listas' ? 'text-tema-primario bg-tema-primario/10' : 'opacity-70 hover:opacity-100'}`}>Importar Listas</button>
+                  <button onClick={() => setAbaAtiva('admin_usuarios')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'admin_usuarios' ? 'text-tema-primario bg-tema-primario/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Usuários e Permissões</button>
+                  <button onClick={() => setAbaAtiva('admin_listas')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'admin_listas' ? 'text-tema-primario bg-tema-primario/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Importar Listas</button>
                 </div>
               )}
             </div>}

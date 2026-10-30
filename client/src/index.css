@@ -3,25 +3,29 @@
 @tailwind utilities;
 
 :root {
-  --color-azul-marinho: #101B35;
-  --color-azul-principal: #176BFF;
-  --color-ciano: #00C2FF;
-  --color-fundo: #F4F7FB;
+  /* TEMA CLARO - MANTIDO E SUAVIZADO */
+  --color-fundo: #F3F4F6;
   --color-card: #FFFFFF;
-  --color-texto-principal: #17233B;
-  --color-texto-secundario: #718096;
-  --color-bordas: #E5EAF2;
-  --color-verde: #16A36A;
-  --color-vermelho: #EF4444;
-  --color-amarelo: #F59E0B;
+  --color-texto-principal: #18181B;
+  --color-texto-secundario: #52525B;
+  --color-bordas: #E4E4E7;
+  
+  /* CORES DA MARCA NEXUS COB */
+  --color-primaria: #f97316; /* Laranja 500 */
+  --color-primaria-hover: #ea580c; /* Laranja 600 */
+  --color-ciano: #06b6d4;
+  --color-verde: #10b981;
+  --color-vermelho: #ef4444;
+  --color-amarelo: #f59e0b;
 }
 
 .dark {
-  --color-fundo: #0B1220;
-  --color-card: #17243A;
+  /* TEMA ESCURO - PRETO ABSOLUTO E ZINC ESCURO */
+  --color-fundo: #000000;
+  --color-card: #121212;
   --color-texto-principal: #F4F7FB;
-  --color-texto-secundario: #94A3B8;
-  --color-bordas: #273750;
+  --color-texto-secundario: #A1A1AA;
+  --color-bordas: #27272A;
 }
 
 body {
@@ -29,4 +33,20 @@ body {
   color: var(--color-texto-principal);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Custom Scrollbar para combinar com o tema escuro/laranja */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-primaria);
 }

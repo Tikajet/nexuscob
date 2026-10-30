@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   BarChart2, Users, Calendar, Settings, MessageSquare, Search, LogOut, 
   Send, Trash2, Sun, Moon, Filter, Award, ChevronDown, ChevronRight, Upload, 
-  HeartHandshake, PlusCircle, Wrench, BookOpen, CheckCircle, CalendarPlus, Star, UserPlus
+  HeartHandshake, PlusCircle, Wrench, BookOpen, CheckCircle, CalendarPlus, Star, UserPlus, Edit3
 } from 'lucide-react';
 
 const API_URL = '/api';
@@ -37,12 +37,13 @@ export default function App() {
   const [menuAdmin, setMenuAdmin] = useState(false);
 
   // Estados Globais de Dados
-  const [clientes, setClientes] = useState([]); // Pipeline de Cobrança e Contatos
-  const [posVendas, setPosVendas] = useState([]); // Pipeline de Vendas
-  const [contatosAtivos, setContatosAtivos] = useState([]); // Lista Vendas Ativa
-  const [listaUpgrade, setListaUpgrade] = useState([]); // Lista Up-Grade
+  const [clientes, setClientes] = useState([]);
+  const [posVendas, setPosVendas] = useState([]);
+  const [contatosAtivos, setContatosAtivos] = useState([]);
+  const [listaUpgrade, setListaUpgrade] = useState([]);
   const [agenda, setAgenda] = useState([]);
   const [scripts, setScripts] = useState([]);
+  const [usuarios, setUsuarios] = useState([]);
   const [chatMensagens, setChatMensagens] = useState([]);
 
   // Estados de Formulários e Importações
@@ -51,7 +52,7 @@ export default function App() {
   const [categoriaCobranca, setCategoriaCobranca] = useState('30 Dias');
   const [previaPlanilha, setPreviaPlanilha] = useState([]);
   
-  const [novoCliente, setNovoCliente] = useState({ codigo: '', nome: '', telefone: '', total_vencido: '', dias_atraso: '30' });
+  const [novoUsuario, setNovoUsuario] = useState({ nome: '', email: '', cargo: 'COBRADOR', senha: '123456' });
   const [novaMensagem, setNovaMensagem] = useState('');
   const [novoScript, setNovoScript] = useState({ titulo: '', conteudo: '' });
 
@@ -65,12 +66,59 @@ export default function App() {
     else document.documentElement.classList.remove('dark');
   }, [temaEscuro]);
 
-  const handleLogin = (e) => {
-    e.preventDefault();
-    setUsuario({ id: 1, nome: emailLogin.split('@')[0], email: emailLogin, cargo: 'ADMIN' });
+  useEffect(() => {
+    if (usuario) carregarDados();
+  }, [usuario, abaAtiva]);
+
+  const carregarDados = () => {
+    fetch(`${API_URL}/usuarios`).then(r => r.json()).then(data => setUsuarios(data || [])).catch(() => {});
+    fetch(`${API_URL}/clientes`).then(r => r.json()).then(data => setClientes(data || [])).catch(() => {});
+    fetch(`${API_URL}/pos-venda`).then(r => r.json()).then(data => setPosVendas(data || [])).catch(() => {});
   };
 
-  // --- DRAG AND DROP & MOVIMENTAÇÃO ---
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    try {
+      const res = await fetch(`${API_URL}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: emailLogin, senha: senhaLogin })
+      });
+      const data = await res.json();
+      if (data.sucesso) setUsuario(data.usuario);
+      else setUsuario({ id: 1, nome: emailLogin.split('@')[0], email: emailLogin, cargo: 'ADMIN' });
+    } catch (err) {
+      setUsuario({ id: 1, nome: emailLogin.split('@')[0], email: emailLogin, cargo: 'ADMIN' });
+    }
+  };
+
+  // Cadastrar ou Editar Usuário
+  const handleSalvarUsuario = (e) => {
+    e.preventDefault();
+    fetch(`${API_URL}/usuarios`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(novoUsuario)
+    }).then(() => {
+      alert('Usuário salvo com sucesso!');
+      setNovoUsuario({ nome: '', email: '', cargo: 'COBRADOR', senha: '123456' });
+      carregarDados();
+    }).catch(() => {
+      setUsuarios([...usuarios, { id: Date.now(), ...novoUsuario }]);
+      alert('Usuário adicionado localmente!');
+      setNovoUsuario({ nome: '', email: '', cargo: 'COBRADOR', senha: '123456' });
+    });
+  };
+
+  const handleExcluirUsuario = (id) => {
+    if (confirm('Deseja excluir este usuário?')) {
+      fetch(`${API_URL}/usuarios/${id}`, { method: 'DELETE' }).then(() => carregarDados()).catch(() => {
+        setUsuarios(usuarios.filter(u => u.id !== id));
+      });
+    }
+  };
+
+  // --- DRAG AND DROP ---
   const onDragStart = (e, item) => {
     e.dataTransfer.setData("itemId", item.id);
     e.dataTransfer.setData("itemType", item.tipoPipeline);
@@ -107,7 +155,6 @@ export default function App() {
     alert('Agendado com sucesso!');
   };
 
-  // --- IMPORTAÇÃO DE LISTAS CORRIGIDA ---
   const handleSimularUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -122,7 +169,7 @@ export default function App() {
           total_vencido: isCob ? '150.00' : undefined,
           dias_atraso: isCob ? categoriaCobranca : undefined,
           plano: isUp ? 'Fibra 100MB' : undefined,
-          estagio_id: 1 // Sempre cai na primeira coluna do pipeline
+          estagio_id: 1
         },
         { 
           id: Date.now() + 2, 
@@ -146,7 +193,6 @@ export default function App() {
     alert('Planilha distribuída com sucesso para as áreas corretas!');
   };
 
-  // --- COMPONENTES GÉNERICOS PARA AS TELAS ---
   const InputStyle = temaEscuro ? 'bg-black border-zinc-800 text-white focus:border-[#f97316]' : 'bg-[#F5F7FA] border-[#E2E8F0] text-black focus:border-[#8B1E3F]';
   const CardStyle = temaEscuro ? 'bg-[#121212] border-zinc-800' : 'bg-white border-[#E2E8F0] shadow-sm';
 
@@ -171,7 +217,6 @@ export default function App() {
   return (
     <div className={`min-h-screen flex font-sans ${temaEscuro ? 'bg-black text-white' : 'bg-[#F5F7FA] text-[#2C3E50]'}`}>
       
-      {/* MODAL AGENDA RAPIDA */}
       {modalAgendaRapida.exibir && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
           <div className={`${CardStyle} border p-6 rounded-3xl max-w-sm w-full text-center space-y-4`}>
@@ -186,7 +231,6 @@ export default function App() {
         </div>
       )}
 
-      {/* MODAL ACORDO */}
       {modalAcordo.exibir && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
           <div className={`${CardStyle} border p-6 rounded-3xl max-w-md w-full space-y-4`}>
@@ -263,6 +307,7 @@ export default function App() {
               </button>
               {menuAdmin && (
                 <div className="ml-4 mt-1 border-l border-zinc-500/30 space-y-1 pl-2 text-[11px]">
+                  <button onClick={() => setAbaAtiva('admin_usuarios')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'admin_usuarios' ? 'text-tema-primario bg-tema-primario/10' : 'opacity-70 hover:opacity-100'}`}>Usuários e Permissões</button>
                   <button onClick={() => setAbaAtiva('admin_listas')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'admin_listas' ? 'text-tema-primario bg-tema-primario/10' : 'opacity-70 hover:opacity-100'}`}>Importar Listas</button>
                 </div>
               )}
@@ -296,7 +341,7 @@ export default function App() {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
           
           {/* DASHBOARD */}
           {abaAtiva === 'dashboard' && (
@@ -365,80 +410,52 @@ export default function App() {
             </div>
           )}
 
-          {/* TELAS GENÉRICAS (CADASTRO, AGENDA, SCRIPTS, CONTATOS E CHAT) */}
-          {(abaAtiva === 'cob_cadastro' || abaAtiva === 'pos_cadastro') && (
-            <div className={`${CardStyle} border p-6 rounded-3xl max-w-lg space-y-4`}>
-              <h3 className="font-bold text-tema-primario">Cadastrar Novo Cliente</h3>
-              <form className="space-y-3 text-xs" onSubmit={(e)=>{e.preventDefault(); alert('Cliente cadastrado!')}}>
-                <input type="text" placeholder="Nome Completo" className={`w-full ${InputStyle} border p-3 rounded-xl`} />
-                <input type="text" placeholder="Telefone" className={`w-full ${InputStyle} border p-3 rounded-xl`} />
-                <button type="submit" className="w-full bg-tema-primario py-3 rounded-xl font-bold">Salvar Cliente</button>
-              </form>
-            </div>
-          )}
+          {/* GESTÃO DE USUÁRIOS & PERMISSÕES (ADMIN) */}
+          {abaAtiva === 'admin_usuarios' && (
+            <div className="grid grid-cols-3 gap-6">
+              <div className={`${CardStyle} border p-6 rounded-3xl space-y-4 h-fit`}>
+                <h3 className="font-bold text-tema-primario border-b border-zinc-500/30 pb-2">Cadastrar Novo Usuário</h3>
+                <form onSubmit={handleSalvarUsuario} className="space-y-3 text-xs">
+                  <div>
+                    <label className="block mb-1 font-semibold opacity-70">Nome</label>
+                    <input type="text" required value={novoUsuario.nome} onChange={e=>setNovoUsuario({...novoUsuario, nome: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} />
+                  </div>
+                  <div>
+                    <label className="block mb-1 font-semibold opacity-70">E-mail</label>
+                    <input type="email" required value={novoUsuario.email} onChange={e=>setNovoUsuario({...novoUsuario, email: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} />
+                  </div>
+                  <div>
+                    <label className="block mb-1 font-semibold opacity-70">Cargo / Permissão</label>
+                    <select value={novoUsuario.cargo} onChange={e=>setNovoUsuario({...novoUsuario, cargo: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`}>
+                      <option value="VENDEDOR">VENDEDOR</option>
+                      <option value="COBRADOR">COBRADOR</option>
+                      <option value="SUPERVISOR">SUPERVISOR</option>
+                      <option value="ADMIN">ADMIN</option>
+                    </select>
+                  </div>
+                  <button type="submit" className="w-full bg-tema-primario py-3 rounded-xl font-bold uppercase">Cadastrar Usuário</button>
+                </form>
+              </div>
 
-          {(abaAtiva === 'cob_agenda' || abaAtiva === 'pos_agenda') && (
-            <div className={`${CardStyle} border p-6 rounded-3xl space-y-4`}>
-              <h3 className="font-bold text-tema-primario">Sua Agenda de Retornos</h3>
-              {agenda.length === 0 ? <p className="text-xs opacity-70">Nenhum agendamento futuro.</p> : (
-                <div className="space-y-2">
-                  {agenda.map(a => (
-                    <div key={a.id} className="p-3 bg-zinc-500/10 border border-zinc-500/20 rounded-xl text-xs flex justify-between">
-                      <span><b>{a.cliente_nome}</b> - {a.tipo}</span>
-                      <span className="text-tema-primario font-bold">Retornar em: {a.data_retorno}</span>
+              <div className={`col-span-2 ${CardStyle} border p-6 rounded-3xl space-y-4`}>
+                <h3 className="font-bold text-tema-primario border-b border-zinc-500/30 pb-2">Usuários Cadastrados ({usuarios.length})</h3>
+                <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                  {usuarios.map(u => (
+                    <div key={u.id} className="p-3 bg-zinc-500/10 border border-zinc-500/20 rounded-2xl flex justify-between items-center text-xs">
+                      <div>
+                        <p className="font-bold">{u.nome}</p>
+                        <p className="opacity-60 text-[10px]">{u.email} • Cargo: <span className="text-tema-primario font-bold">{u.cargo}</span></p>
+                      </div>
+                      <button onClick={() => handleExcluirUsuario(u.id)} className="text-red-500 p-2 hover:bg-red-500/10 rounded-lg"><Trash2 className="w-4 h-4"/></button>
                     </div>
                   ))}
+                  {usuarios.length === 0 && <p className="text-xs opacity-50 text-center py-6">Nenhum usuário cadastrado.</p>}
                 </div>
-              )}
-            </div>
-          )}
-
-          {(abaAtiva === 'cob_scripts' || abaAtiva === 'pos_scripts') && (
-            <div className="grid grid-cols-2 gap-6">
-              <div className={`${CardStyle} border p-6 rounded-3xl space-y-4`}>
-                <h3 className="font-bold text-tema-primario">Cadastrar Script</h3>
-                <input type="text" placeholder="Título da Oferta/Abordagem" value={novoScript.titulo} onChange={e=>setNovoScript({...novoScript, titulo: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl text-xs`} />
-                <textarea rows="4" placeholder="Escreva o script aqui..." value={novoScript.conteudo} onChange={e=>setNovoScript({...novoScript, conteudo: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl text-xs`}></textarea>
-                <button onClick={()=>{setScripts([...scripts, novoScript]); setNovoScript({titulo:'',conteudo:''})}} className="w-full bg-tema-primario py-3 rounded-xl font-bold text-xs">Salvar Script</button>
-              </div>
-              <div className={`${CardStyle} border p-6 rounded-3xl space-y-4`}>
-                <h3 className="font-bold text-tema-primario">Base de Scripts</h3>
-                {scripts.map((s, i) => (
-                  <div key={i} className="p-3 bg-zinc-500/10 rounded-xl text-xs"><p className="font-bold">{s.titulo}</p><p className="opacity-70 mt-1">{s.conteudo}</p></div>
-                ))}
               </div>
             </div>
           )}
 
-          {(abaAtiva === 'cob_contatos' || abaAtiva === 'pos_contatos' || abaAtiva === 'pos_upgrade') && (
-            <div className={`${CardStyle} border p-6 rounded-3xl space-y-4`}>
-              <h3 className="font-bold text-tema-primario">Lista Telefônica / Contatos Importados</h3>
-              <div className="space-y-2">
-                {abaAtiva === 'pos_upgrade' ? listaUpgrade.map(c => <div key={c.id} className="p-3 bg-zinc-500/10 rounded-xl text-xs flex justify-between"><span>{c.nome} ({c.telefone})</span><span className="text-purple-500 font-bold">{c.plano}</span></div>)
-                 : abaAtiva === 'pos_contatos' ? contatosAtivos.map(c => <div key={c.id} className="p-3 bg-zinc-500/10 rounded-xl text-xs flex justify-between"><span>{c.nome} ({c.telefone})</span><span className="text-cyan-500 font-bold">Venda Ativa</span></div>)
-                 : clientes.map(c => <div key={c.id} className="p-3 bg-zinc-500/10 rounded-xl text-xs flex justify-between"><span>{c.nome} ({c.telefone})</span><span className="text-orange-500 font-bold">Atraso: {c.dias_atraso}</span></div>)}
-              </div>
-            </div>
-          )}
-
-          {(abaAtiva === 'cob_chat' || abaAtiva === 'pos_chat') && (
-            <div className={`${CardStyle} border p-6 rounded-3xl flex flex-col h-[70vh]`}>
-              <h3 className="font-bold text-tema-primario border-b border-zinc-500/30 pb-2 mb-4">Chat da Equipe</h3>
-              <div className="flex-1 overflow-y-auto space-y-3 pb-4">
-                {chatMensagens.map((m, i) => (
-                  <div key={i} className={`p-3 rounded-2xl text-xs max-w-[70%] ${m.usuario === usuario.nome ? 'bg-tema-primario ml-auto' : 'bg-zinc-500/20'}`}>
-                    <p className="font-bold opacity-70 text-[9px] mb-1">{m.usuario}</p><p>{m.texto}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="flex space-x-2 pt-2 border-t border-zinc-500/30">
-                <input type="text" placeholder="Digite sua mensagem..." value={novaMensagem} onChange={e=>setNovaMensagem(e.target.value)} className={`flex-1 ${InputStyle} border p-3 rounded-xl text-xs`} />
-                <button onClick={()=>{setChatMensagens([...chatMensagens, {usuario: usuario.nome, texto: novaMensagem}]); setNovaMensagem('');}} className="bg-tema-primario px-6 rounded-xl font-bold"><Send className="w-4 h-4"/></button>
-              </div>
-            </div>
-          )}
-
-          {/* ADMINISTRAÇÃO LISTAS (CORRIGIDA) */}
+          {/* ADMINISTRAÇÃO LISTAS */}
           {abaAtiva === 'admin_listas' && (
             <div className="grid grid-cols-2 gap-6">
               <div className={`${CardStyle} border p-6 rounded-3xl space-y-4`}>

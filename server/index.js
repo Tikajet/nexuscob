@@ -132,7 +132,7 @@ async function initDB() {
       CREATE TABLE IF NOT EXISTS chat_grupos (
         id SERIAL PRIMARY KEY,
         nome VARCHAR(255) NOT NULL,
-        setor VARCHAR(50) DEFAULT 'Geral',
+        setor VARCHAR(50) DEFAULT 'cobranca',
         criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
@@ -145,14 +145,14 @@ async function initDB() {
         destinatario_id INT,
         grupo_id INT,
         mensagem TEXT NOT NULL,
-        setor VARCHAR(50) DEFAULT 'Geral',
+        setor VARCHAR(50) DEFAULT 'cobranca',
         criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
-    console.log('✅ Banco de dados MetroCob 100% atualizado!');
+    console.log('✅ Banco de dados MetroCob configurado!');
   } catch (error) {
-    console.error('❌ Erro na estrutura do BD:', error.message);
+    console.error('❌ Erro no banco:', error.message);
   }
 }
 initDB();
@@ -170,7 +170,7 @@ function formatarValorExcel(val) {
   return parseFloat(str) || 0.00;
 }
 
-// LOGIN E USUÁRIOS ONLINE
+// LOGIN E USUÁRIOS
 app.post('/api/login', async (req, res) => {
   const { email, senha } = req.body;
   const emailLimpo = String(email || 'admin@metronet.com.br').trim().toLowerCase();
@@ -251,6 +251,58 @@ app.delete('/api/usuarios/:id', async (req, res) => {
   }
 });
 
+// EDIÇÃO E EXCLUSÃO DE CLIENTES
+app.put('/api/clientes/:id', async (req, res) => {
+  const { id } = req.params;
+  const { codigo, nome, telefone, total_vencido, dias_atraso } = req.body;
+  try {
+    const val = formatarValorExcel(total_vencido);
+    const result = await pool.query(
+      `UPDATE clientes SET codigo = $1, nome = $2, telefone = $3, total_vencido = $4, dias_atraso = $5 WHERE id = $6 RETURNING *`,
+      [codigo, nome, telefone, val, parseInt(dias_atraso, 10) || 30, id]
+    );
+    res.json({ sucesso: true, cliente: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao editar cliente.' });
+  }
+});
+
+app.delete('/api/clientes/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM agenda WHERE cliente_id = $1', [id]);
+    await pool.query('DELETE FROM clientes WHERE id = $1', [id]);
+    res.json({ sucesso: true });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao excluir cliente.' });
+  }
+});
+
+// EDIÇÃO E EXCLUSÃO DE CONTATOS ATIVOS
+app.put('/api/vendas/contatos-ativos/:id', async (req, res) => {
+  const { id } = req.params;
+  const { nome, telefone } = req.body;
+  try {
+    const result = await pool.query(
+      'UPDATE contatos_ativos SET nome = $1, telefone = $2 WHERE id = $3 RETURNING *',
+      [nome, telefone, id]
+    );
+    res.json({ sucesso: true, contato: result.rows[0] });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao editar contato.' });
+  }
+});
+
+app.delete('/api/vendas/contatos-ativos/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('DELETE FROM contatos_ativos WHERE id = $1', [id]);
+    res.json({ sucesso: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Erro ao excluir contato.' });
+  }
+});
+
 // SCRIPTS
 app.get('/api/scripts', async (req, res) => {
   const { tipo } = req.query;
@@ -301,7 +353,7 @@ app.get('/api/vendas/upgrade', async (req, res) => {
   }
 });
 
-// ORDENS DE SERVIÇO (QUALIDADE)
+// ORDENS DE SERVIÇO
 app.get('/api/os', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM ordens_servico ORDER BY id DESC');
@@ -327,16 +379,9 @@ app.post('/api/os', async (req, res) => {
 
 app.put('/api/os/:id/estagio', async (req, res) => {
   const { id } = req.params;
-  const { estagio_id, nota_resolucao, feedback_cliente } = req.body;
+  const { estagio_id } = req.body;
   try {
-    const result = await pool.query(
-      `UPDATE ordens_servico 
-       SET estagio_id = $1, 
-           nota_resolucao = COALESCE($2, nota_resolucao),
-           feedback_cliente = COALESCE($3, feedback_cliente)
-       WHERE id = $4 RETURNING *`,
-      [estagio_id, nota_resolucao, feedback_cliente, id]
-    );
+    const result = await pool.query('UPDATE ordens_servico SET estagio_id = $1 WHERE id = $2 RETURNING *', [estagio_id, id]);
     res.json({ sucesso: true, os: result.rows[0] });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao atualizar O.S.' });
@@ -413,10 +458,7 @@ app.put('/api/pos-venda/:id/estagio', async (req, res) => {
   const { id } = req.params;
   const { estagio_id } = req.body;
   try {
-    const result = await pool.query(
-      'UPDATE pos_venda_clientes SET estagio_id = $1 WHERE id = $2 RETURNING *',
-      [estagio_id, id]
-    );
+    const result = await pool.query('UPDATE pos_venda_clientes SET estagio_id = $1 WHERE id = $2 RETURNING *', [estagio_id, id]);
     res.json({ sucesso: true, cliente: result.rows[0] });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao atualizar pós-venda.' });
@@ -433,10 +475,18 @@ app.delete('/api/pos-venda/:id', async (req, res) => {
   }
 });
 
-// CHAT & GRUPOS
+// CHAT SEGMENTADO
 app.get('/api/chat/grupos', async (req, res) => {
+  const { setor } = req.query;
   try {
-    const result = await pool.query('SELECT * FROM chat_grupos ORDER BY id DESC');
+    let q = 'SELECT * FROM chat_grupos';
+    let p = [];
+    if (setor) {
+      q += ' WHERE setor = $1';
+      p.push(setor);
+    }
+    q += ' ORDER BY id DESC';
+    const result = await pool.query(q, p);
     res.json(result.rows || []);
   } catch (err) {
     res.json([]);
@@ -450,22 +500,11 @@ app.post('/api/chat/grupos', async (req, res) => {
   try {
     const result = await pool.query(
       'INSERT INTO chat_grupos (nome, setor) VALUES ($1, $2) RETURNING *',
-      [nome.trim(), setor || 'Geral']
+      [nome.trim(), setor || 'cobranca']
     );
     res.json({ sucesso: true, grupo: result.rows[0] });
   } catch (err) {
     res.status(500).json({ error: 'Erro ao criar grupo.' });
-  }
-});
-
-app.delete('/api/chat/grupos/:id', async (req, res) => {
-  const { id } = req.params;
-  try {
-    await pool.query('DELETE FROM chat_mensagens WHERE grupo_id = $1', [id]);
-    await pool.query('DELETE FROM chat_grupos WHERE id = $1', [id]);
-    res.json({ sucesso: true });
-  } catch (err) {
-    res.status(500).json({ error: 'Erro ao excluir grupo.' });
   }
 });
 
@@ -502,7 +541,7 @@ app.post('/api/chat/mensagens', async (req, res) => {
     const result = await pool.query(
       `INSERT INTO chat_mensagens (remetente_id, remetente_nome, destinatario_id, grupo_id, mensagem, setor) 
        VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
-      [remetente_id, remetente_nome, destinatario_id || null, grupo_id || null, mensagem.trim(), setor || 'Geral']
+      [remetente_id, remetente_nome, destinatario_id || null, grupo_id || null, mensagem.trim(), setor || 'cobranca']
     );
     res.json({ sucesso: true, mensagem: result.rows[0] });
   } catch (err) {
@@ -604,17 +643,6 @@ app.put('/api/clientes/:id/estagio', async (req, res) => {
   }
 });
 
-app.delete('/api/clientes/:id', async (req, res) => {
-  const { id } = req.params;
-  try {
-    await pool.query('DELETE FROM agenda WHERE cliente_id = $1', [id]);
-    await pool.query('DELETE FROM clientes WHERE id = $1', [id]);
-    res.json({ sucesso: true });
-  } catch (error) {
-    res.status(500).json({ error: 'Erro ao excluir cliente.' });
-  }
-});
-
 app.delete('/api/clientes/limpar/massa', async (req, res) => {
   const { categoria } = req.query;
   try {
@@ -639,9 +667,8 @@ app.delete('/api/clientes/limpar/massa', async (req, res) => {
   }
 });
 
-// IMPORTAÇÃO DE PLANILHAS (COBRANÇA, VENDAS ATIVAS E UPGRADE)
+// IMPORTAÇÃO DE PLANILHAS COM CATEGORIA ESPECÍFICA DE COBRANÇA
 app.post('/api/admin/previa-planilha', upload.single('arquivo'), async (req, res) => {
-  const { tipo } = req.body; // 'cobranca', 'vendas_ativas', 'upgrade'
   try {
     if (!req.file) return res.status(400).json({ error: 'Nenhum arquivo enviado.' });
 
@@ -674,26 +701,23 @@ app.post('/api/admin/previa-planilha', upload.single('arquivo'), async (req, res
 });
 
 app.post('/api/admin/confirmar-importacao', async (req, res) => {
-  const { tipo, lista } = req.body;
+  const { tipo, categoria_cobranca, lista } = req.body;
   try {
     let inseridos = 0;
+    const diasAtraso = categoria_cobranca ? parseInt(categoria_cobranca, 10) : 30;
+    const statusConexao = diasAtraso >= 120 ? 'Cancelado' : 'Ativo';
+
     for (const item of lista) {
       if (tipo === 'cobranca') {
         await pool.query(
           `INSERT INTO clientes (codigo, nome, telefone, total_vencido, dias_atraso, status_conexao, estagio_id) 
-           VALUES ($1, $2, $3, $4, 30, 'Ativo', 1)`,
-          [item.codigo, item.nome, item.telefone, formatarValorExcel(item.total_vencido)]
+           VALUES ($1, $2, $3, $4, $5, $6, 1)`,
+          [item.codigo, item.nome, item.telefone, formatarValorExcel(item.total_vencido), diasAtraso, statusConexao]
         );
       } else if (tipo === 'vendas_ativas') {
-        await pool.query(
-          `INSERT INTO contatos_ativos (nome, telefone) VALUES ($1, $2)`,
-          [item.nome, item.telefone]
-        );
+        await pool.query(`INSERT INTO contatos_ativos (nome, telefone) VALUES ($1, $2)`, [item.nome, item.telefone]);
       } else if (tipo === 'upgrade') {
-        await pool.query(
-          `INSERT INTO lista_upgrade (codigo, nome, telefone, plano_atual) VALUES ($1, $2, $3, $4)`,
-          [item.codigo, item.nome, item.telefone, item.plano_atual || 'Básico']
-        );
+        await pool.query(`INSERT INTO lista_upgrade (codigo, nome, telefone, plano_atual) VALUES ($1, $2, $3, $4)`, [item.codigo, item.nome, item.telefone, item.plano_atual || 'Básico']);
       }
       inseridos++;
     }

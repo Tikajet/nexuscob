@@ -93,7 +93,6 @@ export default function App() {
     }
   };
 
-  // Cadastrar Cliente Pós-Vendas
   const handleSalvarPosVenda = (e) => {
     e.preventDefault();
     const novoRegistro = {
@@ -103,7 +102,7 @@ export default function App() {
       telefone: novoPosVenda.telefone,
       plano: novoPosVenda.plano,
       vendedor: usuario.nome,
-      estagio_id: 1, // Cai na 1ª coluna (Venda Instalada)
+      estagio_id: 1,
       operador_atual: usuario.nome
     };
 
@@ -138,7 +137,6 @@ export default function App() {
     }
   };
 
-  // --- DRAG AND DROP ---
   const onDragStart = (e, item) => {
     e.dataTransfer.setData("itemId", item.id);
     e.dataTransfer.setData("itemType", item.tipoPipeline);
@@ -188,7 +186,7 @@ export default function App() {
           telefone: '11999999999', 
           total_vencido: isCob ? '150.00' : undefined,
           dias_atraso: isCob ? categoriaCobranca : undefined,
-          plano: isUp ? 'Fibra 100MB' : undefined,
+          plano: isUp ? 'Fibra 100MB' : 'Novo Plano',
           estagio_id: 1
         },
         { 
@@ -198,7 +196,7 @@ export default function App() {
           telefone: '11988888888',
           total_vencido: isCob ? '320.00' : undefined,
           dias_atraso: isCob ? categoriaCobranca : undefined,
-          plano: isUp ? 'Fibra 200MB' : undefined,
+          plano: isUp ? 'Fibra 200MB' : 'Novo Plano',
           estagio_id: 1
         }
       ]);
@@ -206,11 +204,17 @@ export default function App() {
   };
 
   const confirmarImportacao = () => {
-    if (tipoImportacao === 'cobranca') setClientes([...clientes, ...previaPlanilha]);
-    if (tipoImportacao === 'vendas_ativas') setContatosAtivos([...contatosAtivos, ...previaPlanilha]);
-    if (tipoImportacao === 'upgrade') setListaUpgrade([...listaUpgrade, ...previaPlanilha]);
+    if (tipoImportacao === 'cobranca') {
+      setClientes([...clientes, ...previaPlanilha]);
+      alert(`${previaPlanilha.length} registros adicionados ao Pipeline de Cobrança!`);
+    } else if (tipoImportacao === 'vendas_ativas') {
+      setContatosAtivos([...contatosAtivos, ...previaPlanilha]);
+      alert(`${previaPlanilha.length} registros adicionados aos Contatos Ativos!`);
+    } else if (tipoImportacao === 'upgrade') {
+      setListaUpgrade([...listaUpgrade, ...previaPlanilha]);
+      alert(`${previaPlanilha.length} registros adicionados à Lista de Up-Grade!`);
+    }
     setPreviaPlanilha([]);
-    alert('Planilha distribuída com sucesso para as áreas corretas!');
   };
 
   const InputStyle = temaEscuro ? 'bg-black border-zinc-800 text-white focus:border-[#f97316]' : 'bg-[#F5F7FA] border-[#E2E8F0] text-black focus:border-[#8B1E3F]';
@@ -367,111 +371,45 @@ export default function App() {
           {abaAtiva === 'dashboard' && (
             <div className="grid grid-cols-3 gap-6">
               <div className={`${CardStyle} border p-5 rounded-3xl`}><h3 className="font-bold border-b border-zinc-500/30 pb-3 mb-3">Total Carteira (Cobrança)</h3><p className="text-3xl font-black text-tema-primario">{clientes.length} Clientes</p></div>
-              <div className={`${CardStyle} border p-5 rounded-3xl`}><h3 className="font-bold border-b border-zinc-500/30 pb-3 mb-3">Vendas Ativas (Pos)</h3><p className="text-3xl font-black text-cyan-500">{posVendas.length} Registros</p></div>
+              <div className={`${CardStyle} border p-5 rounded-3xl`}><h3 className="font-bold border-b border-zinc-500/30 pb-3 mb-3">Vendas Ativas (Pos)</h3><p className="text-3xl font-black text-cyan-500">{contatosAtivos.length} Registros</p></div>
               <div className={`${CardStyle} border p-5 rounded-3xl`}><h3 className="font-bold border-b border-zinc-500/30 pb-3 mb-3">Listas de Up-Grade</h3><p className="text-3xl font-black text-purple-500">{listaUpgrade.length} Prontos</p></div>
             </div>
           )}
 
-          {/* PIPELINE DE VENDAS */}
-          {abaAtiva === 'pos_pipeline' && (
-            <div className="flex gap-4 overflow-x-auto h-full pb-4">
-              {ESTAGIOS_POS_VENDA.map(estagio => {
-                const lista = posVendas.filter(c => (c.estagio_id || 1) === estagio.id && c.nome.toLowerCase().includes(buscaPipeline.toLowerCase()));
-                return (
-                  <div key={estagio.id} onDragOver={onDragOver} onDrop={(e) => onDrop(e, estagio.id, 'pos-venda')} className={`${CardStyle} border rounded-3xl p-3 min-w-[260px] flex flex-col`}>
-                    <div className={`border-b-2 ${estagio.cor} pb-2 mb-3 flex justify-between items-center`}>
-                      <span className="text-[11px] font-bold uppercase">{estagio.nome}</span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full font-black bg-zinc-500/20 text-tema-primario">{lista.length}</span>
+          {/* CONTATOS ATIVOS (VENDAS ATIVAS) */}
+          {abaAtiva === 'pos_contatos' && (
+            <div className={`${CardStyle} border p-6 rounded-3xl space-y-4`}>
+              <h3 className="font-bold text-tema-primario border-b border-zinc-500/30 pb-2">Contatos Ativos (Vendas)</h3>
+              <div className="space-y-2">
+                {contatosAtivos.map(c => (
+                  <div key={c.id} className="p-3 bg-zinc-500/10 border border-zinc-500/20 rounded-xl text-xs flex justify-between items-center">
+                    <div>
+                      <p className="font-bold">{c.nome}</p>
+                      <p className="text-[10px] opacity-70">Tel: {c.telefone} • Código: {c.codigo}</p>
                     </div>
-                    <div className="flex-1 overflow-y-auto space-y-3">
-                      {lista.map(cli => (
-                        <div key={cli.id} draggable onDragStart={(e) => onDragStart(e, {...cli, tipoPipeline: 'pos-venda'})} className="bg-zinc-500/10 border border-zinc-500/20 p-3 rounded-2xl cursor-grab hover:border-tema-primario">
-                          <p className="text-xs font-bold">{cli.nome}</p>
-                          <p className="text-[10px] text-cyan-500 font-semibold mt-1">Plano: {cli.plano}</p>
-                          <div className="mt-2 pt-2 border-t border-zinc-500/30 text-[9px] opacity-70 flex justify-between">
-                            <span>Vendedor: {cli.vendedor}</span>
-                            <span>Movido: {cli.operador_atual || 'N/A'}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    <span className="text-cyan-500 font-bold bg-cyan-500/10 px-2.5 py-1 rounded-lg">Lead Ativo</span>
                   </div>
-                )
-              })}
-            </div>
-          )}
-
-          {/* CADASTRO DE CLIENTE PÓS-VENDAS / VENDAS */}
-          {abaAtiva === 'pos_cadastro' && (
-            <div className={`${CardStyle} border p-6 rounded-3xl max-w-lg space-y-4`}>
-              <h3 className="font-bold text-tema-primario border-b border-zinc-500/30 pb-2">Cadastrar Cliente (Pós-Vendas / Vendas)</h3>
-              <form onSubmit={handleSalvarPosVenda} className="space-y-3 text-xs">
-                <div>
-                  <label className="block mb-1 font-semibold opacity-70">Código / ID</label>
-                  <input type="text" placeholder="Ex: CLI-999" value={novoPosVenda.codigo} onChange={e=>setNovoPosVenda({...novoPosVenda, codigo: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} />
-                </div>
-                <div>
-                  <label className="block mb-1 font-semibold opacity-70">Nome Completo</label>
-                  <input type="text" required placeholder="Nome do Cliente" value={novoPosVenda.nome} onChange={e=>setNovoPosVenda({...novoPosVenda, nome: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} />
-                </div>
-                <div>
-                  <label className="block mb-1 font-semibold opacity-70">Telefone / Contato</label>
-                  <input type="text" required placeholder="(11) 99999-9999" value={novoPosVenda.telefone} onChange={e=>setNovoPosVenda({...novoPosVenda, telefone: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} />
-                </div>
-                <div>
-                  <label className="block mb-1 font-semibold opacity-70">Plano Contratado</label>
-                  <select value={novoPosVenda.plano} onChange={e=>setNovoPosVenda({...novoPosVenda, plano: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`}>
-                    <option value="Fibra 300MB">Fibra 300MB</option>
-                    <option value="Fibra 500MB">Fibra 500MB</option>
-                    <option value="Fibra 1GB">Fibra 1GB</option>
-                  </select>
-                </div>
-                <button type="submit" className="w-full bg-tema-primario py-3 rounded-xl font-bold uppercase tracking-wider">Cadastrar e Enviar ao Pipeline</button>
-              </form>
-            </div>
-          )}
-
-          {/* GESTÃO DE USUÁRIOS & PERMISSÕES (ADMIN) */}
-          {abaAtiva === 'admin_usuarios' && (
-            <div className="grid grid-cols-3 gap-6">
-              <div className={`${CardStyle} border p-6 rounded-3xl space-y-4 h-fit`}>
-                <h3 className="font-bold text-tema-primario border-b border-zinc-500/30 pb-2">Cadastrar Novo Usuário</h3>
-                <form onSubmit={handleSalvarUsuario} className="space-y-3 text-xs">
-                  <div>
-                    <label className="block mb-1 font-semibold opacity-70">Nome</label>
-                    <input type="text" required value={novoUsuario.nome} onChange={e=>setNovoUsuario({...novoUsuario, nome: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} />
-                  </div>
-                  <div>
-                    <label className="block mb-1 font-semibold opacity-70">E-mail</label>
-                    <input type="email" required value={novoUsuario.email} onChange={e=>setNovoUsuario({...novoUsuario, email: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} />
-                  </div>
-                  <div>
-                    <label className="block mb-1 font-semibold opacity-70">Cargo / Permissão</label>
-                    <select value={novoUsuario.cargo} onChange={e=>setNovoUsuario({...novoUsuario, cargo: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`}>
-                      <option value="VENDEDOR">VENDEDOR</option>
-                      <option value="COBRADOR">COBRADOR</option>
-                      <option value="SUPERVISOR">SUPERVISOR</option>
-                      <option value="ADMIN">ADMIN</option>
-                    </select>
-                  </div>
-                  <button type="submit" className="w-full bg-tema-primario py-3 rounded-xl font-bold uppercase">Cadastrar Usuário</button>
-                </form>
+                ))}
+                {contatosAtivos.length === 0 && <p className="text-xs opacity-50 text-center py-6">Nenhum contato ativo importado.</p>}
               </div>
+            </div>
+          )}
 
-              <div className={`col-span-2 ${CardStyle} border p-6 rounded-3xl space-y-4`}>
-                <h3 className="font-bold text-tema-primario border-b border-zinc-500/30 pb-2">Usuários Cadastrados ({usuarios.length})</h3>
-                <div className="space-y-2 max-h-[500px] overflow-y-auto">
-                  {usuarios.map(u => (
-                    <div key={u.id} className="p-3 bg-zinc-500/10 border border-zinc-500/20 rounded-2xl flex justify-between items-center text-xs">
-                      <div>
-                        <p className="font-bold">{u.nome}</p>
-                        <p className="opacity-60 text-[10px]">{u.email} • Cargo: <span className="text-tema-primario font-bold">{u.cargo}</span></p>
-                      </div>
-                      <button onClick={() => handleExcluirUsuario(u.id)} className="text-red-500 p-2 hover:bg-red-500/10 rounded-lg"><Trash2 className="w-4 h-4"/></button>
+          {/* LISTA DE UP-GRADE */}
+          {abaAtiva === 'pos_upgrade' && (
+            <div className={`${CardStyle} border p-6 rounded-3xl space-y-4`}>
+              <h3 className="font-bold text-tema-primario border-b border-zinc-500/30 pb-2">Lista de Up-Grade de Planos</h3>
+              <div className="space-y-2">
+                {listaUpgrade.map(c => (
+                  <div key={c.id} className="p-3 bg-zinc-500/10 border border-zinc-500/20 rounded-xl text-xs flex justify-between items-center">
+                    <div>
+                      <p className="font-bold">{c.nome}</p>
+                      <p className="text-[10px] opacity-70">Tel: {c.telefone} • Código: {c.codigo}</p>
                     </div>
-                  ))}
-                  {usuarios.length === 0 && <p className="text-xs opacity-50 text-center py-6">Nenhum usuário cadastrado.</p>}
-                </div>
+                    <span className="text-purple-500 font-bold bg-purple-500/10 px-2.5 py-1 rounded-lg">Plano Atual: {c.plano}</span>
+                  </div>
+                ))}
+                {listaUpgrade.length === 0 && <p className="text-xs opacity-50 text-center py-6">Nenhum registro de up-grade importado.</p>}
               </div>
             </div>
           )}
@@ -495,6 +433,14 @@ export default function App() {
                   </select>
                 )}
                 <input type="file" onChange={handleSimularUpload} className="w-full text-xs opacity-70 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-zinc-500/20 hover:file:bg-zinc-500/30 cursor-pointer"/>
+                
+                {previaPlanilha.length > 0 && (
+                  <div className="p-3 bg-zinc-500/10 rounded-xl text-xs space-y-1">
+                    <p className="font-bold text-tema-primario">Prévia Pronta: {previaPlanilha.length} itens encontrados.</p>
+                    <p className="opacity-70">Ex: {previaPlanilha[0]?.nome} ({previaPlanilha[0]?.telefone})</p>
+                  </div>
+                )}
+
                 <button onClick={confirmarImportacao} disabled={previaPlanilha.length===0} className="w-full bg-tema-primario disabled:opacity-50 py-3 rounded-xl font-black text-xs uppercase tracking-wider">Confirmar e Adicionar</button>
               </div>
             </div>

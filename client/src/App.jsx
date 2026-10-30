@@ -47,8 +47,8 @@ export default function App() {
   const [senhaLogin, setSenhaLogin] = useState('');
   
   // Navegação
-  const [abaAtiva, setAbaAtiva] = useState('dashboard');
-  const [menuCobranca, setMenuCobranca] = useState(false);
+  const [abaAtiva, setAbaAtiva] = useState('cobranca');
+  const [menuCobranca, setMenuCobranca] = useState(true);
   const [subAbaCobranca, setSubAbaCobranca] = useState('pipeline');
   
   const [menuPosVenda, setMenuPosVenda] = useState(false);
@@ -62,7 +62,6 @@ export default function App() {
 
   const [temaClaro, setTemaClaro] = useState(false);
   const [exibirPopup, setExibirPopup] = useState(false);
-  const [exibirNotificacoes, setExibirNotificacoes] = useState(false);
 
   // Dados
   const [clientes, setClientes] = useState([]);
@@ -73,22 +72,18 @@ export default function App() {
   const [scripts, setScripts] = useState([]);
   const [agenda, setAgenda] = useState([]);
   const [rankingCobranca, setRankingCobranca] = useState([]);
-  const [rankingVendedores, setRankingVendedores] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
   
-  // Previa Admin
+  // Importação
   const [tipoImportacao, setTipoImportacao] = useState('cobranca');
   const [categoriaCobranca, setCategoriaCobranca] = useState('30');
   const [previaPlanilha, setPreviaPlanilha] = useState([]);
 
   // Chat
-  const [gruposChat, setGruposChat] = useState([]);
   const [chatMensagens, setChatMensagens] = useState([]);
-  const [chatTipo, setChatTipo] = useState('geral');
-  const [chatDestinoId, setChatDestinoId] = useState(null);
   const [novaMsgChat, setNovaMsgChat] = useState('');
 
-  // Buscas
+  // Buscas e Filtros
   const [buscaPipeline, setBuscaPipeline] = useState('');
   const [filtroAtrasoPipeline, setFiltroAtrasoPipeline] = useState('todos');
 
@@ -97,10 +92,6 @@ export default function App() {
   const [clienteEditando, setClienteEditando] = useState(null);
   const [contatoEditando, setContatoEditando] = useState(null);
 
-  const [novoPosVenda, setNovoPosVenda] = useState({ codigo: '', nome: '', telefone: '', plano: 'Fibra 500MB', satisfacao: '5', vendedor_id: '', observacoes: '' });
-  const [novaOS, setNovaOS] = useState({ cliente_codigo: '', cliente_nome: '', problema: '', tipo_ocorrencia: 'Suporte Técnico' });
-  const [novoScript, setNovoScript] = useState({ titulo: '', tipo: 'cobranca', conteudo: '' });
-
   // Modais
   const [modalAcordo, setModalAcordo] = useState({ exibir: false, clienteId: null, valor: '', parcelas: '1' });
   const [modalAtalhoAgenda, setModalAtalhoAgenda] = useState({ exibir: false, clienteNome: '' });
@@ -108,10 +99,8 @@ export default function App() {
   useEffect(() => {
     if (usuario) {
       carregarDados();
-      const interval = setInterval(carregarChat, 5000);
-      return () => clearInterval(interval);
     }
-  }, [usuario, chatTipo, chatDestinoId, subAbaCobranca, subAbaPosVenda]);
+  }, [usuario, abaAtiva, subAbaCobranca, subAbaPosVenda]);
 
   const carregarDados = () => {
     fetch(`${API_URL}/clientes`).then(r => r.json()).then(data => setClientes(data || [])).catch(() => {});
@@ -122,20 +111,13 @@ export default function App() {
     fetch(`${API_URL}/scripts`).then(r => r.json()).then(data => setScripts(data || [])).catch(() => {});
     fetch(`${API_URL}/agenda?usuario_id=${usuario?.id}`).then(r => r.json()).then(data => setAgenda(data || [])).catch(() => {});
     fetch(`${API_URL}/dashboard/ranking-cobranca`).then(r => r.json()).then(data => setRankingCobranca(data || [])).catch(() => {});
-    fetch(`${API_URL}/dashboard/ranking-vendedores`).then(r => r.json()).then(data => setRankingVendedores(data || [])).catch(() => {});
     fetch(`${API_URL}/usuarios`).then(r => r.json()).then(data => setUsuarios(data || [])).catch(() => {});
     carregarChat();
   };
 
   const carregarChat = () => {
     let setor = abaAtiva === 'pos-venda' ? 'vendas' : 'cobranca';
-    fetch(`${API_URL}/chat/grupos?setor=${setor}`).then(r => r.json()).then(data => setGruposChat(data || [])).catch(() => {});
-
-    let url = `${API_URL}/chat/mensagens?setor=${setor}`;
-    if (chatTipo === 'direto' && chatDestinoId) url += `&destinatario_id=${chatDestinoId}`;
-    if (chatTipo === 'grupo' && chatDestinoId) url += `&grupo_id=${chatDestinoId}`;
-
-    fetch(url).then(r => r.json()).then(data => setChatMensagens(data || [])).catch(() => {});
+    fetch(`${API_URL}/chat/mensagens?setor=${setor}`).then(r => r.json()).then(data => setChatMensagens(data || [])).catch(() => {});
   };
 
   const handleLogin = async (e) => {
@@ -256,8 +238,6 @@ export default function App() {
       body: JSON.stringify({
         remetente_id: usuario.id,
         remetente_nome: usuario.nome,
-        destinatario_id: chatTipo === 'direto' ? chatDestinoId : null,
-        grupo_id: chatTipo === 'grupo' ? chatDestinoId : null,
         mensagem: novaMsgChat,
         setor
       })
@@ -267,7 +247,7 @@ export default function App() {
     });
   };
 
-  // ESTILOS DE TEMA (MODO ESCURO: AZUL + VERDE / MODO CLARO: BRANCO + MARSALA)
+  // ESTILOS DE TEMA
   const bgPrincipal = temaClaro ? 'bg-[#f4f0f2] text-slate-900' : 'bg-slate-950 text-slate-100';
   const bgCard = temaClaro ? 'bg-white border-[#e2d5da] text-slate-800 shadow-sm' : 'bg-slate-900 border-slate-800 text-slate-100 shadow-md';
   const bgInput = temaClaro ? 'bg-[#fbf9fa] border-[#d8c5cc] text-slate-900 focus:border-[#800020]' : 'bg-slate-950 border-slate-800 text-white focus:border-emerald-500';
@@ -446,6 +426,61 @@ export default function App() {
         </header>
 
         <div className="p-6">
+          
+          {/* PIPELINE DE COBRANÇA */}
+          {abaAtiva === 'cobranca' && subAbaCobranca === 'pipeline' && (
+            <div className="space-y-4">
+              <div className={`flex justify-between items-center p-3 rounded-2xl border ${bgCard}`}>
+                <div className="flex items-center space-x-2">
+                  <Filter className={`w-4 h-4 ${temaClaro ? 'text-[#800020]' : 'text-emerald-400'}`} />
+                  <button onClick={() => setFiltroAtrasoPipeline('todos')} className={`px-3 py-1 rounded-lg text-xs font-bold ${filtroAtrasoPipeline === 'todos' ? `${btnDestaque}` : 'opacity-60'}`}>Todos ({clientes.length})</button>
+                  <button onClick={() => setFiltroAtrasoPipeline('30')} className={`px-3 py-1 rounded-lg text-xs font-bold ${filtroAtrasoPipeline === '30' ? `${btnDestaque}` : 'opacity-60'}`}>30 Dias</button>
+                  <button onClick={() => setFiltroAtrasoPipeline('60')} className={`px-3 py-1 rounded-lg text-xs font-bold ${filtroAtrasoPipeline === '60' ? `${btnDestaque}` : 'opacity-60'}`}>60 Dias</button>
+                  <button onClick={() => setFiltroAtrasoPipeline('90')} className={`px-3 py-1 rounded-lg text-xs font-bold ${filtroAtrasoPipeline === '90' ? `${btnDestaque}` : 'opacity-60'}`}>90 Dias</button>
+                </div>
+                <div className="relative w-64">
+                  <Search className="w-4 h-4 opacity-40 absolute left-3 top-2.5" />
+                  <input type="text" placeholder="Buscar cliente..." value={buscaPipeline} onChange={e => setBuscaPipeline(e.target.value)} className={`w-full ${bgInput} rounded-lg pl-9 pr-3 py-1.5 text-xs`} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-8 gap-3 overflow-x-auto pb-4">
+                {ESTAGIOS_COBRANCA.map(estagio => {
+                  const lista = clientesFiltradosPipeline.filter(c => (c.estagio_id || 1) === estagio.id);
+
+                  return (
+                    <div key={estagio.id} className={`${bgCard} border rounded-2xl p-3 min-w-[200px] flex flex-col h-[650px]`}>
+                      <div className={`border-b-2 ${estagio.cor} pb-2 mb-3 flex justify-between items-center`}>
+                        <span className="text-[11px] font-bold truncate">{estagio.nome}</span>
+                        <span className="text-xs px-2 py-0.5 rounded-full font-bold bg-slate-800">{lista.length}</span>
+                      </div>
+
+                      <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                        {lista.map(cli => (
+                          <div key={cli.id} className={`${bgInput} border p-3 rounded-xl space-y-2 shadow-sm`}>
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <p className="text-xs font-bold truncate">{cli.nome}</p>
+                                <p className="text-[10px] opacity-60">ID: {cli.codigo}</p>
+                              </div>
+                            </div>
+                            <p className="text-xs font-black text-rose-500">R$ {parseFloat(cli.total_vencido || 0).toFixed(2)}</p>
+                            <p className="text-[10px] text-emerald-400">Tratado por: {cli.operador_nome || usuario.nome}</p>
+
+                            <div className="pt-2 border-t flex justify-between items-center text-[10px]">
+                              {estagio.id > 1 && <button onClick={() => moverEstagioCliente(cli.id, estagio.id - 1)}>← Voltar</button>}
+                              {estagio.id < 8 && <button onClick={() => moverEstagioCliente(cli.id, estagio.id + 1)} className="font-bold text-emerald-400 ml-auto">Avançar →</button>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* DASHBOARD */}
           {abaAtiva === 'dashboard' && (
             <div className="space-y-6">
@@ -591,9 +626,6 @@ export default function App() {
               <div className={`${bgCard} border p-4 rounded-2xl space-y-4 shadow-sm flex flex-col justify-between`}>
                 <div className="space-y-3 overflow-y-auto">
                   <h3 className="text-sm font-bold">Chat do Setor: {abaAtiva === 'pos-venda' ? 'Vendas' : 'Cobrança'}</h3>
-                  <button onClick={() => { setChatTipo('geral'); setChatDestinoId(null); }} className={`w-full text-left p-2.5 rounded-xl font-bold text-xs ${chatTipo === 'geral' ? `${btnDestaque}` : `${bgInput}`}`}>
-                    # Geral do Setor
-                  </button>
                 </div>
               </div>
 

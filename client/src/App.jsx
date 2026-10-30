@@ -58,13 +58,39 @@ export default function App() {
     { titulo: 'Oferta de Up-Grade Fibra', conteudo: 'Olá [Nome], temos uma condição especial para dobrar a velocidade da sua internet atual mantendo um valor excelente!' }
   ]);
   const [usuarios, setUsuarios] = useState([
-    { id: 1, nome: 'Administrador', email: 'admin@nexus.com.br', cargo: 'ADMIN' },
-    { id: 2, nome: 'Carlos Cobrador', email: 'carlos@nexus.com.br', cargo: 'COBRADOR' },
-    { id: 3, nome: 'Ana Vendedora', email: 'ana@nexus.com.br', cargo: 'VENDEDOR' }
+    { id: 1, nome: 'Administrador', email: 'admin@nexus.com.br', cargo: 'ADMIN', senha: '123456' },
+    { id: 2, nome: 'Carlos Cobrador', email: 'carlos@nexus.com.br', cargo: 'COBRADOR', senha: '123456' },
+    { id: 3, nome: 'Ana Vendedora', email: 'ana@nexus.com.br', cargo: 'VENDEDOR', senha: '123456' }
   ]);
   const [chatMensagens, setChatMensagens] = useState([
     { usuario: 'Administrador', texto: 'Bem-vindos ao Nexus Cob! Foco nos resultados da equipe hoje.' }
   ]);
+
+  const [listasSelecionadas, setListasSelecionadas] = useState({ cobranca: [], vendas_ativas: [], upgrade: [], pos_vendas: [] });
+  const [filtroAdminLista, setFiltroAdminLista] = useState('');
+  const [mensagemSistema, setMensagemSistema] = useState('');
+  const [dadosCarregados, setDadosCarregados] = useState(false);
+
+  // Persistência local para não perder os dados ao atualizar a página.
+  useEffect(() => {
+    const chaves = { clientes: setClientes, posVendas: setPosVendas, contatosAtivos: setContatosAtivos, listaUpgrade: setListaUpgrade, agenda: setAgenda, scripts: setScripts, usuarios: setUsuarios, chatMensagens: setChatMensagens };
+    Object.entries(chaves).forEach(([chave, setter]) => {
+      try { const salvo = localStorage.getItem(`nexus_${chave}`); if (salvo) setter(JSON.parse(salvo)); } catch (erro) { console.error(`Falha ao carregar ${chave}`, erro); }
+    });
+    setDadosCarregados(true);
+  }, []);
+
+  useEffect(() => {
+    if (!dadosCarregados) return;
+    const dados = { clientes, posVendas, contatosAtivos, listaUpgrade, agenda, scripts, usuarios, chatMensagens };
+    Object.entries(dados).forEach(([chave, valor]) => {
+      try { localStorage.setItem(`nexus_${chave}`, JSON.stringify(valor)); } catch (erro) { console.error(`Falha ao salvar ${chave}`, erro); }
+    });
+  }, [dadosCarregados, clientes, posVendas, contatosAtivos, listaUpgrade, agenda, scripts, usuarios, chatMensagens]);
+
+  useEffect(() => {
+    if (usuario && abaAtiva.startsWith('admin_') && usuario.cargo !== 'ADMIN') setAbaAtiva('dashboard');
+  }, [usuario, abaAtiva]);
 
   // Estados de Formulários e Importações
   const [buscaPipeline, setBuscaPipeline] = useState('');
@@ -90,12 +116,12 @@ export default function App() {
 
   const handleLogin = (e) => {
     e.preventDefault();
-    const achado = usuarios.find(u => u.email.toLowerCase() === emailLogin.toLowerCase());
-    if (achado) {
-      setUsuario(achado);
-    } else {
-      setUsuario({ id: Date.now(), nome: emailLogin.split('@')[0], email: emailLogin, cargo: 'ADMIN' });
+    const achado = usuarios.find(u => u.email.toLowerCase() === emailLogin.trim().toLowerCase() && u.senha === senhaLogin);
+    if (!achado) {
+      alert('E-mail ou senha inválidos.');
+      return;
     }
+    setUsuario(achado);
   };
 
   // --- DRAG AND DROP ---
@@ -130,7 +156,7 @@ export default function App() {
   const confirmarAgendaRapida = () => {
     const amanha = new Date();
     amanha.setDate(amanha.getDate() + 1);
-    setAgenda([...agenda, { id: Date.now(), cliente_nome: modalAgendaRapida.clienteNome, data_retorno: amanha.toLocaleDateString(), tipo: modalAgendaRapida.tipo }]);
+    setAgenda(atual => [...atual, { id: Date.now(), cliente_nome: modalAgendaRapida.clienteNome, clienteId: modalAgendaRapida.clienteId, data_retorno: amanha.toLocaleDateString(), tipo: modalAgendaRapida.tipo }]);
     setModalAgendaRapida({ exibir: false, clienteNome: '', clienteId: '', tipo: '' });
     alert('Adicionado à sua agenda para amanhã!');
   };
@@ -164,7 +190,7 @@ export default function App() {
       estagio_id: 1,
       operador_atual: usuario.nome
     };
-    setClientes([novo, ...clientes]);
+    setClientes(atual => [novo, ...atual]);
     alert('Cliente cadastrado com sucesso no Pipeline de Cobrança!');
     setNovoClienteCob({ codigo: '', nome: '', telefone: '', total_vencido: '', dias_atraso: '30 Dias' });
     setAbaAtiva('cob_pipeline');
@@ -182,60 +208,137 @@ export default function App() {
       vendedor: usuario.nome,
       operador_atual: usuario.nome
     };
-    setPosVendas([novo, ...posVendas]);
+    setPosVendas(atual => [novo, ...atual]);
     alert('Cliente cadastrado com sucesso no Pós-Vendas!');
     setNovoPosVenda({ codigo: '', nome: '', telefone: '', plano: 'Fibra 300MB' });
     setAbaAtiva('pos_pipeline');
   };
 
   // --- IMPORTAÇÃO DE LISTAS CORRIGIDA (ID, NOME, DEVEDOR) ---
-  const handleSimularUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const isCob = tipoImportacao === 'cobranca';
-      const isUp = tipoImportacao === 'upgrade';
-      setPreviaPlanilha([
-        { 
-          id: Date.now() + 1, 
-          codigo: 'CLI-501', 
-          nome: 'Carlos Eduardo (Devedor)', 
-          telefone: '11999998888', 
-          total_vencido: isCob ? '350.00' : undefined,
-          dias_atraso: isCob ? categoriaCobranca : undefined,
-          plano: isUp ? 'Fibra 500MB' : 'Fibra 300MB',
-          estagio_id: 1,
-          operador_atual: 'Sistema'
-        },
-        { 
-          id: Date.now() + 2, 
-          codigo: 'CLI-502', 
-          nome: 'Mariana Costa (Devedora)', 
-          telefone: '11977776666', 
-          total_vencido: isCob ? '520.00' : undefined,
-          dias_atraso: isCob ? categoriaCobranca : undefined,
-          plano: isUp ? 'Fibra 1GB' : 'Fibra 500MB',
-          estagio_id: 1,
-          operador_atual: 'Sistema'
+  const normalizarCabecalho = (valor) => String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  const lerCSV = (texto, delimitador) => {
+    const linhas = [];
+    let linha = [], campo = '', aspas = false;
+    for (let i = 0; i < texto.length; i++) {
+      const ch = texto[i];
+      if (ch === '"' && texto[i + 1] === '"' && aspas) { campo += '"'; i++; }
+      else if (ch === '"') aspas = !aspas;
+      else if (ch === delimitador && !aspas) { linha.push(campo.trim()); campo = ''; }
+      else if ((ch === '\n' || ch === '\r') && !aspas) {
+        if (ch === '\r' && texto[i + 1] === '\n') i++;
+        linha.push(campo.trim());
+        if (linha.some(v => v !== '')) linhas.push(linha);
+        linha = []; campo = '';
+      } else campo += ch;
+    }
+    linha.push(campo.trim());
+    if (linha.some(v => v !== '')) linhas.push(linha);
+    return linhas;
+  };
+
+  const handleSimularUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const extensao = file.name.split('.').pop().toLowerCase();
+    if (!['csv', 'txt'].includes(extensao)) {
+      alert('Este importador aceita arquivos CSV ou TXT delimitados por vírgula, ponto e vírgula ou tabulação. Salve sua planilha Excel como CSV e tente novamente.');
+      e.target.value = '';
+      return;
+    }
+    try {
+      const texto = await file.text();
+      const primeiraLinha = texto.split(/\r?\n/)[0] || '';
+      const delimitador = [',', ';', '\t'].sort((a, b) => primeiraLinha.split(b).length - primeiraLinha.split(a).length)[0];
+      const linhas = lerCSV(texto.replace(/^\uFEFF/, ''), delimitador);
+      if (linhas.length < 2) throw new Error('A planilha precisa ter cabeçalho e pelo menos um registro.');
+      const cabecalhos = linhas[0].map(normalizarCabecalho);
+      const indice = (...nomes) => cabecalhos.findIndex(h => nomes.map(normalizarCabecalho).includes(h));
+      const col = {
+        codigo: indice('codigo', 'id', 'codigocliente', 'contrato'),
+        nome: indice('nome', 'cliente', 'nomecliente', 'razaosocial'),
+        telefone: indice('telefone', 'celular', 'whatsapp', 'fone', 'telefone1'),
+        valor: indice('totalvencido', 'valorvencido', 'devedor', 'valor', 'saldo'),
+        atraso: indice('diasatraso', 'atraso', 'categoria', 'faixaatraso'),
+        plano: indice('plano', 'planocontratado', 'planoatual')
+      };
+      if (col.nome < 0) throw new Error('Não encontrei a coluna Nome/Cliente. Confira o cabeçalho da planilha.');
+      const registros = linhas.slice(1).map((linha, i) => {
+        const valor = (idx, padrao = '') => idx >= 0 ? (linha[idx] || padrao) : padrao;
+        const registro = {
+          id: `${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}`,
+          codigo: valor(col.codigo, `REG-${i + 1}`),
+          nome: valor(col.nome), telefone: valor(col.telefone), estagio_id: 1,
+          operador_atual: usuario?.nome || 'Sistema'
+        };
+        if (tipoImportacao === 'cobranca') {
+          registro.total_vencido = valor(col.valor, '0').replace(/^R\$\s?/, '').replace(/\./g, '').replace(',', '.');
+          registro.dias_atraso = valor(col.atraso, categoriaCobranca) || categoriaCobranca;
+        } else {
+          registro.plano = valor(col.plano, 'Não informado');
         }
-      ]);
+        return registro;
+      }).filter(r => r.nome.trim());
+      if (!registros.length) throw new Error('Nenhum registro válido encontrado.');
+      setPreviaPlanilha(registros);
+      setMensagemSistema(`${registros.length} registros lidos de ${file.name}.`);
+    } catch (erro) {
+      alert(`Não foi possível importar: ${erro.message}`);
+      setPreviaPlanilha([]);
     }
   };
 
   const confirmarImportacao = () => {
     if (tipoImportacao === 'cobranca') {
-      setClientes([...clientes, ...previaPlanilha]);
+      setClientes(atual => [...atual, ...previaPlanilha]);
       alert(`${previaPlanilha.length} registros adicionados ao Pipeline de Cobrança (${categoriaCobranca})!`);
       setAbaAtiva('cob_pipeline');
     } else if (tipoImportacao === 'vendas_ativas') {
-      setContatosAtivos([...contatosAtivos, ...previaPlanilha]);
+      setContatosAtivos(atual => [...atual, ...previaPlanilha]);
       alert(`${previaPlanilha.length} registros adicionados aos Contatos Ativos!`);
       setAbaAtiva('pos_contatos');
     } else if (tipoImportacao === 'upgrade') {
-      setListaUpgrade([...listaUpgrade, ...previaPlanilha]);
+      setListaUpgrade(atual => [...atual, ...previaPlanilha]);
       alert(`${previaPlanilha.length} registros adicionados à Lista de Up-Grade!`);
       setAbaAtiva('pos_upgrade');
     }
     setPreviaPlanilha([]);
+    setMensagemSistema('Importação concluída.');
+  };
+
+  const dadosDasListas = {
+    cobranca: { titulo: 'Cobrança', dados: clientes, setter: setClientes },
+    vendas_ativas: { titulo: 'Vendas ativas', dados: contatosAtivos, setter: setContatosAtivos },
+    upgrade: { titulo: 'Up-grade', dados: listaUpgrade, setter: setListaUpgrade },
+    pos_vendas: { titulo: 'Pós-vendas', dados: posVendas, setter: setPosVendas }
+  };
+
+  const alternarSelecaoLista = (tipo, id) => setListasSelecionadas(atual => ({
+    ...atual,
+    [tipo]: atual[tipo].includes(id) ? atual[tipo].filter(x => x !== id) : [...atual[tipo], id]
+  }));
+
+  const selecionarTodosLista = (tipo) => {
+    const ids = dadosDasListas[tipo].dados.map(item => item.id);
+    setListasSelecionadas(atual => ({ ...atual, [tipo]: atual[tipo].length === ids.length ? [] : ids }));
+  };
+
+  const excluirSelecionadosLista = (tipo) => {
+    const selecionados = listasSelecionadas[tipo];
+    if (!selecionados.length) return alert('Selecione pelo menos um registro.');
+    if (!confirm(`Confirma a exclusão de ${selecionados.length} registro(s) da lista ${dadosDasListas[tipo].titulo}? Esta ação não poderá ser desfeita.`)) return;
+    const { dados, setter } = dadosDasListas[tipo];
+    setter(dados.filter(item => !selecionados.includes(item.id)));
+    setListasSelecionadas(atual => ({ ...atual, [tipo]: [] }));
+  };
+
+  const excluirListaInteira = (tipo) => {
+    const { titulo, dados, setter } = dadosDasListas[tipo];
+    if (!dados.length) return alert('Esta lista já está vazia.');
+    const palavra = prompt(`ATENÇÃO: serão excluídos permanentemente ${dados.length} registros de ${titulo}. Digite EXCLUIR para confirmar:`);
+    if (palavra !== 'EXCLUIR') return;
+    setter([]);
+    setListasSelecionadas(atual => ({ ...atual, [tipo]: [] }));
   };
 
   const InputStyle = temaEscuro ? 'bg-black border-zinc-800 text-white focus:border-[#f97316]' : 'bg-[#F5F7FA] border-[#E2E8F0] text-black focus:border-[#8B1E3F]';
@@ -249,6 +352,7 @@ export default function App() {
             <div className="w-14 h-14 bg-tema-primario rounded-2xl flex items-center justify-center font-black text-2xl mb-3 shadow-lg">N</div>
             <h1 className="text-2xl font-black tracking-wider">NEXUS <span className="text-tema-primario">COB</span></h1>
             <p className="text-xs opacity-70 mt-1 uppercase tracking-widest font-bold">Inteligência & Resultados</p>
+            <p className="text-[10px] opacity-60 mt-2">Acesso inicial de demonstração: admin@nexus.com.br / 123456</p>
           </div>
           <form onSubmit={handleLogin} className="space-y-4">
             <div><label className="block text-xs font-bold uppercase mb-1 opacity-70">E-mail</label><input type="email" required value={emailLogin} onChange={e => setEmailLogin(e.target.value)} className={`w-full ${InputStyle} border rounded-xl px-4 py-3`} /></div>
@@ -259,6 +363,7 @@ export default function App() {
       </div>
     );
   }
+
 
   return (
     <div className={`min-h-screen flex font-sans ${temaEscuro ? 'bg-black text-white' : 'bg-[#F5F7FA] text-[#2C3E50]'}`}>
@@ -271,7 +376,7 @@ export default function App() {
             <h3 className="text-lg font-bold">Agendar Retorno</h3>
             <p className="text-sm opacity-70">Adicionar <b>{modalAgendaRapida.clienteNome}</b> para retorno amanhã?</p>
             <div className="flex space-x-2 pt-4">
-              <button onClick={() => setModalAgendaRapida({exibir:false})} className="w-1/2 bg-zinc-500/20 py-3 rounded-xl font-bold">Cancelar</button>
+              <button onClick={() => setModalAgendaRapida({exibir:false, clienteNome:'', clienteId:'', tipo:''})} className="w-1/2 bg-zinc-500/20 py-3 rounded-xl font-bold">Cancelar</button>
               <button onClick={confirmarAgendaRapida} className="w-1/2 bg-tema-primario py-3 rounded-xl font-black">Confirmar</button>
             </div>
           </div>
@@ -286,7 +391,7 @@ export default function App() {
             <form onSubmit={confirmarAcordo} className="space-y-4 text-xs">
               <div><label className="block mb-1 font-semibold opacity-70">Valor Final do Acordo (R$)</label><input type="text" required value={modalAcordo.valor} onChange={e => setModalAcordo({...modalAcordo, valor: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} /></div>
               <div className="flex space-x-2 pt-2">
-                <button type="button" onClick={() => setModalAcordo({exibir:false})} className="w-1/2 bg-zinc-500/20 py-3 rounded-xl font-bold">Cancelar</button>
+                <button type="button" onClick={() => setModalAcordo({exibir:false, clienteId:null, valor:'', parcelas:'1'})} className="w-1/2 bg-zinc-500/20 py-3 rounded-xl font-bold">Cancelar</button>
                 <button type="submit" className="w-1/2 bg-tema-primario py-3 rounded-xl font-bold">Salvar Acordo</button>
               </div>
             </form>
@@ -348,7 +453,7 @@ export default function App() {
             </div>
 
             {/* Menu Admin */}
-            <div>
+            {usuario.cargo === 'ADMIN' && <div>
               <button onClick={() => setMenuAdmin(!menuAdmin)} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl ${abaAtiva.startsWith('admin_') ? 'text-tema-primario' : 'opacity-70 hover:opacity-100'}`}>
                 <div className="flex items-center space-x-3"><Settings className="w-4 h-4"/><span>ADMINISTRAÇÃO</span></div>
                 {menuAdmin ? <ChevronDown className="w-3.5 h-3.5"/> : <ChevronRight className="w-3.5 h-3.5"/>}
@@ -359,7 +464,7 @@ export default function App() {
                   <button onClick={() => setAbaAtiva('admin_listas')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'admin_listas' ? 'text-tema-primario bg-tema-primario/10' : 'opacity-70 hover:opacity-100'}`}>Importar Listas</button>
                 </div>
               )}
-            </div>
+            </div>}
           </nav>
         </div>
 
@@ -650,6 +755,7 @@ export default function App() {
                 <form onSubmit={(e)=>{e.preventDefault(); setUsuarios([...usuarios, {id: Date.now(), ...novoUsuario}]); alert('Usuário cadastrado com sucesso!'); setNovoUsuario({nome:'', email:'', cargo:'COBRADOR', senha:'123456'});}} className="space-y-3 text-xs">
                   <div><label className="block mb-1 font-semibold opacity-70">Nome</label><input type="text" required value={novoUsuario.nome} onChange={e=>setNovoUsuario({...novoUsuario, nome: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} /></div>
                   <div><label className="block mb-1 font-semibold opacity-70">E-mail</label><input type="email" required value={novoUsuario.email} onChange={e=>setNovoUsuario({...novoUsuario, email: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} /></div>
+                  <div><label className="block mb-1 font-semibold opacity-70">Senha inicial</label><input type="password" required minLength={6} value={novoUsuario.senha} onChange={e=>setNovoUsuario({...novoUsuario, senha: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} /></div>
                   <div>
                     <label className="block mb-1 font-semibold opacity-70">Cargo / Permissão</label>
                     <select value={novoUsuario.cargo} onChange={e=>setNovoUsuario({...novoUsuario, cargo: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`}>
@@ -682,6 +788,7 @@ export default function App() {
 
           {/* IMPORTAR LISTAS (ADMIN - CORRIGIDO PARA ID, NOME E DEVEDOR) */}
           {abaAtiva === 'admin_listas' && (
+            <>
             <div className="grid grid-cols-2 gap-6">
               <div className={`${CardStyle} border p-6 rounded-3xl space-y-4`}>
                 <h3 className="font-bold text-tema-primario border-b border-zinc-500/30 pb-2">Subir Planilha (Upload)</h3>
@@ -698,8 +805,10 @@ export default function App() {
                     <option value="Cancelados">Cancelados</option>
                   </select>
                 )}
-                <input type="file" onChange={handleSimularUpload} className="w-full text-xs opacity-70 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-zinc-500/20 hover:file:bg-zinc-500/30 cursor-pointer"/>
+                <input type="file" accept=".csv,.txt,text/csv,text/plain" onChange={handleSimularUpload} className="w-full text-xs opacity-70 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-zinc-500/20 hover:file:bg-zinc-500/30 cursor-pointer"/>
                 
+                <p className="text-[10px] opacity-60">Importação real de CSV/TXT. Colunas aceitas: Código/ID, Nome/Cliente, Telefone, Valor Devedor, Dias de Atraso e Plano.</p>
+                {mensagemSistema && <p className="text-xs text-green-500">{mensagemSistema}</p>}
                 {previaPlanilha.length > 0 && (
                   <div className="p-4 bg-zinc-500/10 border border-zinc-500/20 rounded-2xl text-xs space-y-2">
                     <p className="font-bold text-tema-primario">Prévia Pronta: {previaPlanilha.length} registros encontrados.</p>
@@ -717,6 +826,31 @@ export default function App() {
                 <button onClick={confirmarImportacao} disabled={previaPlanilha.length===0} className="w-full bg-tema-primario disabled:opacity-50 py-3 rounded-xl font-black text-xs uppercase tracking-wider">Confirmar e Adicionar</button>
               </div>
             </div>
+            <div className={`${CardStyle} border p-6 rounded-3xl space-y-4`}>
+              <div className="flex flex-wrap justify-between items-center gap-3">
+                <div><h3 className="font-bold text-tema-primario">Gerenciamento e exclusão em massa</h3><p className="text-xs opacity-60 mt-1">Selecione registros individuais ou todos os registros de uma lista.</p></div>
+                <input value={filtroAdminLista} onChange={e=>setFiltroAdminLista(e.target.value)} placeholder="Filtrar por nome ou código..." className={`${InputStyle} border rounded-xl px-3 py-2 text-xs`} />
+              </div>
+              {Object.entries(dadosDasListas).map(([tipo, grupo]) => {
+                const filtrados = grupo.dados.filter(item => `${item.nome || ''} ${item.codigo || ''}`.toLowerCase().includes(filtroAdminLista.toLowerCase()));
+                const selecionados = listasSelecionadas[tipo];
+                return <section key={tipo} className="border border-zinc-500/20 rounded-2xl p-4 space-y-3">
+                  <div className="flex flex-wrap justify-between items-center gap-2">
+                    <div><p className="font-bold text-sm">{grupo.titulo} <span className="opacity-60">({grupo.dados.length})</span></p><p className="text-[10px] opacity-60">{selecionados.length} selecionado(s)</p></div>
+                    <div className="flex flex-wrap gap-2">
+                      <button onClick={()=>selecionarTodosLista(tipo)} className="px-3 py-2 rounded-lg bg-zinc-500/15 text-xs font-bold">{selecionados.length === grupo.dados.length && grupo.dados.length ? 'Desmarcar todos' : 'Selecionar todos'}</button>
+                      <button onClick={()=>excluirSelecionadosLista(tipo)} disabled={!selecionados.length} className="px-3 py-2 rounded-lg bg-red-600 text-white text-xs font-bold disabled:opacity-40">Excluir selecionados</button>
+                      <button onClick={()=>excluirListaInteira(tipo)} disabled={!grupo.dados.length} className="px-3 py-2 rounded-lg border border-red-500 text-red-500 text-xs font-bold disabled:opacity-40">Limpar lista inteira</button>
+                    </div>
+                  </div>
+                  <div className="max-h-56 overflow-y-auto space-y-1">
+                    {filtrados.map(item=><label key={item.id} className="flex items-center gap-3 p-2 rounded-lg bg-zinc-500/5 hover:bg-zinc-500/10 text-xs cursor-pointer"><input type="checkbox" checked={selecionados.includes(item.id)} onChange={()=>alternarSelecaoLista(tipo,item.id)} /><span className="font-semibold">{item.nome}</span><span className="opacity-50">{item.codigo || ''}</span><span className="ml-auto opacity-60">{item.telefone || ''}</span></label>)}
+                    {!filtrados.length && <p className="text-xs opacity-50 text-center py-3">Nenhum registro nesta lista ou filtro sem resultados.</p>}
+                  </div>
+                </section>;
+              })}
+            </div>
+            </>
           )}
 
         </div>

@@ -156,7 +156,7 @@ export default function App() {
   const confirmarAgendaRapida = () => {
     const amanha = new Date();
     amanha.setDate(amanha.getDate() + 1);
-    setAgenda(atual => [...atual, { id: Date.now(), cliente_nome: modalAgendaRapida.clienteNome, clienteId: modalAgendaRapida.clienteId, data_retorno: amanha.toLocaleDateString(), tipo: modalAgendaRapida.tipo }]);
+    setAgenda(atual => [...atual, { id: Date.now(), cliente_nome: modalAgendaRapida.clienteNome, clienteId: modalAgendaRapida.clienteId, data_retorno: amanha.toLocaleDateString(), tipo: modalAgendaRapida.tipo, concluido: false }]);
     setModalAgendaRapida({ exibir: false, clienteNome: '', clienteId: '', tipo: '' });
     alert('Adicionado à sua agenda para amanhã!');
   };
@@ -165,6 +165,10 @@ export default function App() {
     if (confirm('Deseja excluir este agendamento?')) {
       setAgenda(agenda.filter(a => a.id !== id));
     }
+  };
+
+  const concluirAgendamento = (id) => {
+    setAgenda(agenda.map(a => a.id === id ? { ...a, concluido: !a.concluido } : a));
   };
 
   const excluirClientePipeline = (id, tipo) => {
@@ -258,7 +262,7 @@ export default function App() {
         codigo: indice('codigo', 'id', 'codigocliente', 'contrato'),
         nome: indice('nome', 'cliente', 'nomecliente', 'razaosocial'),
         telefone: indice('telefone', 'celular', 'whatsapp', 'fone', 'telefone1'),
-        valor: indice('totalvencido', 'valorvencido', 'devedor', 'valor', 'saldo'),
+        valor: indice('totalvencido', 'valorvencido', 'devedor', 'valor', 'saldo', 'total', 'debito'),
         atraso: indice('diasatraso', 'atraso', 'categoria', 'faixaatraso'),
         plano: indice('plano', 'planocontratado', 'planoatual')
       };
@@ -272,7 +276,9 @@ export default function App() {
           operador_atual: usuario?.nome || 'Sistema'
         };
         if (tipoImportacao === 'cobranca') {
-          registro.total_vencido = valor(col.valor, '0').replace(/^R\$\s?/, '').replace(/\./g, '').replace(',', '.');
+          const brutoValor = valor(col.valor, '0');
+          const limpoValor = String(brutoValor).replace(/^R\$\s?/, '').replace(/\./g, '').replace(',', '.').trim();
+          registro.total_vencido = !isNaN(Number(limpoValor)) && limpoValor !== '' ? limpoValor : '0.00';
           registro.dias_atraso = valor(col.atraso, categoriaCobranca) || categoriaCobranca;
         } else {
           registro.plano = valor(col.plano, 'Não informado');
@@ -567,18 +573,23 @@ export default function App() {
             </div>
           )}
 
-          {/* SUA AGENDA (COM OPÇÃO DE EXCLUIR) */}
+          {/* SUA AGENDA (COM OPÇÃO DE EXCLUIR E CONCLUIR) */}
           {(abaAtiva === 'cob_agenda' || abaAtiva === 'pos_agenda') && (
             <div className={`${CardStyle} border p-6 rounded-3xl space-y-4`}>
               <h3 className="font-bold text-tema-primario border-b border-zinc-500/30 pb-2">Sua Agenda de Retornos</h3>
               <div className="space-y-2">
                 {agenda.map(a => (
-                  <div key={a.id} className="p-3 bg-zinc-500/10 border border-zinc-500/20 rounded-xl text-xs flex justify-between items-center">
+                  <div key={a.id} className={`p-3 bg-zinc-500/10 border border-zinc-500/20 rounded-xl text-xs flex justify-between items-center ${a.concluido ? 'opacity-50 line-through' : ''}`}>
                     <div>
-                      <p className="font-bold text-sm">{a.cliente_nome}</p>
+                      <p className="font-bold text-sm">{a.cliente_nome} {a.concluido && <span className="text-green-500 no-underline font-bold text-[10px] ml-2">(Concluído)</span>}</p>
                       <p className="opacity-70 text-[10px]">Tipo: {a.tipo} • Retornar em: <span className="text-tema-primario font-bold">{a.data_retorno}</span></p>
                     </div>
-                    <button onClick={() => excluirAgendamento(a.id)} className="text-red-500 hover:bg-red-500/15 p-2 rounded-lg" title="Excluir agendamento"><Trash2 className="w-4 h-4"/></button>
+                    <div className="flex items-center space-x-2">
+                      <button onClick={() => concluirAgendamento(a.id)} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${a.concluido ? 'bg-zinc-500/20 text-zinc-400' : 'bg-green-600 text-white hover:bg-green-700'}`}>
+                        {a.concluido ? 'Reabrir' : 'Concluir'}
+                      </button>
+                      <button onClick={() => excluirAgendamento(a.id)} className="text-red-500 hover:bg-red-500/15 p-2 rounded-lg" title="Excluir agendamento"><Trash2 className="w-4 h-4"/></button>
+                    </div>
                   </div>
                 ))}
                 {agenda.length === 0 && <p className="text-xs opacity-50 text-center py-6">Nenhum agendamento na sua agenda hoje.</p>}
@@ -616,7 +627,7 @@ export default function App() {
               <div className="space-y-2">
                 {clientes.map(c => (
                   <div key={c.id} className="p-3 bg-zinc-500/10 border border-zinc-500/20 rounded-xl text-xs flex justify-between items-center">
-                    <div><p className="font-bold">{c.nome} (ID: {c.codigo})</p><p className="opacity-70 flex items-center space-x-1 mt-0.5"><Phone className="w-3 h-3 text-tema-primario"/><span>{formatarTelefone(c.telefone)}</span> • Devedor: R$ {c.total_vencido}</p></div>
+                    <div><p className="font-bold">{c.nome} (ID: {c.codigo})</p><p className="opacity-70 flex items-center space-x-1 mt-0.5"><Phone className="w-3 h-3 text-tema-primario"/><span>{formatarTelefone(c.telefone)}</span> • Devedor: R$ {parseFloat(c.total_vencido || 0).toFixed(2)}</p></div>
                     <span className="text-orange-500 font-bold bg-orange-500/10 px-3 py-1 rounded-lg">Atraso: {c.dias_atraso || '30 Dias'}</span>
                   </div>
                 ))}
@@ -781,9 +792,9 @@ export default function App() {
                       <button onClick={() => setUsuarios(usuarios.filter(x => x.id !== u.id))} className="text-red-500 p-2 hover:bg-red-500/15 rounded-lg"><Trash2 className="w-4 h-4"/></button>
                     </div>
                   ))}
-                </div>
               </div>
             </div>
+          </div>
           )}
 
           {/* IMPORTAR LISTAS (ADMIN - CORRIGIDO PARA ID, NOME E DEVEDOR) */}
@@ -844,7 +855,7 @@ export default function App() {
                     </div>
                   </div>
                   <div className="max-h-56 overflow-y-auto space-y-1">
-                    {filtrados.map(item=><label key={item.id} className="flex items-center gap-3 p-2 rounded-lg bg-zinc-500/5 hover:bg-zinc-500/10 text-xs cursor-pointer"><input type="checkbox" checked={selecionados.includes(item.id)} onChange={()=>alternarSelecaoLista(tipo,item.id)} /><span className="font-semibold">{item.nome}</span><span className="opacity-50">{item.codigo || ''}</span><span className="ml-auto opacity-60">{item.telefone || ''}</span></label>)}
+                    {filtrados.map(item=><label key={item.id} className="flex items-center gap-3 p-2 rounded-lg bg-zinc-500/5 hover:bg-zinc-500/10 text-xs cursor-pointer"><input type="checkbox" checked={selecionados.includes(item.id)} onChange={()=>alternarSelecaoLista(tipo,item.id)} /><span className="font-semibold">{item.nome}</span><span className="opacity-50">{item.codigo || ''}</span><span className="ml-auto opacity-60">{tipo === 'cobranca' && item.total_vencido ? `Devedor: R$ ${item.total_vencido}` : (item.telefone || '')}</span></label>)}
                     {!filtrados.length && <p className="text-xs opacity-50 text-center py-3">Nenhum registro nesta lista ou filtro sem resultados.</p>}
                   </div>
                 </section>;

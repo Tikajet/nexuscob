@@ -151,6 +151,24 @@ export default function App() {
     }).then(() => carregarDados());
   };
 
+  const handleConfirmarAcordo = (e) => {
+    e.preventDefault();
+    fetch(`${API_URL}/clientes/${modalAcordo.clienteId}/estagio`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        estagio_id: 6,
+        usuario_nome: usuario.nome,
+        usuario_id: usuario.id,
+        valor_acordo: modalAcordo.valor,
+        parcelas_acordo: modalAcordo.parcelas
+      })
+    }).then(() => {
+      setModalAcordo({ exibir: false, clienteId: null, valor: '', parcelas: '1' });
+      carregarDados();
+    });
+  };
+
   const handleSalvarCliente = (e) => {
     e.preventDefault();
     const url = clienteEditando ? `${API_URL}/clientes/${clienteEditando.id}` : `${API_URL}/clientes/manual`;
@@ -316,6 +334,29 @@ export default function App() {
         </div>
       )}
 
+      {/* MODAL ACORDO */}
+      {modalAcordo.exibir && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
+          <div className={`${bgCard} border border-emerald-500/50 p-6 rounded-2xl max-w-md w-full space-y-4`}>
+            <h3 className="text-lg font-bold">Registrar Acordo Realizado</h3>
+            <form onSubmit={handleConfirmarAcordo} className="space-y-4 text-xs">
+              <div>
+                <label className="block mb-1 opacity-70">Valor Final do Acordo (R$)</label>
+                <input type="text" required placeholder="Ex: 250,00" value={modalAcordo.valor} onChange={e => setModalAcordo({...modalAcordo, valor: e.target.value})} className={`w-full ${bgInput} p-2.5 rounded-lg`} />
+              </div>
+              <div>
+                <label className="block mb-1 opacity-70">Quantidade de Parcelas</label>
+                <input type="number" min="1" max="12" value={modalAcordo.parcelas} onChange={e => setModalAcordo({...modalAcordo, parcelas: e.target.value})} className={`w-full ${bgInput} p-2.5 rounded-lg`} />
+              </div>
+              <div className="flex space-x-2 pt-2">
+                <button type="button" onClick={() => setModalAcordo({ exibir: false, clienteId: null, valor: '', parcelas: '1' })} className="w-1/2 bg-slate-700 text-white py-2 rounded-lg">Cancelar</button>
+                <button type="submit" className="w-1/2 bg-emerald-600 text-white py-2 rounded-lg font-bold">Salvar Acordo</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* SIDEBAR METRONET */}
       <aside className={`w-64 ${bgCard} border-r flex flex-col justify-between transition-colors`}>
         <div>
@@ -465,11 +506,14 @@ export default function App() {
                               </div>
                             </div>
                             <p className="text-xs font-black text-rose-500">R$ {parseFloat(cli.total_vencido || 0).toFixed(2)}</p>
+                            {cli.valor_acordo > 0 && (
+                              <p className="text-[10px] font-bold text-emerald-400">Acordo: R$ {parseFloat(cli.valor_acordo).toFixed(2)} ({cli.parcelas_acordo}x)</p>
+                            )}
                             <p className="text-[10px] text-emerald-400">Tratado por: {cli.operador_nome || usuario.nome}</p>
 
                             <div className="pt-2 border-t flex justify-between items-center text-[10px]">
-                              {estagio.id > 1 && <button onClick={() => moverEstagioCliente(cli.id, estagio.id - 1)}>← Voltar</button>}
-                              {estagio.id < 8 && <button onClick={() => moverEstagioCliente(cli.id, estagio.id + 1)} className="font-bold text-emerald-400 ml-auto">Avançar →</button>}
+                              {estagio.id > 1 && <button onClick={() => moverEstagioCliente(cli.id, estagio.id - 1)} className="hover:underline">← Voltar</button>}
+                              {estagio.id < 8 && <button onClick={() => moverEstagioCliente(cli.id, estagio.id + 1)} className="font-bold text-emerald-400 ml-auto hover:underline">Avançar →</button>}
                             </div>
                           </div>
                         ))}

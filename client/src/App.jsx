@@ -53,12 +53,13 @@ export default function App() {
   const [previaPlanilha, setPreviaPlanilha] = useState([]);
   
   const [novoUsuario, setNovoUsuario] = useState({ nome: '', email: '', cargo: 'COBRADOR', senha: '123456' });
+  const [novoPosVenda, setNovoPosVenda] = useState({ codigo: '', nome: '', telefone: '', plano: 'Fibra 300MB', vendedor: '' });
   const [novaMensagem, setNovaMensagem] = useState('');
   const [novoScript, setNovoScript] = useState({ titulo: '', conteudo: '' });
 
   // Modais
   const [modalAcordo, setModalAcordo] = useState({ exibir: false, clienteId: null, valor: '', parcelas: '1' });
-  const [modalAgendaRapida, setModalAgendaRapida] = useState({ exibir: false, clienteNome: '', clienteId: null, tipo: '' });
+  const [modalAgendaRapida, setModalAgendaRapida] = useState({ exibir: false, clienteNome: '', clienteId: '', tipo: '' });
 
   useEffect(() => {
     localStorage.setItem('nexus_theme', temaEscuro ? 'dark' : 'light');
@@ -92,7 +93,26 @@ export default function App() {
     }
   };
 
-  // Cadastrar ou Editar Usuário
+  // Cadastrar Cliente Pós-Vendas
+  const handleSalvarPosVenda = (e) => {
+    e.preventDefault();
+    const novoRegistro = {
+      id: Date.now(),
+      codigo: novoPosVenda.codigo || 'CLI-' + Math.floor(Math.random() * 1000),
+      nome: novoPosVenda.nome,
+      telefone: novoPosVenda.telefone,
+      plano: novoPosVenda.plano,
+      vendedor: usuario.nome,
+      estagio_id: 1, // Cai na 1ª coluna (Venda Instalada)
+      operador_atual: usuario.nome
+    };
+
+    setPosVendas([novoRegistro, ...posVendas]);
+    alert('Cliente cadastrado com sucesso no Pós-Vendas!');
+    setNovoPosVenda({ codigo: '', nome: '', telefone: '', plano: 'Fibra 300MB', vendedor: '' });
+    setAbaAtiva('pos_pipeline');
+  };
+
   const handleSalvarUsuario = (e) => {
     e.preventDefault();
     fetch(`${API_URL}/usuarios`, {
@@ -151,7 +171,7 @@ export default function App() {
     const amanha = new Date();
     amanha.setDate(amanha.getDate() + 1);
     setAgenda([...agenda, { id: Date.now(), cliente_nome: modalAgendaRapida.clienteNome, data_retorno: amanha.toLocaleDateString(), tipo: modalAgendaRapida.tipo }]);
-    setModalAgendaRapida({ exibir: false, clienteNome: '', clienteId: null, tipo: '' });
+    setModalAgendaRapida({ exibir: false, clienteNome: '', clienteId: '', tipo: '' });
     alert('Agendado com sucesso!');
   };
 
@@ -352,39 +372,6 @@ export default function App() {
             </div>
           )}
 
-          {/* PIPELINE DE COBRANÇA */}
-          {abaAtiva === 'cob_pipeline' && (
-            <div className="flex gap-4 overflow-x-auto h-full pb-4">
-              {ESTAGIOS_COBRANCA.map(estagio => {
-                const lista = clientes.filter(c => (c.estagio_id || 1) === estagio.id && c.nome.toLowerCase().includes(buscaPipeline.toLowerCase()));
-                return (
-                  <div key={estagio.id} onDragOver={onDragOver} onDrop={(e) => onDrop(e, estagio.id, 'cobranca')} className={`${CardStyle} border rounded-3xl p-3 min-w-[260px] flex flex-col`}>
-                    <div className={`border-b-2 ${estagio.cor} pb-2 mb-3 flex justify-between items-center`}>
-                      <span className="text-[11px] font-bold uppercase">{estagio.nome}</span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full font-black bg-zinc-500/20 text-tema-primario">{lista.length}</span>
-                    </div>
-                    <div className="flex-1 overflow-y-auto space-y-3">
-                      {lista.map(cli => (
-                        <div key={cli.id} draggable onDragStart={(e) => onDragStart(e, {...cli, tipoPipeline: 'cobranca'})} className="bg-zinc-500/10 border border-zinc-500/20 p-3 rounded-2xl cursor-grab hover:border-tema-primario">
-                          <div className="flex justify-between items-start">
-                            <div><p className="text-xs font-bold">{cli.nome}</p><p className="text-[9px] opacity-60">ID: {cli.codigo}</p></div>
-                            <button onClick={() => setModalAgendaRapida({exibir:true, clienteNome: cli.nome, clienteId: cli.id, tipo:'cobranca'})} className="text-tema-primario hover:bg-zinc-500/20 p-1.5 rounded-lg"><CalendarPlus className="w-4 h-4"/></button>
-                          </div>
-                          {cli.dias_atraso && <p className="text-[9px] text-orange-500 font-bold mt-1">Atraso: {cli.dias_atraso}</p>}
-                          <p className="text-xs font-black text-red-500 mt-2">R$ {parseFloat(cli.total_vencido||0).toFixed(2)}</p>
-                          {cli.valor_acordo > 0 && <p className="text-[10px] font-bold text-green-500">Acordo: R$ {cli.valor_acordo}</p>}
-                          <div className="mt-2 pt-2 border-t border-zinc-500/30 flex justify-between items-center text-[9px] opacity-70">
-                            <span className="flex items-center space-x-1"><UserPlus className="w-3 h-3"/> <span>{cli.operador_atual || 'Aguardando Operador'}</span></span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
           {/* PIPELINE DE VENDAS */}
           {abaAtiva === 'pos_pipeline' && (
             <div className="flex gap-4 overflow-x-auto h-full pb-4">
@@ -400,13 +387,47 @@ export default function App() {
                       {lista.map(cli => (
                         <div key={cli.id} draggable onDragStart={(e) => onDragStart(e, {...cli, tipoPipeline: 'pos-venda'})} className="bg-zinc-500/10 border border-zinc-500/20 p-3 rounded-2xl cursor-grab hover:border-tema-primario">
                           <p className="text-xs font-bold">{cli.nome}</p>
-                          <div className="mt-2 pt-2 border-t border-zinc-500/30 text-[9px] opacity-70">Movido por: {cli.operador_atual || 'N/A'}</div>
+                          <p className="text-[10px] text-cyan-500 font-semibold mt-1">Plano: {cli.plano}</p>
+                          <div className="mt-2 pt-2 border-t border-zinc-500/30 text-[9px] opacity-70 flex justify-between">
+                            <span>Vendedor: {cli.vendedor}</span>
+                            <span>Movido: {cli.operador_atual || 'N/A'}</span>
+                          </div>
                         </div>
                       ))}
                     </div>
                   </div>
                 )
               })}
+            </div>
+          )}
+
+          {/* CADASTRO DE CLIENTE PÓS-VENDAS / VENDAS */}
+          {abaAtiva === 'pos_cadastro' && (
+            <div className={`${CardStyle} border p-6 rounded-3xl max-w-lg space-y-4`}>
+              <h3 className="font-bold text-tema-primario border-b border-zinc-500/30 pb-2">Cadastrar Cliente (Pós-Vendas / Vendas)</h3>
+              <form onSubmit={handleSalvarPosVenda} className="space-y-3 text-xs">
+                <div>
+                  <label className="block mb-1 font-semibold opacity-70">Código / ID</label>
+                  <input type="text" placeholder="Ex: CLI-999" value={novoPosVenda.codigo} onChange={e=>setNovoPosVenda({...novoPosVenda, codigo: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} />
+                </div>
+                <div>
+                  <label className="block mb-1 font-semibold opacity-70">Nome Completo</label>
+                  <input type="text" required placeholder="Nome do Cliente" value={novoPosVenda.nome} onChange={e=>setNovoPosVenda({...novoPosVenda, nome: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} />
+                </div>
+                <div>
+                  <label className="block mb-1 font-semibold opacity-70">Telefone / Contato</label>
+                  <input type="text" required placeholder="(11) 99999-9999" value={novoPosVenda.telefone} onChange={e=>setNovoPosVenda({...novoPosVenda, telefone: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} />
+                </div>
+                <div>
+                  <label className="block mb-1 font-semibold opacity-70">Plano Contratado</label>
+                  <select value={novoPosVenda.plano} onChange={e=>setNovoPosVenda({...novoPosVenda, plano: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`}>
+                    <option value="Fibra 300MB">Fibra 300MB</option>
+                    <option value="Fibra 500MB">Fibra 500MB</option>
+                    <option value="Fibra 1GB">Fibra 1GB</option>
+                  </select>
+                </div>
+                <button type="submit" className="w-full bg-tema-primario py-3 rounded-xl font-bold uppercase tracking-wider">Cadastrar e Enviar ao Pipeline</button>
+              </form>
             </div>
           )}
 

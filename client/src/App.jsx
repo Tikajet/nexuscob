@@ -34,6 +34,13 @@ const formatarTelefone = (tel) => {
   return tel;
 };
 
+// Usuários iniciais padrão caso o localStorage esteja vazio
+const USUARIOS_INICIAIS = [
+  { id: 1, nome: 'Administrador', cargo: 'ADMIN', senha: '123456' },
+  { id: 2, nome: 'Carlos Cobrador', cargo: 'COBRADOR', senha: '123456' },
+  { id: 3, nome: 'Ana Vendedora', cargo: 'VENDEDOR', senha: '123456' }
+];
+
 export default function App() {
   const [usuario, setUsuario] = useState(null);
   const [usuarioSelecionadoId, setUsuarioSelecionadoId] = useState('');
@@ -45,7 +52,7 @@ export default function App() {
   const [menuPosVenda, setMenuPosVenda] = useState(false);
   const [menuAdmin, setMenuAdmin] = useState(false);
 
-  // Estados Globais de Dados com Persistência Imediata no Inicializador do useState
+  // Estados Globais com Persistência
   const [clientes, setClientes] = useState(() => {
     try { const salvo = localStorage.getItem('nexus_clientes'); return salvo ? JSON.parse(salvo) : []; } catch { return []; }
   });
@@ -68,17 +75,16 @@ export default function App() {
     ]; } catch { return []; }
   });
   
-  // CORREÇÃO: Garante que os novos usuários criados sejam carregados dinamicamente do localStorage
+  // Garantia total de carregamento e persistência dos usuários
   const [usuarios, setUsuarios] = useState(() => {
     try {
       const salvo = localStorage.getItem('nexus_usuarios');
-      if (salvo) return JSON.parse(salvo);
+      if (salvo) {
+        const parsed = JSON.parse(salvo);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
     } catch {}
-    return [
-      { id: 1, nome: 'Administrador', cargo: 'ADMIN', senha: '123456' },
-      { id: 2, nome: 'Carlos Cobrador', cargo: 'COBRADOR', senha: '123456' },
-      { id: 3, nome: 'Ana Vendedora', cargo: 'VENDEDOR', senha: '123456' }
-    ];
+    return USUARIOS_INICIAIS;
   });
 
   const [chatMensagens, setChatMensagens] = useState(() => {
@@ -91,7 +97,7 @@ export default function App() {
   const [filtroAdminLista, setFiltroAdminLista] = useState('');
   const [mensagemSistema, setMensagemSistema] = useState('');
 
-  // Sincronização automática com localStorage em qualquer alteração
+  // Sincronização automática com localStorage
   useEffect(() => {
     localStorage.setItem('nexus_clientes', JSON.stringify(clientes));
     localStorage.setItem('nexus_posVendas', JSON.stringify(posVendas));
@@ -889,12 +895,15 @@ export default function App() {
                 <form onSubmit={(e)=>{
                   e.preventDefault(); 
                   const nomeDigitado = novoUsuario.nome.trim();
+                  if (!nomeDigitado) return;
                   if (usuarios.some(u => u.nome.trim().toLowerCase() === nomeDigitado.toLowerCase())) {
                     alert('Já existe um operador com este nome!');
                     return;
                   }
-                  const atualizados = [...usuarios, {id: Date.now(), ...novoUsuario, nome: nomeDigitado}]; 
+                  const novoObj = { id: Date.now(), ...novoUsuario, nome: nomeDigitado };
+                  const atualizados = [...usuarios, novoObj];
                   setUsuarios(atualizados);
+                  localStorage.setItem('nexus_usuarios', JSON.stringify(atualizados));
                   alert('Usuário cadastrado com sucesso!'); 
                   setNovoUsuario({nome:'', cargo:'COBRADOR', senha:'123456'});
                 }} className="space-y-3 text-xs">
@@ -926,6 +935,7 @@ export default function App() {
                         if (usuarios.length <= 1) { alert('Você não pode excluir o último usuário do sistema!'); return; }
                         const atualizados = usuarios.filter(x => x.id !== u.id); 
                         setUsuarios(atualizados); 
+                        localStorage.setItem('nexus_usuarios', JSON.stringify(atualizados));
                       }} className="text-red-500 p-2 hover:bg-red-500/15 rounded-lg transition-all"><Trash2 className="w-4 h-4"/></button>
                     </div>
                   ))}

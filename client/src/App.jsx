@@ -45,47 +45,63 @@ export default function App() {
   const [menuPosVenda, setMenuPosVenda] = useState(false);
   const [menuAdmin, setMenuAdmin] = useState(false);
 
-  // Estados Globais de Dados com Persistência
-  const [clientes, setClientes] = useState([]); 
-  const [posVendas, setPosVendas] = useState([]); 
-  const [contatosAtivos, setContatosAtivos] = useState([]); 
-  const [listaUpgrade, setListaUpgrade] = useState([]); 
-  const [agenda, setAgenda] = useState([]); 
-  const [scripts, setScripts] = useState([
-    { titulo: 'Abordagem Inicial - 30 Dias', conteudo: 'Olá [Nome], identificamos um título em aberto vencido há 30 dias no valor de R$ [Valor]. Podemos negociar hoje?' },
-    { titulo: 'Oferta de Up-Grade Fibra', conteudo: 'Olá [Nome], temos uma condição especial para dobrar a velocidade da sua internet atual mantendo um valor excelente!' }
-  ]);
-  const [usuarios, setUsuarios] = useState([
-    { id: 1, nome: 'Administrador', email: 'admin@nexus.com.br', cargo: 'ADMIN', senha: '123456' },
-    { id: 2, nome: 'Carlos Cobrador', email: 'carlos@nexus.com.br', cargo: 'COBRADOR', senha: '123456' },
-    { id: 3, nome: 'Ana Vendedora', email: 'ana@nexus.com.br', cargo: 'VENDEDOR', senha: '123456' }
-  ]);
-  const [chatMensagens, setChatMensagens] = useState([
-    { usuario: 'Administrador', texto: 'Bem-vindos ao Nexus Cob! Foco nos resultados da equipe hoje.' }
-  ]);
+  // Estados Globais de Dados com Persistência Imediata no Inicializador do useState
+  const [clientes, setClientes] = useState(() => {
+    try { const salvo = localStorage.getItem('nexus_clientes'); return salvo ? JSON.parse(salvo) : []; } catch { return []; }
+  });
+  const [posVendas, setPosVendas] = useState(() => {
+    try { const salvo = localStorage.getItem('nexus_posVendas'); return salvo ? JSON.parse(salvo) : []; } catch { return []; }
+  });
+  const [contatosAtivos, setContatosAtivos] = useState(() => {
+    try { const salvo = localStorage.getItem('nexus_contatosAtivos'); return salvo ? JSON.parse(salvo) : []; } catch { return []; }
+  });
+  const [listaUpgrade, setListaUpgrade] = useState(() => {
+    try { const salvo = localStorage.getItem('nexus_listaUpgrade'); return salvo ? JSON.parse(salvo) : []; } catch { return []; }
+  });
+  const [agenda, setAgenda] = useState(() => {
+    try { const salvo = localStorage.getItem('nexus_agenda'); return salvo ? JSON.parse(salvo) : []; } catch { return []; }
+  });
+  const [scripts, setScripts] = useState(() => {
+    try { const salvo = localStorage.getItem('nexus_scripts'); return salvo ? JSON.parse(salvo) : [
+      { titulo: 'Abordagem Inicial - 30 Dias', conteudo: 'Olá [Nome], identificamos um título em aberto vencido há 30 dias no valor de R$ [Valor]. Podemos negociar hoje?' },
+      { titulo: 'Oferta de Up-Grade Fibra', conteudo: 'Olá [Nome], temos uma condição especial para dobrar a velocidade da sua internet atual mantendo um valor excelente!' }
+    ]; } catch { return []; }
+  });
+  
+  // CORREÇÃO: Garante que os novos usuários criados sejam carregados dinamicamente do localStorage
+  const [usuarios, setUsuarios] = useState(() => {
+    try {
+      const salvo = localStorage.getItem('nexus_usuarios');
+      if (salvo) return JSON.parse(salvo);
+    } catch {}
+    return [
+      { id: 1, nome: 'Administrador', cargo: 'ADMIN', senha: '123456' },
+      { id: 2, nome: 'Carlos Cobrador', cargo: 'COBRADOR', senha: '123456' },
+      { id: 3, nome: 'Ana Vendedora', cargo: 'VENDEDOR', senha: '123456' }
+    ];
+  });
+
+  const [chatMensagens, setChatMensagens] = useState(() => {
+    try { const salvo = localStorage.getItem('nexus_chatMensagens'); return salvo ? JSON.parse(salvo) : [
+      { usuario: 'Administrador', texto: 'Bem-vindos ao Nexus Cob! Foco nos resultados da equipe hoje.' }
+    ]; } catch { return []; }
+  });
 
   const [listasSelecionadas, setListasSelecionadas] = useState({ cobranca: [], vendas_ativas: [], upgrade: [], pos_vendas: [] });
   const [filtroAdminLista, setFiltroAdminLista] = useState('');
   const [mensagemSistema, setMensagemSistema] = useState('');
-  const [dadosCarregados, setDadosCarregados] = useState(false);
 
-  // Carregamento inicial do localStorage
+  // Sincronização automática com localStorage em qualquer alteração
   useEffect(() => {
-    const chaves = { clientes: setClientes, posVendas: setPosVendas, contatosAtivos: setContatosAtivos, listaUpgrade: setListaUpgrade, agenda: setAgenda, scripts: setScripts, usuarios: setUsuarios, chatMensagens: setChatMensagens };
-    Object.entries(chaves).forEach(([chave, setter]) => {
-      try { const salvo = localStorage.getItem(`nexus_${chave}`); if (salvo) setter(JSON.parse(salvo)); } catch (erro) { console.error(`Falha ao carregar ${chave}`, erro); }
-    });
-    setDadosCarregados(true);
-  }, []);
-
-  // Sincronização automática com localStorage
-  useEffect(() => {
-    if (!dadosCarregados) return;
-    const dados = { clientes, posVendas, contatosAtivos, listaUpgrade, agenda, scripts, usuarios, chatMensagens };
-    Object.entries(dados).forEach(([chave, valor]) => {
-      try { localStorage.setItem(`nexus_${chave}`, JSON.stringify(valor)); } catch (erro) { console.error(`Falha ao salvar ${chave}`, erro); }
-    });
-  }, [dadosCarregados, clientes, posVendas, contatosAtivos, listaUpgrade, agenda, scripts, usuarios, chatMensagens]);
+    localStorage.setItem('nexus_clientes', JSON.stringify(clientes));
+    localStorage.setItem('nexus_posVendas', JSON.stringify(posVendas));
+    localStorage.setItem('nexus_contatosAtivos', JSON.stringify(contatosAtivos));
+    localStorage.setItem('nexus_listaUpgrade', JSON.stringify(listaUpgrade));
+    localStorage.setItem('nexus_agenda', JSON.stringify(agenda));
+    localStorage.setItem('nexus_scripts', JSON.stringify(scripts));
+    localStorage.setItem('nexus_usuarios', JSON.stringify(usuarios));
+    localStorage.setItem('nexus_chatMensagens', JSON.stringify(chatMensagens));
+  }, [clientes, posVendas, contatosAtivos, listaUpgrade, agenda, scripts, usuarios, chatMensagens]);
 
   useEffect(() => {
     if (usuario && abaAtiva.startsWith('admin_') && usuario.cargo !== 'ADMIN') setAbaAtiva('dashboard');
@@ -96,7 +112,7 @@ export default function App() {
   const [categoriaCobranca, setCategoriaCobranca] = useState('30 Dias');
   const [previaPlanilha, setPreviaPlanilha] = useState([]);
   
-  const [novoUsuario, setNovoUsuario] = useState({ nome: '', email: '', cargo: 'COBRADOR', senha: '123456' });
+  const [novoUsuario, setNovoUsuario] = useState({ nome: '', cargo: 'COBRADOR', senha: '123456' });
   const [novoClienteCob, setNovoClienteCob] = useState({ codigo: '', nome: '', telefone: '', total_vencido: '', dias_atraso: '30 Dias' });
   const [novoPosVenda, setNovoPosVenda] = useState({ codigo: '', nome: '', telefone: '', plano: 'Fibra 300MB', valor_plano: '' });
   const [novoScript, setNovoScript] = useState({ titulo: '', conteudo: '' });
@@ -252,7 +268,7 @@ export default function App() {
     if (!file) return;
     const extensao = file.name.split('.').pop().toLowerCase();
     if (!['csv', 'txt'].includes(extensao)) {
-      alert('Este importador aceita arquivos CSV ou TXT delimitados por vírgula, ponto e vírgula ou tabulação.');
+      alert('Este importador aceita arquivos CSV ou TXT.');
       e.target.value = '';
       return;
     }
@@ -306,22 +322,16 @@ export default function App() {
 
   const confirmarImportacao = () => {
     if (tipoImportacao === 'cobranca') {
-      const atualizados = [...clientes, ...previaPlanilha];
-      setClientes(atualizados);
-      localStorage.setItem('nexus_clientes', JSON.stringify(atualizados));
-      alert(`${previaPlanilha.length} registros adicionados ao Pipeline de Cobrança e sincronizados!`);
+      setClientes(atual => [...atual, ...previaPlanilha]);
+      alert(`${previaPlanilha.length} registros adicionados ao Pipeline de Cobrança!`);
       setAbaAtiva('cob_pipeline');
     } else if (tipoImportacao === 'vendas_ativas') {
-      const atualizados = [...contatosAtivos, ...previaPlanilha];
-      setContatosAtivos(atualizados);
-      localStorage.setItem('nexus_contatosAtivos', JSON.stringify(atualizados));
-      alert(`${previaPlanilha.length} registros adicionados aos Contatos Ativos e sincronizados!`);
+      setContatosAtivos(atual => [...atual, ...previaPlanilha]);
+      alert(`${previaPlanilha.length} registros adicionados aos Contatos Ativos!`);
       setAbaAtiva('pos_contatos');
     } else if (tipoImportacao === 'upgrade') {
-      const atualizados = [...listaUpgrade, ...previaPlanilha];
-      setListaUpgrade(atualizados);
-      localStorage.setItem('nexus_listaUpgrade', JSON.stringify(atualizados));
-      alert(`${previaPlanilha.length} registros adicionados à Lista de Up-Grade e sincronizados!`);
+      setListaUpgrade(atual => [...atual, ...previaPlanilha]);
+      alert(`${previaPlanilha.length} registros adicionados à Lista de Up-Grade!`);
       setAbaAtiva('pos_upgrade');
     }
     setPreviaPlanilha([]);
@@ -884,12 +894,11 @@ export default function App() {
                     return;
                   }
                   const atualizados = [...usuarios, {id: Date.now(), ...novoUsuario, nome: nomeDigitado}]; 
-                  setUsuarios(atualizados); 
-                  localStorage.setItem('nexus_usuarios', JSON.stringify(atualizados)); 
+                  setUsuarios(atualizados);
                   alert('Usuário cadastrado com sucesso!'); 
-                  setNovoUsuario({nome:'', email:'', cargo:'COBRADOR', senha:'123456'});
+                  setNovoUsuario({nome:'', cargo:'COBRADOR', senha:'123456'});
                 }} className="space-y-3 text-xs">
-                  <div><label className="block mb-1 font-semibold opacity-70">Nome do Operador</label><input type="text" required value={novoUsuario.nome} onChange={e=>setNovoUsuario({...novoUsuario, nome: e.target.value})} placeholder="Ex: João Silva" className={`w-full ${InputStyle} border p-3 rounded-xl`} /></div>
+                  <div><label className="block mb-1 font-semibold opacity-70">Nome do Operador</label><input type="text" required value={novoUsuario.nome} onChange={e=>setNovoUsuario({...novoUsuario, nome: e.target.value})} placeholder="Ex: JESSICA" className={`w-full ${InputStyle} border p-3 rounded-xl`} /></div>
                   <div><label className="block mb-1 font-semibold opacity-70">Senha de Acesso</label><input type="password" required minLength={4} value={novoUsuario.senha} onChange={e=>setNovoUsuario({...novoUsuario, senha: e.target.value})} placeholder="••••••" className={`w-full ${InputStyle} border p-3 rounded-xl`} /></div>
                   <div>
                     <label className="block mb-1 font-semibold opacity-70">Cargo / Permissão</label>
@@ -913,7 +922,11 @@ export default function App() {
                         <p className="font-bold text-sm">{u.nome}</p>
                         <p className="opacity-60 text-[10px]">Cargo: <span className="text-indigo-500 font-bold">{u.cargo}</span> • Senha: {u.senha || '123456'}</p>
                       </div>
-                      <button onClick={() => { const atualizados = usuarios.filter(x => x.id !== u.id); setUsuarios(atualizados); localStorage.setItem('nexus_usuarios', JSON.stringify(atualizados)); }} className="text-red-500 p-2 hover:bg-red-500/15 rounded-lg transition-all"><Trash2 className="w-4 h-4"/></button>
+                      <button onClick={() => { 
+                        if (usuarios.length <= 1) { alert('Você não pode excluir o último usuário do sistema!'); return; }
+                        const atualizados = usuarios.filter(x => x.id !== u.id); 
+                        setUsuarios(atualizados); 
+                      }} className="text-red-500 p-2 hover:bg-red-500/15 rounded-lg transition-all"><Trash2 className="w-4 h-4"/></button>
                     </div>
                   ))}
                 </div>

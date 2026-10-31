@@ -11,17 +11,49 @@ const pool = new Pool({
   ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
 
-// Autenticação de Login via POST
+// Inicialização automática do banco de dados
+async function initDB() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS usuarios (
+        id SERIAL PRIMARY KEY,
+        nome VARCHAR(100) NOT NULL,
+        login VARCHAR(50) UNIQUE NOT NULL,
+        senha VARCHAR(100) NOT NULL,
+        cargo VARCHAR(30) NOT NULL
+      );
+    `);
+    
+    // Insere o utilizador admin padrão caso não exista nenhum utilizador
+    const checkUser = await pool.query('SELECT count(*) FROM usuarios');
+    if (parseInt(checkUser.rows[0].count) === 0) {
+      await pool.query(`
+        INSERT INTO usuarios (nome, login, senha, cargo) 
+        VALUES ('Administrador', 'admin', '123456', 'ADMIN');
+      `);
+      console.log('Utilizador admin inicial criado com sucesso!');
+    }
+  } catch (err) {
+    console.error('Erro ao inicializar base de dados:', err);
+  }
+}
+initDB();
+
+// Rota de Login
 app.post('/api/login', async (req, res) => {
   const { login, senha } = req.body;
   try {
-    const result = await pool.query('SELECT * FROM usuarios WHERE LOWER(login) = LOWER($1) AND senha = $2', [login, senha]);
+    const result = await pool.query(
+      'SELECT * FROM usuarios WHERE LOWER(login) = LOWER($1) AND senha = $2', 
+      [login, senha]
+    );
     if (result.rows.length === 0) {
       return res.status(401).json({ error: 'Login ou senha incorretos' });
     }
     const user = result.rows[0];
     res.json({ id: user.id, nome: user.nome, login: user.login, cargo: user.cargo });
   } catch (err) {
+    console.error('Erro na consulta de login:', err);
     res.status(500).json({ error: 'Erro no servidor' });
   }
 });
@@ -60,7 +92,7 @@ app.delete('/api/usuarios/:id', async (req, res) => {
   }
 });
 
-// Servir estáticos do Frontend
+// Servir os ficheiros estáticos da build do React
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
 app.get('*', (req, res) => {

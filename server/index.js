@@ -490,3 +490,11 @@ app.post('/api/clientes/confirmar-importacao', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`🚀 API NEXUS COB rodando na porta ${PORT}`);
 });
+
+// Configuração para servir o Frontend (React / Vite) compilado
+const path = require('path');
+app.use(express.static(path.join(__dirname, '../client/dist')));
+
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+});

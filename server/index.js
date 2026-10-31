@@ -11,9 +11,14 @@ const pool = new Pool({
   ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
 
-// Inicialização automática do banco de dados
+// Força a adequação da tabela de usuários com a coluna login
 async function initDB() {
+  if (!process.env.DATABASE_URL) {
+    console.error('ALERTA: A variável DATABASE_URL não está configurada!');
+    return;
+  }
   try {
+    // Garante que a coluna login exista na tabela usuarios caso ela seja antiga
     await pool.query(`
       CREATE TABLE IF NOT EXISTS usuarios (
         id SERIAL PRIMARY KEY,
@@ -22,6 +27,7 @@ async function initDB() {
         senha VARCHAR(100) NOT NULL,
         cargo VARCHAR(30) NOT NULL
       );
+      ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS login VARCHAR(50) UNIQUE;
     `);
     
     const checkUser = await pool.query('SELECT count(*) FROM usuarios');
@@ -30,10 +36,10 @@ async function initDB() {
         INSERT INTO usuarios (nome, login, senha, cargo) 
         VALUES ('Administrador', 'admin', '123456', 'ADMIN');
       `);
-      console.log('Utilizador admin inicial criado com sucesso!');
+      console.log('Usuário admin inicial criado com sucesso!');
     }
   } catch (err) {
-    console.error('Erro ao inicializar base de dados:', err);
+    console.error('Erro ao inicializar base de dados:', err.message);
   }
 }
 initDB();
@@ -52,8 +58,8 @@ app.post('/api/login', async (req, res) => {
     const user = result.rows[0];
     res.json({ id: user.id, nome: user.nome, login: user.login, cargo: user.cargo });
   } catch (err) {
-    console.error('Erro na consulta de login:', err);
-    res.status(500).json({ error: 'Erro no servidor' });
+    console.error('Erro na consulta de login:', err.message);
+    res.status(500).json({ error: `Erro no banco: ${err.message}` });
   }
 });
 
@@ -91,7 +97,7 @@ app.delete('/api/usuarios/:id', async (req, res) => {
   }
 });
 
-// Servir os arquivos estáticos da build do React
+// Servir arquivos estáticos da build do React
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
 app.get('*', (req, res) => {

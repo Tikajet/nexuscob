@@ -538,7 +538,7 @@ export default function App() {
             </div>
 
             {/* Menu Admin */}
-            {usuario.cargo === 'ADMIN' && <div>
+            {usuario.cargo === 'ADMIN' || usuario.cargo === 'ADMINISTRADOR' && <div>
               <button onClick={() => setMenuAdmin(!menuAdmin)} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${abaAtiva.startsWith('admin_') ? 'text-indigo-400 font-bold' : 'opacity-70 hover:opacity-100 hover:bg-slate-500/10'}`}>
                 <div className="flex items-center space-x-3"><Settings className="w-4 h-4"/><span>ADMINISTRAÇÃO</span></div>
                 {menuAdmin ? <ChevronDown className="w-3.5 h-3.5"/> : <ChevronRight className="w-3.5 h-3.5"/>}

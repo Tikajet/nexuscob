@@ -24,7 +24,6 @@ async function initDB() {
       );
     `);
     
-    // Insere o utilizador admin padrão caso não exista nenhum utilizador
     const checkUser = await pool.query('SELECT count(*) FROM usuarios');
     if (parseInt(checkUser.rows[0].count) === 0) {
       await pool.query(`
@@ -92,7 +91,7 @@ app.delete('/api/usuarios/:id', async (req, res) => {
   }
 });
 
-// Servir os ficheiros estáticos da build do React
+// Servir os arquivos estáticos da build do React
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
 app.get('*', (req, res) => {

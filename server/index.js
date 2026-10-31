@@ -1,9 +1,9 @@
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
 const xlsx = require('xlsx');
 const fs = require('fs');
-const path = require('path');
 const { Pool } = require('pg');
 require('dotenv').config();
 
@@ -492,9 +492,15 @@ app.listen(PORT, () => {
 });
 
 // Configuração para servir o Frontend (React / Vite) compilado
-const path = require('path');
 app.use(express.static(path.join(__dirname, '../client/dist')));
 
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+});
+
+
+// Frontend Build Serving
+app.use(express.static(path.join(__dirname, '../client/dist')));
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../client/dist/index.html'));
 });

@@ -5,38 +5,6 @@ import {
   HeartHandshake, PlusCircle, Wrench, BookOpen, CheckCircle, CalendarPlus, Star, UserPlus, Edit3, Phone, ShieldCheck, Sparkles, Lock
 } from 'lucide-react';
 
-const ESTAGIOS_COBRANCA = [
-  { id: 1, nome: 'Novos Contatos', cor: 'border-slate-500' },
-  { id: 2, nome: '1ª Tentativa', cor: 'border-blue-500' },
-  { id: 3, nome: '2ª Tentativa', cor: 'border-indigo-500' },
-  { id: 4, nome: '3ª Tentativa', cor: 'border-purple-500' },
-  { id: 5, nome: 'Em Contato', cor: 'border-amber-500' },
-  { id: 6, nome: 'Acordo Realizado', cor: 'border-emerald-500' },
-  { id: 7, nome: 'Acordo Pago', cor: 'border-teal-600' },
-  { id: 8, nome: 'Recusa Contato', cor: 'border-rose-500' }
-];
-
-const ESTAGIOS_POS_VENDA = [
-  { id: 1, nome: 'Venda Instalada', cor: 'border-blue-500' },
-  { id: 2, nome: 'Acompanhamento 15 Dias', cor: 'border-cyan-500' },
-  { id: 3, nome: 'Acompanhamento 30 Dias', cor: 'border-purple-500' },
-  { id: 4, nome: 'Satisfação do Cliente', cor: 'border-emerald-500' }
-];
-
-const formatarTelefone = (tel) => {
-  if (!tel) return 'Não informado';
-  const limpo = String(tel).replace(/\D/g, '');
-  if (limpo.length === 11) return `(${limpo.slice(0, 2)}) ${limpo.slice(2, 7)}-${limpo.slice(7)}`;
-  if (limpo.length === 10) return `(${limpo.slice(0, 2)}) ${limpo.slice(2, 6)}-${limpo.slice(6)}`;
-  return tel;
-};
-
-const USUARIOS_PADRAO = [
-  { id: 1, nome: 'Administrador', cargo: 'ADMIN', senha: '123456' },
-  { id: 2, nome: 'Carlos Cobrador', cargo: 'COBRADOR', senha: '123456' },
-  { id: 3, nome: 'Ana Vendedora', cargo: 'VENDEDOR', senha: '123456' }
-];
-
 export default function App() {
   const [usuario, setUsuario] = useState(null);
   const [usuarioSelecionadoId, setUsuarioSelecionadoId] = useState('');
@@ -48,64 +16,30 @@ export default function App() {
   const [menuPosVenda, setMenuPosVenda] = useState(false);
   const [menuAdmin, setMenuAdmin] = useState(false);
 
-  // Estados Globais com inicializadores seguros a partir do localStorage
-  const [usuarios, setUsuarios] = useState(() => {
+  // ESTADO DE USUÁRIOS BUSCADO DA API/BANCO DE DADOS
+  const [usuarios, setUsuarios] = useState([]);
+  const [carregandoUsuarios, setCarregandoUsuarios] = useState(true);
+
+  const [novoUsuario, setNovoUsuario] = useState({ nome: '', cargo: 'COBRADOR', senha: '123456' });
+
+  // Buscar usuários do banco de dados na inicialização
+  const carregarUsuariosDoBanco = async () => {
     try {
-      const salvo = localStorage.getItem('nexus_usuarios');
-      if (salvo) {
-        const dados = JSON.parse(salvo);
-        if (Array.isArray(dados) && dados.length > 0) return dados;
+      const res = await fetch('/api/usuarios');
+      if (res.ok) {
+        const dados = await res.json();
+        setUsuarios(dados);
       }
-    } catch (e) { console.error('Erro ao ler usuários', e); }
-    return USUARIOS_PADRAO;
-  });
+    } catch (err) {
+      console.error("Erro ao buscar usuários do banco", err);
+    } finally {
+      setCarregandoUsuarios(false);
+    }
+  };
 
-  const [clientes, setClientes] = useState(() => {
-    try { const salvo = localStorage.getItem('nexus_clientes'); return salvo ? JSON.parse(salvo) : []; } catch { return []; }
-  });
-  const [posVendas, setPosVendas] = useState(() => {
-    try { const salvo = localStorage.getItem('nexus_posVendas'); return salvo ? JSON.parse(salvo) : []; } catch { return []; }
-  });
-  const [contatosAtivos, setContatosAtivos] = useState(() => {
-    try { const salvo = localStorage.getItem('nexus_contatosAtivos'); return salvo ? JSON.parse(salvo) : []; } catch { return []; }
-  });
-  const [listaUpgrade, setListaUpgrade] = useState(() => {
-    try { const salvo = localStorage.getItem('nexus_listaUpgrade'); return salvo ? JSON.parse(salvo) : []; } catch { return []; }
-  });
-  const [agenda, setAgenda] = useState(() => {
-    try { const salvo = localStorage.getItem('nexus_agenda'); return salvo ? JSON.parse(salvo) : []; } catch { return []; }
-  });
-  const [scripts, setScripts] = useState(() => {
-    try {
-      const salvo = localStorage.getItem('nexus_scripts');
-      return salvo ? JSON.parse(salvo) : [
-        { titulo: 'Abordagem Inicial - 30 Dias', conteudo: 'Olá [Nome], identificamos um título em aberto vencido há 30 dias no valor de R$ [Valor]. Podemos negociar hoje?' },
-        { titulo: 'Oferta de Up-Grade Fibra', conteudo: 'Olá [Nome], temos uma condição especial para dobrar a velocidade da sua internet mantendo um valor promocional!' }
-      ];
-    } catch { return []; }
-  });
-  const [chatMensagens, setChatMensagens] = useState(() => {
-    try {
-      const salvo = localStorage.getItem('nexus_chatMensagens');
-      return salvo ? JSON.parse(salvo) : [
-        { usuario: 'Administrador', texto: 'Bem-vindos à central operacional Nexus Cob!' }
-      ];
-    } catch { return []; }
-  });
-
-  const [listasSelecionadas, setListasSelecionadas] = useState({ cobranca: [], vendas_ativas: [], upgrade: [], pos_vendas: [] });
-  const [filtroAdminLista, setFiltroAdminLista] = useState('');
-  const [mensagemSistema, setMensagemSistema] = useState('');
-
-  // Sincronização persistente dos dados
-  useEffect(() => { localStorage.setItem('nexus_usuarios', JSON.stringify(usuarios)); }, [usuarios]);
-  useEffect(() => { localStorage.setItem('nexus_clientes', JSON.stringify(clientes)); }, [clientes]);
-  useEffect(() => { localStorage.setItem('nexus_posVendas', JSON.stringify(posVendas)); }, [posVendas]);
-  useEffect(() => { localStorage.setItem('nexus_contatosAtivos', JSON.stringify(contatosAtivos)); }, [contatosAtivos]);
-  useEffect(() => { localStorage.setItem('nexus_listaUpgrade', JSON.stringify(listaUpgrade)); }, [listaUpgrade]);
-  useEffect(() => { localStorage.setItem('nexus_agenda', JSON.stringify(agenda)); }, [agenda]);
-  useEffect(() => { localStorage.setItem('nexus_scripts', JSON.stringify(scripts)); }, [scripts]);
-  useEffect(() => { localStorage.setItem('nexus_chatMensagens', JSON.stringify(chatMensagens)); }, [chatMensagens]);
+  useEffect(() => {
+    carregarUsuariosDoBanco();
+  }, []);
 
   useEffect(() => {
     localStorage.setItem('nexus_theme', temaEscuro ? 'dark' : 'light');
@@ -113,254 +47,48 @@ export default function App() {
     else document.documentElement.classList.remove('dark');
   }, [temaEscuro]);
 
-  useEffect(() => {
-    if (usuario && abaAtiva.startsWith('admin_') && usuario.cargo !== 'ADMIN') setAbaAtiva('dashboard');
-  }, [usuario, abaAtiva]);
-
-  // Estados de Formulários e Modais
-  const [buscaPipeline, setBuscaPipeline] = useState('');
-  const [tipoImportacao, setTipoImportacao] = useState('cobranca');
-  const [categoriaCobranca, setCategoriaCobranca] = useState('30 Dias');
-  const [previaPlanilha, setPreviaPlanilha] = useState([]);
-  
-  const [novoUsuario, setNovoUsuario] = useState({ nome: '', cargo: 'COBRADOR', senha: '123456' });
-  const [novoClienteCob, setNovoClienteCob] = useState({ codigo: '', nome: '', telefone: '', total_vencido: '', dias_atraso: '30 Dias' });
-  const [novoPosVenda, setNovoPosVenda] = useState({ codigo: '', nome: '', telefone: '', plano: 'Fibra 300MB', valor_plano: '' });
-  const [novoScript, setNovoScript] = useState({ titulo: '', conteudo: '' });
-  const [novaMensagem, setNovaMensagem] = useState('');
-
-  const [modalAcordo, setModalAcordo] = useState({ exibir: false, clienteId: null, valor: '', parcelas: '1' });
-  const [modalAgendaRapida, setModalAgendaRapida] = useState({ exibir: false, clienteNome: '', clienteId: '', tipo: '' });
-
-  // Autenticação Simplificada e Direta
   const handleLogin = (e) => {
     e.preventDefault();
     if (!usuarioSelecionadoId) {
-      alert('Por favor, selecione um usuário.');
+      alert('Selecione um usuário.');
       return;
     }
     const achado = usuarios.find(u => String(u.id) === String(usuarioSelecionadoId));
     if (!achado) {
-      alert('Usuário não localizado no sistema.');
+      alert('Usuário não localizado.');
       return;
     }
     if (String(achado.senha || '123456') !== String(senhaLogin)) {
-      alert('Senha incorreta para o operador selecionado.');
+      alert('Senha incorreta.');
       return;
     }
     setUsuario(achado);
   };
 
-  // Funções Kanban Drag & Drop
-  const onDragStart = (e, item) => {
-    e.dataTransfer.setData("itemId", item.id);
-    e.dataTransfer.setData("itemType", item.tipoPipeline);
-  };
-  const onDragOver = (e) => e.preventDefault();
-  const onDrop = (e, estagioId, tipoPipeline) => {
+  const cadastrarUsuarioNoBanco = async (e) => {
     e.preventDefault();
-    const id = e.dataTransfer.getData("itemId");
-    const type = e.dataTransfer.getData("itemType");
-    if (type !== tipoPipeline) return;
-
-    if (tipoPipeline === 'cobranca') {
-      if (estagioId === 6) {
-        setModalAcordo({ exibir: true, clienteId: id, valor: '', parcelas: '1' });
-      } else if (estagioId === 7) {
-        setClientes(c => c.map(x => x.id == id ? {...x, estagio_id: estagioId, valor_acordo_pago: x.valor_acordo || x.total_vencido || 0, operador_atual: usuario.nome} : x));
-      } else {
-        setClientes(c => c.map(x => x.id == id ? {...x, estagio_id: estagioId, operador_atual: usuario.nome} : x));
-      }
-    } else if (tipoPipeline === 'pos-venda') {
-      setPosVendas(p => p.map(x => x.id == id ? {...x, estagio_id: estagioId, operador_atual: usuario.nome} : x));
-    }
-  };
-
-  const confirmarAcordo = (e) => {
-    e.preventDefault();
-    setClientes(c => c.map(x => x.id == modalAcordo.clienteId ? {...x, estagio_id: 6, valor_acordo: modalAcordo.valor, valor_acordo_pago: modalAcordo.valor, operador_atual: usuario.nome} : x));
-    setModalAcordo({ exibir: false, clienteId: null, valor: '', parcelas: '1' });
-  };
-
-  const confirmarAgendaRapida = () => {
-    const amanha = new Date();
-    amanha.setDate(amanha.getDate() + 1);
-    setAgenda(atual => [...atual, { id: Date.now(), cliente_nome: modalAgendaRapida.clienteNome, clienteId: modalAgendaRapida.clienteId, data_retorno: amanha.toLocaleDateString(), tipo: modalAgendaRapida.tipo, concluido: false }]);
-    setModalAgendaRapida({ exibir: false, clienteNome: '', clienteId: '', tipo: '' });
-    alert('Retorno agendado com sucesso!');
-  };
-
-  const excluirClientePipeline = (id, tipo) => {
-    if (confirm('Deseja remover este cliente?')) {
-      if (tipo === 'cobranca') setClientes(clientes.filter(c => c.id !== id));
-      else setPosVendas(posVendas.filter(c => c.id !== id));
-    }
-  };
-
-  const salvarClienteCob = (e) => {
-    e.preventDefault();
-    const novo = {
-      id: Date.now(),
-      codigo: novoClienteCob.codigo || 'CLI-' + Math.floor(Math.random() * 1000),
-      nome: novoClienteCob.nome,
-      telefone: novoClienteCob.telefone,
-      total_vencido: novoClienteCob.total_vencido || '100.00',
-      dias_atraso: novoClienteCob.dias_atraso,
-      estagio_id: 1,
-      operador_atual: usuario.nome
-    };
-    setClientes(atual => [novo, ...atual]);
-    alert('Cliente adicionado à carteira de cobrança!');
-    setNovoClienteCob({ codigo: '', nome: '', telefone: '', total_vencido: '', dias_atraso: '30 Dias' });
-    setAbaAtiva('cob_pipeline');
-  };
-
-  const salvarClientePos = (e) => {
-    e.preventDefault();
-    const novo = {
-      id: Date.now(),
-      codigo: novoPosVenda.codigo || 'VEND-' + Math.floor(Math.random() * 1000),
-      nome: novoPosVenda.nome,
-      telefone: novoPosVenda.telefone,
-      plano: novoPosVenda.plano,
-      valor_plano: novoPosVenda.valor_plano || '0.00',
-      estagio_id: 1,
-      vendedor: usuario.nome,
-      operador_atual: usuario.nome
-    };
-    setPosVendas(atual => [novo, ...atual]);
-    alert('Cliente registrado no pipeline de vendas!');
-    setNovoPosVenda({ codigo: '', nome: '', telefone: '', plano: 'Fibra 300MB', valor_plano: '' });
-    setAbaAtiva('pos_pipeline');
-  };
-
-  // Mecanismo de Leitura de Planilhas CSV / TXT
-  const normalizarCabecalho = (v) => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
-  const lerCSV = (texto, delimitador) => {
-    const linhas = [];
-    let linha = [], campo = '', aspas = false;
-    for (let i = 0; i < texto.length; i++) {
-      const ch = texto[i];
-      if (ch === '"' && texto[i + 1] === '"' && aspas) { campo += '"'; i++; }
-      else if (ch === '"') aspas = !aspas;
-      else if (ch === delimitador && !aspas) { linha.push(campo.trim()); campo = ''; }
-      else if ((ch === '\n' || ch === '\r') && !aspas) {
-        if (ch === '\r' && texto[i + 1] === '\n') i++;
-        linha.push(campo.trim());
-        if (linha.some(v => v !== '')) linhas.push(linha);
-        linha = []; campo = '';
-      } else campo += ch;
-    }
-    linha.push(campo.trim());
-    if (linha.some(v => v !== '')) linhas.push(linha);
-    return linhas;
-  };
-
-  const handleSimularUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
     try {
-      const texto = await file.text();
-      const primeiraLinha = texto.split(/\r?\n/)[0] || '';
-      const delimitador = [',', ';', '\t'].sort((a, b) => primeiraLinha.split(b).length - primeiraLinha.split(a).length)[0];
-      const linhas = lerCSV(texto.replace(/^\uFEFF/, ''), delimitador);
-      if (linhas.length < 2) throw new Error('A planilha deve conter o cabeçalho e pelo menos um registro.');
-      const cabecalhos = linhas[0].map(normalizarCabecalho);
-      const indice = (...nomes) => cabecalhos.findIndex(h => nomes.map(normalizarCabecalho).includes(h));
-      const col = {
-        codigo: indice('codigo', 'id', 'codigocliente', 'contrato'),
-        nome: indice('nome', 'cliente', 'nomecliente', 'razaosocial'),
-        telefone: indice('telefone', 'celular', 'whatsapp', 'fone', 'telefone1'),
-        valor: indice('valordevedor', 'totalvencido', 'valorvencido', 'devedor', 'valor', 'saldo', 'debito'),
-        atraso: indice('diasatraso', 'atraso', 'categoria', 'faixaatraso'),
-        plano: indice('plano', 'planocontratado', 'planoatual'),
-        valor_plano: indice('valorplano', 'valordoplano', 'precoplano')
-      };
-      if (col.nome < 0) throw new Error('Coluna com o Nome do Cliente não foi localizada.');
-      const registros = linhas.slice(1).map((linha, i) => {
-        const valor = (idx, padrao = '') => idx >= 0 ? (linha[idx] || padrao) : padrao;
-        const registro = {
-          id: `${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}`,
-          codigo: valor(col.codigo, `REG-${i + 1}`),
-          nome: valor(col.nome), telefone: valor(col.telefone), estagio_id: 1,
-          operador_atual: usuario?.nome || 'Sistema'
-        };
-        if (tipoImportacao === 'cobranca') {
-          const bruto = valor(col.valor, '0');
-          const limpo = String(bruto).replace(/R\$\s*/g, '').replace(/\s+/g, '').replace(/\./g, '').replace(',', '.').trim();
-          registro.total_vencido = !isNaN(Number(limpo)) && limpo !== '' ? limpo : '0.00';
-          registro.dias_atraso = valor(col.atraso, categoriaCobranca) || categoriaCobranca;
-        } else {
-          registro.plano = valor(col.plano, 'Não informado');
-          const brutoP = valor(col.valor_plano, '0');
-          const limpoP = String(brutoP).replace(/R\$\s*/g, '').replace(/\s+/g, '').replace(/\./g, '').replace(',', '.').trim();
-          registro.valor_plano = !isNaN(Number(limpoP)) && limpoP !== '' ? limpoP : '0.00';
-        }
-        return registro;
-      }).filter(r => r.nome.trim());
-      setPreviaPlanilha(registros);
-      setMensagemSistema(`${registros.length} registros prontos para importação.`);
-    } catch (erro) {
-      alert(`Erro na leitura do arquivo: ${erro.message}`);
-      setPreviaPlanilha([]);
-    }
-  };
-
-  const confirmarImportacao = () => {
-    if (tipoImportacao === 'cobranca') {
-      setClientes(atual => [...atual, ...previaPlanilha]);
-      setAbaAtiva('cob_pipeline');
-    } else if (tipoImportacao === 'vendas_ativas') {
-      setContatosAtivos(atual => [...atual, ...previaPlanilha]);
-      setAbaAtiva('pos_contatos');
-    } else if (tipoImportacao === 'upgrade') {
-      setListaUpgrade(atual => [...atual, ...previaPlanilha]);
-      setAbaAtiva('pos_upgrade');
-    }
-    alert(`${previaPlanilha.length} registros importados e integrados com sucesso!`);
-    setPreviaPlanilha([]);
-    setMensagemSistema('');
-  };
-
-  const dadosDasListas = {
-    cobranca: { titulo: 'Cobrança', dados: clientes, setter: setClientes },
-    vendas_ativas: { titulo: 'Vendas ativas', dados: contatosAtivos, setter: setContatosAtivos },
-    upgrade: { titulo: 'Up-grade', dados: listaUpgrade, setter: setListaUpgrade },
-    pos_vendas: { titulo: 'Pós-vendas', dados: posVendas, setter: setPosVendas }
-  };
-
-  const alternarSelecaoLista = (tipo, id) => setListasSelecionadas(atual => ({
-    ...atual,
-    [tipo]: atual[tipo].includes(id) ? atual[tipo].filter(x => x !== id) : [...atual[tipo], id]
-  }));
-
-  const selecionarTodosLista = (tipo) => {
-    const ids = dadosDasListas[tipo].dados.map(item => item.id);
-    setListasSelecionadas(atual => ({ ...atual, [tipo]: atual[tipo].length === ids.length ? [] : ids }));
-  };
-
-  const excluirSelecionadosLista = (tipo) => {
-    const selecionados = listasSelecionadas[tipo];
-    if (!selecionados.length) return alert('Selecione ao menos um item.');
-    if (!confirm(`Remover os ${selecionados.length} registros selecionados?`)) return;
-    const { dados, setter } = dadosDasListas[tipo];
-    setter(dados.filter(item => !selecionados.includes(item.id)));
-    setListasSelecionadas(atual => ({ ...atual, [tipo]: [] }));
-  };
-
-  const excluirListaInteira = (tipo) => {
-    const { titulo, dados, setter } = dadosDasListas[tipo];
-    if (!dados.length) return alert('Esta lista está vazia.');
-    if (prompt(`Digite EXCLUIR para apagar todos os registros de ${titulo}:`) === 'EXCLUIR') {
-      setter([]);
-      setListasSelecionadas(atual => ({ ...atual, [tipo]: [] }));
+      const res = await fetch('/api/usuarios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(novoUsuario)
+      });
+      if (res.ok) {
+        alert('Usuário salvo no banco de dados com sucesso!');
+        setNovoUsuario({ nome: '', cargo: 'COBRADOR', senha: '123456' });
+        carregarUsuariosDoBanco(); // Atualiza em tempo real
+      } else {
+        alert('Erro ao salvar usuário no banco.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Erro de conexão ao salvar no banco.');
     }
   };
 
   const InputStyle = temaEscuro ? 'bg-zinc-900 border-zinc-800 text-zinc-100 focus:border-indigo-500 shadow-inner' : 'bg-white border-slate-200 text-slate-900 focus:border-indigo-600 shadow-sm';
   const CardStyle = temaEscuro ? 'bg-zinc-900/90 border-zinc-800/80 shadow-2xl backdrop-blur-xl text-zinc-100' : 'bg-white/90 border-slate-200/80 shadow-xl backdrop-blur-xl text-slate-900';
 
-  // --- TELA DE LOGIN ---
   if (!usuario) {
     return (
       <div className={`min-h-screen ${temaEscuro ? 'bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-900'} flex flex-col justify-between items-center p-6 font-sans relative overflow-hidden select-none`}>
@@ -374,20 +102,20 @@ export default function App() {
               <h1 className="text-3xl font-black tracking-wider bg-gradient-to-r from-indigo-500 to-cyan-400 bg-clip-text text-transparent">NEXUS</h1>
               <h2 className="text-sm font-bold tracking-widest uppercase opacity-80">METRONET</h2>
               <p className="text-[11px] opacity-60 mt-1 uppercase tracking-widest font-semibold flex items-center justify-center gap-1">
-                <Sparkles className="w-3.5 h-3.5 text-indigo-500"/> Gestão Operacional de Alta Performance
+                <Sparkles className="w-3.5 h-3.5 text-indigo-500"/> Gestão Operacional Conectada
               </p>
             </div>
             
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase mb-1.5 opacity-70">Operador / Usuário</label>
+                <label className="block text-xs font-bold uppercase mb-1.5 opacity-70">Operador / Usuário (Banco de Dados)</label>
                 <select 
                   required 
                   value={usuarioSelecionadoId} 
                   onChange={e => setUsuarioSelecionadoId(e.target.value)} 
                   className={`w-full ${InputStyle} border rounded-xl px-4 py-3.5 text-xs transition-all outline-none`}
                 >
-                  <option value="">-- Selecione o usuário cadastrado --</option>
+                  <option value="">{carregandoUsuarios ? 'Carregando do banco...' : '-- Selecione o operador --'}</option>
                   {usuarios.map(u => (
                     <option key={u.id} value={u.id}>{u.nome} ({u.cargo})</option>
                   ))}
@@ -419,45 +147,8 @@ export default function App() {
     );
   }
 
-  // --- INTERFACE PRINCIPAL ---
   return (
     <div className={`min-h-screen flex font-sans ${temaEscuro ? 'bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-900'}`}>
-      
-      {/* MODAL AGENDA RÁPIDA */}
-      {modalAgendaRapida.exibir && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className={`${CardStyle} border p-6 rounded-3xl max-w-sm w-full text-center space-y-4 shadow-2xl`}>
-            <CalendarPlus className="w-12 h-12 text-indigo-500 mx-auto"/>
-            <h3 className="text-lg font-bold">Agendar Retorno</h3>
-            <p className="text-xs opacity-70">Confirmar retorno de <b>{modalAgendaRapida.clienteNome}</b> para o próximo dia útil?</p>
-            <div className="flex space-x-2 pt-2">
-              <button onClick={() => setModalAgendaRapida({exibir:false, clienteNome:'', clienteId:'', tipo:''})} className="w-1/2 bg-slate-500/20 py-3 rounded-xl font-bold text-xs">Cancelar</button>
-              <button onClick={confirmarAgendaRapida} className="w-1/2 bg-indigo-600 text-white py-3 rounded-xl font-black text-xs">Confirmar</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL ACORDO */}
-      {modalAcordo.exibir && (
-        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <div className={`${CardStyle} border p-6 rounded-3xl max-w-md w-full space-y-4 shadow-2xl`}>
-            <h3 className="text-lg font-bold text-indigo-500">Registrar Acordo Realizado</h3>
-            <form onSubmit={confirmarAcordo} className="space-y-4 text-xs">
-              <div>
-                <label className="block mb-1 font-semibold opacity-70">Valor Final Acertado (R$)</label>
-                <input type="text" required value={modalAcordo.valor} onChange={e => setModalAcordo({...modalAcordo, valor: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} placeholder="0.00" />
-              </div>
-              <div className="flex space-x-2 pt-2">
-                <button type="button" onClick={() => setModalAcordo({exibir:false, clienteId:null, valor:'', parcelas:'1'})} className="w-1/2 bg-slate-500/20 py-3 rounded-xl font-bold text-xs">Cancelar</button>
-                <button type="submit" className="w-1/2 bg-indigo-600 text-white py-3 rounded-xl font-bold text-xs">Salvar Acordo</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* SIDEBAR NAVEGAÇÃO */}
       <aside className={`w-[270px] ${temaEscuro ? 'bg-zinc-900/95 border-zinc-800' : 'bg-white/95 border-slate-200'} border-r flex flex-col justify-between p-4 shadow-2xl z-10 shrink-0 backdrop-blur-md`}>
         <div className="space-y-6">
           <div className="flex items-center space-x-3 px-2 py-1">
@@ -472,317 +163,75 @@ export default function App() {
             <button onClick={() => setAbaAtiva('dashboard')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'dashboard' ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-600/30 font-bold' : 'opacity-70 hover:opacity-100 hover:bg-slate-500/10'}`}>
               <BarChart2 className="w-4 h-4"/> <span>Dashboard / Ranking</span>
             </button>
-
-            {/* Menu Cobrança */}
-            <div>
-              <button onClick={() => setMenuCobranca(!menuCobranca)} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${abaAtiva.startsWith('cob_') ? 'text-indigo-500 font-bold' : 'opacity-70 hover:opacity-100 hover:bg-slate-500/10'}`}>
-                <div className="flex items-center space-x-3"><Users className="w-4 h-4"/><span>COBRANÇA</span></div>
-                {menuCobranca ? <ChevronDown className="w-3.5 h-3.5"/> : <ChevronRight className="w-3.5 h-3.5"/>}
+            
+            {usuario.cargo === 'ADMIN' && (
+              <button onClick={() => setAbaAtiva('admin_usuarios')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'admin_usuarios' ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-600/30 font-bold' : 'opacity-70 hover:opacity-100 hover:bg-slate-500/10'}`}>
+                <Settings className="w-4 h-4"/> <span>Usuários e Permissões</span>
               </button>
-              {menuCobranca && (
-                <div className="ml-4 mt-1 border-l-2 border-indigo-500/30 space-y-1 pl-2 text-[11px]">
-                  <button onClick={() => setAbaAtiva('cob_pipeline')} className={`w-full text-left py-2 px-3 rounded-lg transition-all ${abaAtiva === 'cob_pipeline' ? 'text-indigo-500 bg-indigo-500/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Pipeline Cobrança</button>
-                  <button onClick={() => setAbaAtiva('cob_cadastro')} className={`w-full text-left py-2 px-3 rounded-lg transition-all ${abaAtiva === 'cob_cadastro' ? 'text-indigo-500 bg-indigo-500/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Cadastro de Cliente</button>
-                  <button onClick={() => setAbaAtiva('cob_agenda')} className={`w-full text-left py-2 px-3 rounded-lg transition-all ${abaAtiva === 'cob_agenda' ? 'text-indigo-500 bg-indigo-500/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Sua Agenda</button>
-                  <button onClick={() => setAbaAtiva('cob_scripts')} className={`w-full text-left py-2 px-3 rounded-lg transition-all ${abaAtiva === 'cob_scripts' ? 'text-indigo-500 bg-indigo-500/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Script de Cobrança</button>
-                  <button onClick={() => setAbaAtiva('cob_contatos')} className={`w-full text-left py-2 px-3 rounded-lg transition-all ${abaAtiva === 'cob_contatos' ? 'text-indigo-500 bg-indigo-500/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Contatos (Lista Telefônica)</button>
-                  <button onClick={() => setAbaAtiva('cob_chat')} className={`w-full text-left py-2 px-3 rounded-lg transition-all ${abaAtiva === 'cob_chat' ? 'text-indigo-500 bg-indigo-500/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Chat Interno (Cob)</button>
-                </div>
-              )}
-            </div>
-
-            {/* Menu Pós-Vendas */}
-            <div>
-              <button onClick={() => setMenuPosVenda(!menuPosVenda)} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${abaAtiva.startsWith('pos_') ? 'text-indigo-500 font-bold' : 'opacity-70 hover:opacity-100 hover:bg-slate-500/10'}`}>
-                <div className="flex items-center space-x-3"><HeartHandshake className="w-4 h-4"/><span>PÓS-VENDAS</span></div>
-                {menuPosVenda ? <ChevronDown className="w-3.5 h-3.5"/> : <ChevronRight className="w-3.5 h-3.5"/>}
-              </button>
-              {menuPosVenda && (
-                <div className="ml-4 mt-1 border-l-2 border-indigo-500/30 space-y-1 pl-2 text-[11px]">
-                  <button onClick={() => setAbaAtiva('pos_pipeline')} className={`w-full text-left py-2 px-3 rounded-lg transition-all ${abaAtiva === 'pos_pipeline' ? 'text-indigo-500 bg-indigo-500/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Pipeline Vendas</button>
-                  <button onClick={() => setAbaAtiva('pos_cadastro')} className={`w-full text-left py-2 px-3 rounded-lg transition-all ${abaAtiva === 'pos_cadastro' ? 'text-indigo-500 bg-indigo-500/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Cadastro de Cliente</button>
-                  <button onClick={() => setAbaAtiva('pos_agenda')} className={`w-full text-left py-2 px-3 rounded-lg transition-all ${abaAtiva === 'pos_agenda' ? 'text-indigo-500 bg-indigo-500/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Agenda (Vendas)</button>
-                  <button onClick={() => setAbaAtiva('pos_contatos')} className={`w-full text-left py-2 px-3 rounded-lg transition-all ${abaAtiva === 'pos_contatos' ? 'text-indigo-500 bg-indigo-500/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Contatos Ativos (Lista)</button>
-                  <button onClick={() => setAbaAtiva('pos_upgrade')} className={`w-full text-left py-2 px-3 rounded-lg transition-all ${abaAtiva === 'pos_upgrade' ? 'text-indigo-500 bg-indigo-500/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Lista Up-Grade</button>
-                  <button onClick={() => setAbaAtiva('pos_scripts')} className={`w-full text-left py-2 px-3 rounded-lg transition-all ${abaAtiva === 'pos_scripts' ? 'text-indigo-500 bg-indigo-500/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Script de Vendas</button>
-                  <button onClick={() => setAbaAtiva('pos_chat')} className={`w-full text-left py-2 px-3 rounded-lg transition-all ${abaAtiva === 'pos_chat' ? 'text-indigo-500 bg-indigo-500/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Chat Interno (Vendas)</button>
-                </div>
-              )}
-            </div>
-
-            {/* Menu Admin */}
-            {usuario.cargo === 'ADMIN' && <div>
-              <button onClick={() => setMenuAdmin(!menuAdmin)} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${abaAtiva.startsWith('admin_') ? 'text-indigo-500 font-bold' : 'opacity-70 hover:opacity-100 hover:bg-slate-500/10'}`}>
-                <div className="flex items-center space-x-3"><Settings className="w-4 h-4"/><span>ADMINISTRAÇÃO</span></div>
-                {menuAdmin ? <ChevronDown className="w-3.5 h-3.5"/> : <ChevronRight className="w-3.5 h-3.5"/>}
-              </button>
-              {menuAdmin && (
-                <div className="ml-4 mt-1 border-l-2 border-indigo-500/30 space-y-1 pl-2 text-[11px]">
-                  <button onClick={() => setAbaAtiva('admin_usuarios')} className={`w-full text-left py-2 px-3 rounded-lg transition-all ${abaAtiva === 'admin_usuarios' ? 'text-indigo-500 bg-indigo-500/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Usuários e Permissões</button>
-                  <button onClick={() => setAbaAtiva('admin_listas')} className={`w-full text-left py-2 px-3 rounded-lg transition-all ${abaAtiva === 'admin_listas' ? 'text-indigo-500 bg-indigo-500/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Importar Listas</button>
-                </div>
-              )}
-            </div>}
+            )}
           </nav>
         </div>
 
         <div className="pt-4 border-t border-slate-500/20 space-y-3">
-          <button onClick={() => setTemaEscuro(!temaEscuro)} className="w-full flex items-center justify-center space-x-2 bg-slate-500/10 hover:bg-slate-500/20 py-2.5 rounded-xl text-xs font-semibold transition-all">
-            {temaEscuro ? <Sun className="w-4 h-4 text-amber-500"/> : <Moon className="w-4 h-4 text-indigo-500"/>}
-            <span>{temaEscuro ? 'Tema Claro' : 'Tema Escuro'}</span>
-          </button>
-          
           <div className="bg-slate-500/10 p-3 rounded-2xl flex items-center justify-between text-xs border border-slate-500/10">
             <div>
               <p className="font-bold truncate max-w-[120px]">{usuario.nome}</p>
               <p className="text-[9px] text-indigo-500 font-bold">{usuario.cargo}</p>
             </div>
-            <button onClick={() => setUsuario(null)} className="text-red-500 hover:bg-red-500/15 p-1.5 rounded-lg transition-all" title="Sair"><LogOut className="w-4 h-4"/></button>
+            <button onClick={() => setUsuario(null)} className="text-red-500 hover:bg-red-500/15 p-1.5 rounded-lg transition-all"><LogOut className="w-4 h-4"/></button>
           </div>
         </div>
       </aside>
 
-      {/* ÁREA PRINCIPAL */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden">
-        <header className={`h-16 ${CardStyle} border-b flex items-center justify-between px-6 shrink-0`}>
-          <h2 className="text-xs font-black uppercase tracking-wider text-indigo-500">{abaAtiva.replace('_', ' - ')}</h2>
-          <div className="relative w-72">
-            <Search className="w-4 h-4 opacity-50 absolute left-3.5 top-3"/>
-            <input type="text" placeholder="Buscar registros..." value={buscaPipeline} onChange={e => setBuscaPipeline(e.target.value)} className={`w-full ${InputStyle} border rounded-full pl-10 pr-4 py-2 text-xs transition-all outline-none`} />
+      <main className="flex-1 flex flex-col h-screen overflow-hidden p-6 space-y-6">
+        {abaAtiva === 'dashboard' && (
+          <div className={`${CardStyle} border p-6 rounded-3xl space-y-4`}>
+            <h2 className="text-lg font-bold text-indigo-500">Sistema Conectado ao Banco de Dados Principal</h2>
+            <p className="text-xs opacity-70">Todos os logins agora compartilham o mesmo banco de dados sincronizado em nuvem.</p>
           </div>
-        </header>
+        )}
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          
-          {/* DASHBOARD */}
-          {abaAtiva === 'dashboard' && (
-            <div className="space-y-6">
-              <div className="grid grid-cols-3 gap-6">
-                <div className={`${CardStyle} border p-5 rounded-3xl shadow-lg`}><h3 className="font-bold border-b border-slate-500/20 pb-2 mb-2 text-xs opacity-70 uppercase">Carteira Cobrança</h3><p className="text-3xl font-black text-indigo-500">{clientes.length} Clientes</p></div>
-                <div className={`${CardStyle} border p-5 rounded-3xl shadow-lg`}><h3 className="font-bold border-b border-slate-500/20 pb-2 mb-2 text-xs opacity-70 uppercase">Vendas Ativas</h3><p className="text-3xl font-black text-cyan-500">{contatosAtivos.length} Contatos</p></div>
-                <div className={`${CardStyle} border p-5 rounded-3xl shadow-lg`}><h3 className="font-bold border-b border-slate-500/20 pb-2 mb-2 text-xs opacity-70 uppercase">Up-Grades Disponíveis</h3><p className="text-3xl font-black text-purple-500">{listaUpgrade.length} Oportunidades</p></div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-6">
-                {/* RANKING COBRANÇA */}
-                <div className={`${CardStyle} border p-6 rounded-3xl space-y-4 shadow-xl`}>
-                  <h3 className="font-bold text-indigo-500 border-b border-slate-500/20 pb-2 text-xs uppercase">Ranking de Acordos Pagos</h3>
-                  <div className="space-y-3">
-                    {(() => {
-                      const pagos = clientes.filter(c => c.estagio_id === 7 || (c.estagio_id === 6 && c.valor_acordo_pago));
-                      const porOperador = {};
-                      pagos.forEach(c => {
-                        const op = c.operador_atual || 'Geral';
-                        const val = parseFloat(c.valor_acordo_pago || c.valor_acordo || 0);
-                        if (!porOperador[op]) porOperador[op] = { valor: 0, qtd: 0 };
-                        porOperador[op].valor += val;
-                        porOperador[op].qtd += 1;
-                      });
-                      const ranking = Object.entries(porOperador).sort((a,b) => b[1].valor - a[1].valor);
-                      return ranking.map(([op, dados], idx) => (
-                        <div key={idx} className="p-3.5 bg-slate-500/10 border border-slate-500/20 rounded-2xl text-xs flex justify-between items-center">
-                          <div>
-                            <p className="font-bold">{idx + 1}. {op}</p>
-                            <p className="opacity-70 text-[10px]">{dados.qtd} acordo(s)</p>
-                          </div>
-                          <span className="text-emerald-500 font-black text-sm">R$ {dados.valor.toFixed(2)}</span>
-                        </div>
-                      ));
-                    })()}
-                  </div>
+        {abaAtiva === 'admin_usuarios' && (
+          <div className="grid grid-cols-3 gap-6">
+            <div className={`${CardStyle} border p-6 rounded-3xl space-y-4 h-fit shadow-xl`}>
+              <h3 className="font-bold text-indigo-500 border-b border-slate-500/20 pb-2 text-xs uppercase">Novo Usuário (Salva no Banco)</h3>
+              <form onSubmit={cadastrarUsuarioNoBanco} className="space-y-3 text-xs">
+                <div>
+                  <label className="block mb-1 font-semibold opacity-70">Nome do Operador</label>
+                  <input type="text" required value={novoUsuario.nome} onChange={e=>setNovoUsuario({...novoUsuario, nome: e.target.value})} placeholder="Ex: JESSICA" className={`w-full ${InputStyle} border p-3 rounded-xl outline-none`} />
                 </div>
-
-                {/* RANKING VENDAS */}
-                <div className={`${CardStyle} border p-6 rounded-3xl space-y-4 shadow-xl`}>
-                  <h3 className="font-bold text-indigo-500 border-b border-slate-500/20 pb-2 text-xs uppercase">Ranking de Vendas</h3>
-                  <div className="space-y-3">
-                    {(() => {
-                      const porVendedor = {};
-                      posVendas.forEach(v => {
-                        const vend = v.vendedor || 'Geral';
-                        const val = parseFloat(v.valor_plano || 0);
-                        if (!porVendedor[vend]) porVendedor[vend] = { valor: 0, qtd: 0 };
-                        porVendedor[vend].valor += val;
-                        porVendedor[vend].qtd += 1;
-                      });
-                      const rankingV = Object.entries(porVendedor).sort((a,b) => b[1].valor - a[1].valor);
-                      return rankingV.map(([vend, dados], idx) => (
-                        <div key={idx} className="p-3.5 bg-slate-500/10 border border-slate-500/20 rounded-2xl text-xs flex justify-between items-center">
-                          <div>
-                            <p className="font-bold">{idx + 1}. {vend}</p>
-                            <p className="opacity-70 text-[10px]">{dados.qtd} venda(s)</p>
-                          </div>
-                          <span className="text-cyan-500 font-black text-sm">R$ {dados.valor.toFixed(2)}</span>
-                        </div>
-                      ));
-                    })()}
-                  </div>
+                <div>
+                  <label className="block mb-1 font-semibold opacity-70">Senha de Acesso</label>
+                  <input type="password" required minLength={4} value={novoUsuario.senha} onChange={e=>setNovoUsuario({...novoUsuario, senha: e.target.value})} placeholder="••••••" className={`w-full ${InputStyle} border p-3 rounded-xl outline-none`} />
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* PIPELINE COBRANÇA */}
-          {abaAtiva === 'cob_pipeline' && (
-            <div className="flex gap-4 overflow-x-auto h-[75vh] pb-4">
-              {ESTAGIOS_COBRANCA.map(estagio => {
-                const lista = clientes.filter(c => (c.estagio_id || 1) === estagio.id && c.nome.toLowerCase().includes(buscaPipeline.toLowerCase()));
-                return (
-                  <div key={estagio.id} onDragOver={onDragOver} onDrop={(e) => onDrop(e, estagio.id, 'cobranca')} className={`${CardStyle} border rounded-3xl p-3.5 min-w-[270px] flex flex-col shadow-lg`}>
-                    <div className={`border-b-2 ${estagio.cor} pb-2 mb-3 flex justify-between items-center`}>
-                      <span className="text-[11px] font-bold uppercase tracking-wide">{estagio.nome}</span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full font-black bg-indigo-500/20 text-indigo-500">{lista.length}</span>
-                    </div>
-                    <div className="flex-1 overflow-y-auto space-y-3">
-                      {lista.map(cli => (
-                        <div key={cli.id} draggable onDragStart={(e) => onDragStart(e, {...cli, tipoPipeline: 'cobranca'})} className="bg-slate-500/10 border border-slate-500/20 p-3.5 rounded-2xl cursor-grab hover:border-indigo-500 transition-all shadow-sm">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <p className="text-xs font-bold">{cli.nome}</p>
-                              <p className="text-[9px] opacity-60">ID: {cli.codigo} • Tel: {formatarTelefone(cli.telefone)}</p>
-                            </div>
-                            <div className="flex items-center space-x-1">
-                              <button onClick={() => setModalAgendaRapida({exibir:true, clienteNome: cli.nome, clienteId: cli.id, tipo:'cobranca'})} className="text-indigo-500 hover:bg-slate-500/20 p-1 rounded-lg" title="Agendar Retorno"><CalendarPlus className="w-4 h-4"/></button>
-                              <button onClick={() => excluirClientePipeline(cli.id, 'cobranca')} className="text-red-500 hover:bg-red-500/15 p-1 rounded-lg" title="Excluir"><Trash2 className="w-4 h-4"/></button>
-                            </div>
-                          </div>
-                          {cli.dias_atraso && <p className="text-[9px] text-amber-500 font-bold mt-1">Atraso: {cli.dias_atraso}</p>}
-                          <p className="text-xs font-black text-rose-500 mt-2">R$ {parseFloat(cli.total_vencido||0).toFixed(2)}</p>
-                          {cli.valor_acordo > 0 && <p className="text-[10px] font-bold text-emerald-500">Acordo: R$ {cli.valor_acordo}</p>}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-          {/* CADASTRO DE USUÁRIOS (ADMIN) */}
-          {abaAtiva === 'admin_usuarios' && (
-            <div className="grid grid-cols-3 gap-6">
-              <div className={`${CardStyle} border p-6 rounded-3xl space-y-4 h-fit shadow-xl`}>
-                <h3 className="font-bold text-indigo-500 border-b border-slate-500/20 pb-2 text-xs uppercase">Novo Usuário</h3>
-                <form onSubmit={(e)=>{
-                  e.preventDefault(); 
-                  const nomeDigitado = novoUsuario.nome.trim();
-                  if (!nomeDigitado) return;
-                  if (usuarios.some(u => u.nome.trim().toLowerCase() === nomeDigitado.toLowerCase())) {
-                    alert('Já existe um operador cadastrado com este nome!');
-                    return;
-                  }
-                  const novoObj = { id: Date.now(), ...novoUsuario, nome: nomeDigitado };
-                  setUsuarios(prev => [...prev, novoObj]);
-                  alert('Usuário cadastrado com sucesso!'); 
-                  setNovoUsuario({nome:'', cargo:'COBRADOR', senha:'123456'});
-                }} className="space-y-3 text-xs">
-                  <div>
-                    <label className="block mb-1 font-semibold opacity-70">Nome do Operador</label>
-                    <input type="text" required value={novoUsuario.nome} onChange={e=>setNovoUsuario({...novoUsuario, nome: e.target.value})} placeholder="Ex: JESSICA" className={`w-full ${InputStyle} border p-3 rounded-xl outline-none`} />
-                  </div>
-                  <div>
-                    <label className="block mb-1 font-semibold opacity-70">Senha de Acesso</label>
-                    <input type="password" required minLength={4} value={novoUsuario.senha} onChange={e=>setNovoUsuario({...novoUsuario, senha: e.target.value})} placeholder="••••••" className={`w-full ${InputStyle} border p-3 rounded-xl outline-none`} />
-                  </div>
-                  <div>
-                    <label className="block mb-1 font-semibold opacity-70">Cargo / Função</label>
-                    <select value={novoUsuario.cargo} onChange={e=>setNovoUsuario({...novoUsuario, cargo: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl outline-none`}>
-                      <option value="VENDEDOR">VENDEDOR</option>
-                      <option value="COBRADOR">COBRADOR</option>
-                      <option value="SUPERVISOR">SUPERVISOR</option>
-                      <option value="ADMIN">ADMIN</option>
-                    </select>
-                  </div>
-                  <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3.5 rounded-xl font-bold uppercase shadow-lg shadow-indigo-600/30 transition-all">Salvar Usuário</button>
-                </form>
-              </div>
-
-              <div className={`col-span-2 ${CardStyle} border p-6 rounded-3xl space-y-4 shadow-xl`}>
-                <h3 className="font-bold text-indigo-500 border-b border-slate-500/20 pb-2 text-xs uppercase">Operadores Ativos no Sistema ({usuarios.length})</h3>
-                <div className="space-y-2 max-h-[500px] overflow-y-auto">
-                  {usuarios.map(u => (
-                    <div key={u.id} className="p-3.5 bg-slate-500/10 border border-slate-500/20 rounded-2xl flex justify-between items-center text-xs shadow-sm">
-                      <div>
-                        <p className="font-bold text-sm">{u.nome}</p>
-                        <p className="opacity-60 text-[10px]">Cargo: <span className="text-indigo-500 font-bold">{u.cargo}</span> • Senha: {u.senha || '123456'}</p>
-                      </div>
-                      <button onClick={() => { 
-                        if (usuarios.length <= 1) { alert('Você não pode excluir o único usuário do sistema!'); return; }
-                        setUsuarios(prev => prev.filter(x => x.id !== u.id));
-                      }} className="text-red-500 p-2 hover:bg-red-500/15 rounded-lg transition-all" title="Excluir"><Trash2 className="w-4 h-4"/></button>
-                    </div>
-                  ))}
+                <div>
+                  <label className="block mb-1 font-semibold opacity-70">Cargo / Função</label>
+                  <select value={novoUsuario.cargo} onChange={e=>setNovoUsuario({...novoUsuario, cargo: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl outline-none`}>
+                    <option value="VENDEDOR">VENDEDOR</option>
+                    <option value="COBRADOR">COBRADOR</option>
+                    <option value="SUPERVISOR">SUPERVISOR</option>
+                    <option value="ADMIN">ADMIN</option>
+                  </select>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* IMPORTAÇÃO DE LISTAS */}
-          {abaAtiva === 'admin_listas' && (
-            <div className="space-y-6">
-              <div className={`${CardStyle} border p-6 rounded-3xl space-y-4 shadow-xl max-w-xl`}>
-                <h3 className="font-bold text-indigo-500 border-b border-slate-500/20 pb-2 text-xs uppercase">Carregar Planilha (CSV / TXT)</h3>
-                <select value={tipoImportacao} onChange={e=>setTipoImportacao(e.target.value)} className={`w-full ${InputStyle} border p-3 rounded-xl text-xs outline-none`}>
-                  <option value="cobranca">Carteira de Cobrança (Pipeline)</option>
-                  <option value="vendas_ativas">Vendas Ativas (Contatos)</option>
-                  <option value="upgrade">Oportunidades de Up-Grade</option>
-                </select>
-                <input type="file" accept=".csv,.txt" onChange={handleSimularUpload} className="w-full text-xs opacity-70 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-slate-500/20 hover:file:bg-slate-500/30 cursor-pointer"/>
-                {mensagemSistema && <p className="text-xs text-emerald-500 font-semibold">{mensagemSistema}</p>}
-                <button onClick={confirmarImportacao} disabled={previaPlanilha.length === 0} className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white py-3.5 rounded-xl font-bold uppercase text-xs shadow-lg shadow-indigo-600/30 transition-all">Processar e Integrar</button>
-              </div>
-
-              <div className={`${CardStyle} border p-6 rounded-3xl space-y-4 shadow-xl`}>
-                <h3 className="font-bold text-indigo-500 border-b border-slate-500/20 pb-2 text-xs uppercase">Gerenciamento Geral de Listas</h3>
-                {Object.entries(dadosDasListas).map(([tipo, grupo]) => (
-                  <div key={tipo} className="border border-slate-500/20 rounded-2xl p-4 flex justify-between items-center text-xs bg-slate-500/5">
-                    <div>
-                      <p className="font-bold text-sm">{grupo.titulo}</p>
-                      <p className="opacity-60 text-[10px]">{grupo.dados.length} registro(s) salvos</p>
-                    </div>
-                    <button onClick={()=>excluirListaInteira(tipo)} disabled={!grupo.dados.length} className="px-3 py-2 rounded-xl border border-red-500 text-red-500 hover:bg-red-500/10 text-xs font-bold disabled:opacity-30 transition-all">Esvaziar Lista</button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* DEMAIS ABAS FUNCIONAIS (AGENDA, SCRIPTS, CADASTROS) */}
-          {(abaAtiva === 'cob_cadastro' || abaAtiva === 'pos_cadastro') && (
-            <div className={`${CardStyle} border p-6 rounded-3xl max-w-lg space-y-4 shadow-xl`}>
-              <h3 className="font-bold text-indigo-500 border-b border-slate-500/20 pb-2 text-xs uppercase">Novo Cliente</h3>
-              <form onSubmit={abaAtiva === 'cob_cadastro' ? salvarClienteCob : salvarClientePos} className="space-y-3 text-xs">
-                <input type="text" required placeholder="Nome do Cliente" value={abaAtiva === 'cob_cadastro' ? novoClienteCob.nome : novoPosVenda.nome} onChange={e => abaAtiva === 'cob_cadastro' ? setNovoClienteCob({...novoClienteCob, nome: e.target.value}) : setNovoPosVenda({...novoPosVenda, nome: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} />
-                <input type="text" required placeholder="Telefone / Celular" value={abaAtiva === 'cob_cadastro' ? novoClienteCob.telefone : novoPosVenda.telefone} onChange={e => abaAtiva === 'cob_cadastro' ? setNovoClienteCob({...novoClienteCob, telefone: e.target.value}) : setNovoPosVenda({...novoPosVenda, telefone: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} />
-                {abaAtiva === 'cob_cadastro' ? (
-                  <input type="text" required placeholder="Valor Devedor (R$)" value={novoClienteCob.total_vencido} onChange={e => setNovoClienteCob({...novoClienteCob, total_vencido: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} />
-                ) : (
-                  <input type="text" required placeholder="Valor do Plano (R$)" value={novoPosVenda.valor_plano} onChange={e => setNovoPosVenda({...novoPosVenda, valor_plano: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} />
-                )}
-                <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3.5 rounded-xl font-bold uppercase text-xs shadow-lg shadow-indigo-600/30 transition-all">Salvar Registro</button>
+                <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3.5 rounded-xl font-bold uppercase shadow-lg shadow-indigo-600/30 transition-all">Salvar no Banco</button>
               </form>
             </div>
-          )}
 
-          {(abaAtiva === 'cob_chat' || abaAtiva === 'pos_chat') && (
-            <div className={`${CardStyle} border p-6 rounded-3xl flex flex-col h-[70vh] shadow-xl`}>
-              <h3 className="font-bold text-indigo-500 border-b border-slate-500/20 pb-2 mb-4 text-xs uppercase">Chat Interno da Equipe</h3>
-              <div className="flex-1 overflow-y-auto space-y-3 pb-4">
-                {chatMensagens.map((m, i) => (
-                  <div key={i} className={`p-3.5 rounded-2xl text-xs max-w-[70%] shadow-md ${m.usuario === usuario.nome ? 'bg-indigo-600 ml-auto text-white font-medium' : 'bg-slate-500/20'}`}>
-                    <p className="font-bold opacity-80 text-[9px] mb-0.5">{m.usuario}</p>
-                    <p>{m.texto}</p>
+            <div className={`col-span-2 ${CardStyle} border p-6 rounded-3xl space-y-4 shadow-xl`}>
+              <h3 className="font-bold text-indigo-500 border-b border-slate-500/20 pb-2 text-xs uppercase">Usuários Cadastrados no Banco ({usuarios.length})</h3>
+              <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                {usuarios.map(u => (
+                  <div key={u.id} className="p-3.5 bg-slate-500/10 border border-slate-500/20 rounded-2xl flex justify-between items-center text-xs shadow-sm">
+                    <div>
+                      <p className="font-bold text-sm">{u.nome}</p>
+                      <p className="opacity-60 text-[10px]">Cargo: <span className="text-indigo-500 font-bold">{u.cargo}</span> • Email/Login: {u.email || u.nome}</p>
+                    </div>
                   </div>
                 ))}
               </div>
-              <div className="flex space-x-2 pt-3 border-t border-slate-500/20">
-                <input type="text" placeholder="Escreva sua mensagem..." value={novaMensagem} onChange={e=>setNovaMensagem(e.target.value)} onKeyDown={e=>{if(e.key==='Enter' && novaMensagem.trim()){setChatMensagens([...chatMensagens, {usuario: usuario.nome, texto: novaMensagem}]); setNovaMensagem('');}}} className={`flex-1 ${InputStyle} border p-3 rounded-xl text-xs outline-none`} />
-                <button onClick={()=>{if(novaMensagem.trim()){setChatMensagens([...chatMensagens, {usuario: usuario.nome, texto: novaMensagem}]); setNovaMensagem('');}}} className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 rounded-xl font-bold shadow-lg shadow-indigo-600/30 transition-all"><Send className="w-4 h-4"/></button>
-              </div>
             </div>
-          )}
-
-        </div>
+          </div>
+        )}
       </main>
     </div>
   );

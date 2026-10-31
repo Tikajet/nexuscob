@@ -111,12 +111,13 @@ export default function App() {
     else document.documentElement.classList.remove('dark');
   }, [temaEscuro]);
 
-  // LOGIN ROBUSTO: Valida contra a lista atualizada de usuários salvos
+  // LOGIN CORRIGIDO: Valida e-mail (ignorando maiúsculas/minúsculas) e senha exata
   const handleLogin = (e) => {
     e.preventDefault();
-    const achado = usuarios.find(u => u.email.toLowerCase() === emailLogin.trim().toLowerCase() && String(u.senha) === String(senhaLogin));
+    const emailLimpo = emailLogin.trim().toLowerCase();
+    const achado = usuarios.find(u => u.email.trim().toLowerCase() === emailLimpo && String(u.senha) === String(senhaLogin));
     if (!achado) {
-      alert('E-mail ou senha inválidos. Verifique as credenciais cadastradas.');
+      alert('E-mail ou senha inválidos. Verifique se o e-mail cadastrado é único e se a senha está correta.');
       return;
     }
     setUsuario(achado);
@@ -853,14 +854,19 @@ export default function App() {
                 <h3 className="font-bold text-indigo-500 border-b border-slate-500/20 pb-2 text-sm uppercase">Cadastrar Novo Usuário</h3>
                 <form onSubmit={(e)=>{
                   e.preventDefault(); 
-                  const atualizados = [...usuarios, {id: Date.now(), ...novoUsuario}]; 
+                  const emailDigitado = novoUsuario.email.trim().toLowerCase();
+                  if (usuarios.some(u => u.email.trim().toLowerCase() === emailDigitado)) {
+                    alert('Já existe um usuário cadastrado com este e-mail! Use um e-mail único para cada operador.');
+                    return;
+                  }
+                  const atualizados = [...usuarios, {id: Date.now(), ...novoUsuario, email: emailDigitado}]; 
                   setUsuarios(atualizados); 
                   localStorage.setItem('nexus_usuarios', JSON.stringify(atualizados)); 
                   alert('Usuário cadastrado com sucesso e habilitado para login!'); 
                   setNovoUsuario({nome:'', email:'', cargo:'COBRADOR', senha:'123456'});
                 }} className="space-y-3 text-xs">
                   <div><label className="block mb-1 font-semibold opacity-70">Nome</label><input type="text" required value={novoUsuario.nome} onChange={e=>setNovoUsuario({...novoUsuario, nome: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} /></div>
-                  <div><label className="block mb-1 font-semibold opacity-70">E-mail</label><input type="email" required value={novoUsuario.email} onChange={e=>setNovoUsuario({...novoUsuario, email: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} /></div>
+                  <div><label className="block mb-1 font-semibold opacity-70">E-mail (Único)</label><input type="email" required value={novoUsuario.email} onChange={e=>setNovoUsuario({...novoUsuario, email: e.target.value})} placeholder="ex: teste@nexus.com.br" className={`w-full ${InputStyle} border p-3 rounded-xl`} /></div>
                   <div><label className="block mb-1 font-semibold opacity-70">Senha inicial</label><input type="password" required minLength={6} value={novoUsuario.senha} onChange={e=>setNovoUsuario({...novoUsuario, senha: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} /></div>
                   <div>
                     <label className="block mb-1 font-semibold opacity-70">Cargo / Permissão</label>

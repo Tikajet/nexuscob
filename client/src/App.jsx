@@ -36,10 +36,10 @@ export default function App() {
   const [senhaInput, setSenhaInput] = useState('');
   const [temaEscuro, setTemaEscuro] = useState(() => localStorage.getItem('nexus_theme') !== 'light');
 
-  const [abaAtiva, setAbaAtiva] = useState('dashboard');
-  const [menuCobranca, setMenuCobranca] = useState(false);
-  const [menuPosVenda, setMenuPosVenda] = useState(false);
-  const [menuAdmin, setMenuAdmin] = useState(false);
+  const [abaAtiva, setAbaAtiva] = useState('cob_pipeline');
+  const [menuCobranca, setMenuCobranca] = useState(true);
+  const [menuPosVenda, setMenuPosVenda] = useState(true);
+  const [menuAdmin, setMenuAdmin] = useState(true);
 
   // ESTADOS DO SISTEMA
   const [usuarios, setUsuarios] = useState([]);
@@ -63,7 +63,7 @@ export default function App() {
   const [novoPlano, setNovoPlano] = useState({ nome: '', valor: '' });
   const [novoScript, setNovoScript] = useState({ titulo: '', conteudo: '' });
 
-  // EFETUAR LOGIN VIA API
+  // AUTENTICAÇÃO VIA API
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -118,7 +118,7 @@ export default function App() {
     } catch { alert('Erro ao excluir.'); }
   };
 
-  // PERSISTÊNCIA LOCAL
+  // PERSISTÊNCIA LOCAL DAS LISTAS
   useEffect(() => { localStorage.setItem('nexus_clientes', JSON.stringify(clientes)); }, [clientes]);
   useEffect(() => { localStorage.setItem('nexus_posVendas', JSON.stringify(posVendas)); }, [posVendas]);
   useEffect(() => { localStorage.setItem('nexus_listaUpgrade', JSON.stringify(listaUpgrade)); }, [listaUpgrade]);
@@ -133,7 +133,7 @@ export default function App() {
     else document.documentElement.classList.remove('dark');
   }, [temaEscuro]);
 
-  // DRAG & DROP PIPELINES
+  // DRAG & DROP NOS PIPELINES
   const onDragStart = (e, item) => {
     e.dataTransfer.setData("itemId", item.id);
     e.dataTransfer.setData("itemType", item.tipoPipeline);
@@ -147,7 +147,7 @@ export default function App() {
 
     if (tipoPipeline === 'cobranca') {
       if (estagioId === 7 && usuario.cargo !== 'SUPERVISOR' && usuario.cargo !== 'ADMIN') {
-        alert('Apenas o SUPERVISOR ou ADMINISTRADOR pode mover para o estágio Acordo Pago (Confirmação de Pagamento).');
+        alert('Apenas o SUPERVISOR ou ADMINISTRADOR pode mover para o estágio Acordo Pago.');
         return;
       }
       setClientes(c => c.map(x => x.id == id ? { ...x, estagio_id: estagioId, operador: usuario.nome } : x));
@@ -160,7 +160,7 @@ export default function App() {
     setPosVendas(p => p.map(x => x.id === id ? { ...x, avaliacao: estrelas } : x));
   };
 
-  // LEITOR DE PLANILHAS
+  // LEITOR DE PLANILHAS (CSV/TXT)
   const lerCSV = (texto, delimitador) => {
     const linhas = [];
     let linha = [], campo = '', aspas = false;
@@ -218,64 +218,39 @@ export default function App() {
       setListaVendasAtivas(v => [...v, ...mapeados]);
       setAbaAtiva('pos_vendas_ativas');
     }
-    alert('Planilha importada!');
+    alert('Planilha importada com sucesso!');
     setPreviaPlanilha([]);
   };
 
   const InputStyle = temaEscuro ? 'bg-slate-900 border-slate-800 text-slate-100 focus:border-indigo-500 shadow-inner' : 'bg-white border-slate-200 text-slate-900 focus:border-indigo-600 shadow-sm';
   const CardStyle = temaEscuro ? 'bg-slate-900/90 border-slate-800/80 shadow-2xl backdrop-blur-xl text-slate-100' : 'bg-white/90 border-slate-200/80 shadow-xl backdrop-blur-xl text-slate-900';
 
-  // TELA DE LOGIN (SEM SELECTBOX DE USUÁRIOS)
   if (!usuario) {
     return (
       <div className={`min-h-screen ${temaEscuro ? 'bg-[#090D16] text-slate-100' : 'bg-slate-100 text-slate-900'} flex flex-col justify-between items-center p-6 font-sans relative overflow-hidden select-none`}>
-        <div className="absolute -top-40 -left-40 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-cyan-500/20 rounded-full blur-3xl pointer-events-none"></div>
-
         <div className="flex-1 flex flex-col justify-center items-center w-full">
           <div className={`w-full max-w-md ${CardStyle} border p-8 rounded-3xl space-y-6 relative z-10 shadow-2xl`}>
             <div className="flex flex-col items-center text-center space-y-1">
-              <div className="w-16 h-16 bg-gradient-to-tr from-indigo-600 to-cyan-500 rounded-2xl flex items-center justify-center font-black text-3xl mb-2 shadow-xl shadow-indigo-500/30 text-white">N</div>
+              <div className="w-16 h-16 bg-gradient-to-tr from-indigo-600 to-cyan-500 rounded-2xl flex items-center justify-center font-black text-3xl mb-2 shadow-xl text-white">N</div>
               <h1 className="text-3xl font-black tracking-wider bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">NEXUS</h1>
               <h2 className="text-sm font-bold tracking-widest uppercase opacity-80">METRONET B2C</h2>
-              <p className="text-[11px] opacity-60 mt-1 uppercase tracking-widest font-semibold flex items-center justify-center gap-1">
-                <Sparkles className="w-3.5 h-3.5 text-indigo-400"/> Gestão de Cobrança e Pós-Vendas
-              </p>
             </div>
             
             <form onSubmit={handleLoginSubmit} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold uppercase mb-1.5 opacity-70">Login / Usuário</label>
-                <input 
-                  type="text" 
-                  required 
-                  value={loginInput} 
-                  onChange={e => setLoginInput(e.target.value)} 
-                  placeholder="Seu usuário" 
-                  className={`w-full ${InputStyle} border rounded-xl px-4 py-3.5 text-xs outline-none`} 
-                />
+                <input type="text" required value={loginInput} onChange={e => setLoginInput(e.target.value)} placeholder="Seu usuário" className={`w-full ${InputStyle} border rounded-xl px-4 py-3.5 text-xs outline-none`} />
               </div>
               <div>
                 <label className="block text-xs font-bold uppercase mb-1.5 opacity-70">Senha de Acesso</label>
-                <input 
-                  type="password" 
-                  required 
-                  value={senhaInput} 
-                  onChange={e => setSenhaInput(e.target.value)} 
-                  placeholder="••••••••" 
-                  className={`w-full ${InputStyle} border rounded-xl px-4 py-3.5 text-xs outline-none`} 
-                />
+                <input type="password" required value={senhaInput} onChange={e => setSenhaInput(e.target.value)} placeholder="••••••••" className={`w-full ${InputStyle} border rounded-xl px-4 py-3.5 text-xs outline-none`} />
               </div>
-              <button type="submit" className="w-full bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-black py-4 rounded-xl uppercase tracking-wider text-xs shadow-lg shadow-indigo-600/30 transition-all">
+              <button type="submit" className="w-full bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white font-black py-4 rounded-xl uppercase tracking-wider text-xs shadow-lg transition-all">
                 Acessar Sistema
               </button>
             </form>
           </div>
         </div>
-
-        <footer className="w-full text-center space-y-1 py-4 text-xs opacity-70 z-10">
-          <p className="font-black tracking-widest uppercase text-[11px] text-indigo-400">DEVELOPER JET SISTEMAS</p>
-        </footer>
       </div>
     );
   }
@@ -283,11 +258,11 @@ export default function App() {
   return (
     <div className={`min-h-screen flex font-sans ${temaEscuro ? 'bg-[#090D16] text-slate-100' : 'bg-slate-100 text-slate-900'}`}>
       
-      {/* SIDEBAR */}
+      {/* SIDEBAR NAVEGAÇÃO */}
       <aside className={`w-[270px] ${temaEscuro ? 'bg-slate-900/95 border-slate-800' : 'bg-white border-slate-200'} border-r flex flex-col justify-between p-4 shadow-2xl z-10 shrink-0 backdrop-blur-md`}>
         <div className="space-y-6">
           <div className="flex items-center space-x-3 px-2 py-1">
-            <div className="w-10 h-10 bg-gradient-to-tr from-indigo-600 to-cyan-500 rounded-xl flex items-center justify-center font-black text-xl text-white shadow-lg shadow-indigo-500/30">N</div>
+            <div className="w-10 h-10 bg-gradient-to-tr from-indigo-600 to-cyan-500 rounded-xl flex items-center justify-center font-black text-xl text-white shadow-lg">N</div>
             <div>
               <span className="font-black text-lg tracking-wide">NEXUS<span className="text-indigo-400">COB</span></span>
               <p className="text-[9px] text-indigo-400 font-bold uppercase tracking-widest">Metronet Enterprise</p>
@@ -295,59 +270,53 @@ export default function App() {
           </div>
 
           <nav className="space-y-1.5 text-xs font-semibold">
-            <button onClick={() => setAbaAtiva('dashboard')} className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${abaAtiva === 'dashboard' ? 'bg-gradient-to-r from-indigo-600 to-cyan-600 text-white shadow-lg shadow-indigo-600/30 font-bold' : 'opacity-70 hover:opacity-100 hover:bg-slate-500/10'}`}>
-              <BarChart2 className="w-4 h-4"/> <span>Dashboard / Ranking</span>
-            </button>
-
             {/* SUBMENU COBRANÇA */}
             <div>
-              <button onClick={() => setMenuCobranca(!menuCobranca)} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${abaAtiva.startsWith('cob_') ? 'text-indigo-400 font-bold' : 'opacity-70 hover:opacity-100 hover:bg-slate-500/10'}`}>
+              <button onClick={() => setMenuCobranca(!menuCobranca)} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${abaAtiva.startsWith('cob_') ? 'text-indigo-400 font-bold' : 'opacity-70 hover:opacity-100'}`}>
                 <div className="flex items-center space-x-3"><Users className="w-4 h-4"/><span>COBRANÇA</span></div>
                 {menuCobranca ? <ChevronDown className="w-3.5 h-3.5"/> : <ChevronRight className="w-3.5 h-3.5"/>}
               </button>
               {menuCobranca && (
                 <div className="ml-4 mt-1 border-l-2 border-indigo-500/30 space-y-1 pl-2 text-[11px]">
-                  <button onClick={() => setAbaAtiva('cob_pipeline')} className={`w-full text-left py-2 px-3 rounded-lg transition-all ${abaAtiva === 'cob_pipeline' ? 'text-indigo-400 bg-indigo-500/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Pipeline Cobrança</button>
-                  <button onClick={() => setAbaAtiva('cob_cadastro')} className={`w-full text-left py-2 px-3 rounded-lg transition-all ${abaAtiva === 'cob_cadastro' ? 'text-indigo-400 bg-indigo-500/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Cadastro de Cliente</button>
-                  <button onClick={() => setAbaAtiva('cob_agenda')} className={`w-full text-left py-2 px-3 rounded-lg transition-all ${abaAtiva === 'cob_agenda' ? 'text-indigo-400 bg-indigo-500/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Agenda</button>
-                  <button onClick={() => setAbaAtiva('cob_scripts')} className={`w-full text-left py-2 px-3 rounded-lg transition-all ${abaAtiva === 'cob_scripts' ? 'text-indigo-400 bg-indigo-500/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Script de Vendas/Cob</button>
+                  <button onClick={() => setAbaAtiva('cob_pipeline')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'cob_pipeline' ? 'text-indigo-400 bg-indigo-500/10 font-bold' : 'opacity-70'}`}>Pipeline Cobrança</button>
+                  <button onClick={() => setAbaAtiva('cob_cadastro')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'cob_cadastro' ? 'text-indigo-400 bg-indigo-500/10 font-bold' : 'opacity-70'}`}>Cadastro de Cliente</button>
+                  <button onClick={() => setAbaAtiva('cob_agenda')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'cob_agenda' ? 'text-indigo-400 bg-indigo-500/10 font-bold' : 'opacity-70'}`}>Agenda</button>
+                  <button onClick={() => setAbaAtiva('cob_scripts')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'cob_scripts' ? 'text-indigo-400 bg-indigo-500/10 font-bold' : 'opacity-70'}`}>Script de Vendas/Cob</button>
                 </div>
               )}
             </div>
 
             {/* SUBMENU PÓS-VENDAS B2C */}
             <div>
-              <button onClick={() => setMenuPosVenda(!menuPosVenda)} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${abaAtiva.startsWith('pos_') ? 'text-indigo-400 font-bold' : 'opacity-70 hover:opacity-100 hover:bg-slate-500/10'}`}>
+              <button onClick={() => setMenuPosVenda(!menuPosVenda)} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${abaAtiva.startsWith('pos_') ? 'text-indigo-400 font-bold' : 'opacity-70 hover:opacity-100'}`}>
                 <div className="flex items-center space-x-3"><HeartHandshake className="w-4 h-4"/><span>PÓS-VENDAS B2C</span></div>
                 {menuPosVenda ? <ChevronDown className="w-3.5 h-3.5"/> : <ChevronRight className="w-3.5 h-3.5"/>}
               </button>
               {menuPosVenda && (
                 <div className="ml-4 mt-1 border-l-2 border-indigo-500/30 space-y-1 pl-2 text-[11px]">
-                  <button onClick={() => setAbaAtiva('pos_pipeline')} className={`w-full text-left py-2 px-3 rounded-lg transition-all ${abaAtiva === 'pos_pipeline' ? 'text-indigo-400 bg-indigo-500/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Pipeline Pós-Vendas</button>
-                  <button onClick={() => setAbaAtiva('pos_cadastro')} className={`w-full text-left py-2 px-3 rounded-lg transition-all ${abaAtiva === 'pos_cadastro' ? 'text-indigo-400 bg-indigo-500/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Cadastro de Cliente</button>
-                  <button onClick={() => setAbaAtiva('pos_planos')} className={`w-full text-left py-2 px-3 rounded-lg transition-all ${abaAtiva === 'pos_planos' ? 'text-indigo-400 bg-indigo-500/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Cadastro de Planos</button>
-                  <button onClick={() => setAbaAtiva('pos_upgrade')} className={`w-full text-left py-2 px-3 rounded-lg transition-all ${abaAtiva === 'pos_upgrade' ? 'text-indigo-400 bg-indigo-500/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Opção Up-Grade</button>
-                  <button onClick={() => setAbaAtiva('pos_vendas_ativas')} className={`w-full text-left py-2 px-3 rounded-lg transition-all ${abaAtiva === 'pos_vendas_ativas' ? 'text-indigo-400 bg-indigo-500/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Vendas Ativas</button>
-                  <button onClick={() => setAbaAtiva('pos_scripts')} className={`w-full text-left py-2 px-3 rounded-lg transition-all ${abaAtiva === 'pos_scripts' ? 'text-indigo-400 bg-indigo-500/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Script de Vendas</button>
+                  <button onClick={() => setAbaAtiva('pos_pipeline')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'pos_pipeline' ? 'text-indigo-400 bg-indigo-500/10 font-bold' : 'opacity-70'}`}>Pipeline Pós-Vendas</button>
+                  <button onClick={() => setAbaAtiva('pos_cadastro')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'pos_cadastro' ? 'text-indigo-400 bg-indigo-500/10 font-bold' : 'opacity-70'}`}>Cadastro de Cliente</button>
+                  <button onClick={() => setAbaAtiva('pos_planos')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'pos_planos' ? 'text-indigo-400 bg-indigo-500/10 font-bold' : 'opacity-70'}`}>Cadastro de Planos</button>
+                  <button onClick={() => setAbaAtiva('pos_upgrade')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'pos_upgrade' ? 'text-indigo-400 bg-indigo-500/10 font-bold' : 'opacity-70'}`}>Opção Up-Grade</button>
+                  <button onClick={() => setAbaAtiva('pos_vendas_ativas')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'pos_vendas_ativas' ? 'text-indigo-400 bg-indigo-500/10 font-bold' : 'opacity-70'}`}>Vendas Ativas</button>
+                  <button onClick={() => setAbaAtiva('pos_scripts')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'pos_scripts' ? 'text-indigo-400 bg-indigo-500/10 font-bold' : 'opacity-70'}`}>Script de Vendas</button>
                 </div>
               )}
             </div>
 
-            {/* SUBMENU ADMINISTRAÇÃO */}
-            {(usuario.cargo === 'ADMIN' || usuario.cargo === 'SUPERVISOR') && (
-              <div>
-                <button onClick={() => setMenuAdmin(!menuAdmin)} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${abaAtiva.startsWith('admin_') ? 'text-indigo-400 font-bold' : 'opacity-70 hover:opacity-100 hover:bg-slate-500/10'}`}>
-                  <div className="flex items-center space-x-3"><Settings className="w-4 h-4"/><span>ADMINISTRAÇÃO</span></div>
-                  {menuAdmin ? <ChevronDown className="w-3.5 h-3.5"/> : <ChevronRight className="w-3.5 h-3.5"/>}
-                </button>
-                {menuAdmin && (
-                  <div className="ml-4 mt-1 border-l-2 border-indigo-500/30 space-y-1 pl-2 text-[11px]">
-                    <button onClick={() => setAbaAtiva('admin_usuarios')} className={`w-full text-left py-2 px-3 rounded-lg transition-all ${abaAtiva === 'admin_usuarios' ? 'text-indigo-400 bg-indigo-500/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Cadastro de Usuários</button>
-                    <button onClick={() => setAbaAtiva('admin_listas')} className={`w-full text-left py-2 px-3 rounded-lg transition-all ${abaAtiva === 'admin_listas' ? 'text-indigo-400 bg-indigo-500/10 font-bold' : 'opacity-70 hover:opacity-100'}`}>Opção de Listas</button>
-                  </div>
-                )}
-              </div>
-            )}
+            {/* SUBMENU ADMINISTRAÇÃO - LIBERADO PARA TODOS */}
+            <div>
+              <button onClick={() => setMenuAdmin(!menuAdmin)} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${abaAtiva.startsWith('admin_') ? 'text-indigo-400 font-bold' : 'opacity-70 hover:opacity-100'}`}>
+                <div className="flex items-center space-x-3"><Settings className="w-4 h-4"/><span>ADMINISTRAÇÃO</span></div>
+                {menuAdmin ? <ChevronDown className="w-3.5 h-3.5"/> : <ChevronRight className="w-3.5 h-3.5"/>}
+              </button>
+              {menuAdmin && (
+                <div className="ml-4 mt-1 border-l-2 border-indigo-500/30 space-y-1 pl-2 text-[11px]">
+                  <button onClick={() => setAbaAtiva('admin_usuarios')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'admin_usuarios' ? 'text-indigo-400 bg-indigo-500/10 font-bold' : 'opacity-70'}`}>Cadastro de Usuários</button>
+                  <button onClick={() => setAbaAtiva('admin_listas')} className={`w-full text-left py-2 px-3 rounded-lg ${abaAtiva === 'admin_listas' ? 'text-indigo-400 bg-indigo-500/10 font-bold' : 'opacity-70'}`}>Opção de Listas</button>
+                </div>
+              )}
+            </div>
           </nav>
         </div>
 
@@ -401,8 +370,6 @@ export default function App() {
                           </div>
                           {cli.dias_atraso && <p className="text-[9px] text-amber-400 font-bold mt-1">Atraso: {cli.dias_atraso}</p>}
                           <p className="text-xs font-black text-rose-400 mt-2">R$ {parseFloat(cli.total_vencido||0).toFixed(2)}</p>
-                          
-                          {/* BOTÃO MICROSIP / DISCAGEM */}
                           {cli.telefone && (
                             <a href={`sip:${cli.telefone.replace(/\D/g, '')}`} className="mt-3 inline-flex items-center space-x-1 bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 px-2.5 py-1 rounded-lg text-[10px] font-bold hover:bg-indigo-600 hover:text-white transition-all">
                               <PhoneCall className="w-3 h-3"/> <span>Ligar via MicroSIP</span>
@@ -439,8 +406,6 @@ export default function App() {
                             <button onClick={() => setPosVendas(posVendas.filter(c => c.id !== cli.id))} className="text-rose-500 hover:bg-rose-500/15 p-1 rounded-lg"><Trash2 className="w-3.5 h-3.5"/></button>
                           </div>
                           <p className="text-[10px] text-cyan-400 font-semibold mt-1">Plano: {cli.plano || 'N/A'}</p>
-
-                          {/* AVALIAÇÃO DE SATISFAÇÃO COM ESTRELAS */}
                           {estagio.comAvaliacao && (
                             <div className="mt-2 pt-2 border-t border-slate-500/20 flex items-center justify-between">
                               <span className="text-[9px] font-bold opacity-70">Nota:</span>
@@ -460,136 +425,32 @@ export default function App() {
             </div>
           )}
 
-          {/* AGENDA COBRANÇA */}
-          {abaAtiva === 'cob_agenda' && (
-            <div className={`${CardStyle} border p-6 rounded-3xl space-y-4 shadow-xl max-w-2xl`}>
-              <h3 className="font-bold text-indigo-400 border-b border-slate-500/20 pb-2 text-xs uppercase">Agenda de Retornos</h3>
-              <div className="space-y-2">
-                {agenda.map(a => (
-                  <div key={a.id} className={`p-3.5 bg-slate-500/10 border border-slate-500/20 rounded-2xl text-xs flex justify-between items-center shadow-sm ${a.concluido ? 'opacity-50 line-through' : ''}`}>
-                    <div>
-                      <p className="font-bold text-sm">{a.cliente_nome}</p>
-                      <p className="opacity-70 text-[10px]">Data: <span className="text-indigo-400 font-bold">{a.data}</span></p>
-                    </div>
-                    <div className="flex space-x-2">
-                      <button onClick={() => setAgenda(agenda.map(x => x.id === a.id ? {...x, concluido: !x.concluido} : x))} className="px-3 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold">
-                        {a.concluido ? 'Reabrir' : 'Concluir'}
-                      </button>
-                      <button onClick={() => setAgenda(agenda.filter(x => x.id !== a.id))} className="text-rose-500 p-1 rounded-lg"><Trash2 className="w-4 h-4"/></button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* CADASTRO DE PLANOS (PÓS-VENDAS B2C) */}
-          {abaAtiva === 'pos_planos' && (
-            <div className="grid grid-cols-3 gap-6">
-              <div className={`${CardStyle} border p-6 rounded-3xl space-y-4 h-fit shadow-xl`}>
-                <h3 className="font-bold text-indigo-400 border-b border-slate-500/20 pb-2 text-xs uppercase">Novo Plano</h3>
-                <form onSubmit={e => { e.preventDefault(); setPlanos([...planos, { id: Date.now(), ...novoPlano }]); setNovoPlano({nome:'', valor:''}); }} className="space-y-3 text-xs">
-                  <input type="text" required placeholder="Nome do Plano" value={novoPlano.nome} onChange={e => setNovoPlano({...novoPlano, nome: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} />
-                  <input type="text" required placeholder="Valor Mensal (R$)" value={novoPlano.valor} onChange={e => setNovoPlano({...novoPlano, valor: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} />
-                  <button type="submit" className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold uppercase">Cadastrar Plano</button>
-                </form>
-              </div>
-              <div className={`col-span-2 ${CardStyle} border p-6 rounded-3xl space-y-4 shadow-xl`}>
-                <h3 className="font-bold text-indigo-400 border-b border-slate-500/20 pb-2 text-xs uppercase">Planos Cadastrados</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  {planos.map(p => (
-                    <div key={p.id} className="p-4 bg-slate-500/10 border border-slate-500/20 rounded-2xl flex justify-between items-center text-xs">
-                      <div>
-                        <p className="font-bold text-sm">{p.nome}</p>
-                        <p className="text-indigo-400 font-black">R$ {p.valor}</p>
-                      </div>
-                      <button onClick={() => setPlanos(planos.filter(x => x.id !== p.id))} className="text-rose-500"><Trash2 className="w-4 h-4"/></button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* SCRIPTS DE VENDAS */}
-          {(abaAtiva === 'cob_scripts' || abaAtiva === 'pos_scripts') && (
-            <div className="grid grid-cols-2 gap-6">
-              <div className={`${CardStyle} border p-6 rounded-3xl space-y-4 shadow-xl`}>
-                <h3 className="font-bold text-indigo-400 border-b border-slate-500/20 pb-2 text-xs uppercase">Cadastrar Script</h3>
-                <input type="text" placeholder="Título do Script" value={novoScript.titulo} onChange={e=>setNovoScript({...novoScript, titulo: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl text-xs`} />
-                <textarea rows="5" placeholder="Texto para consulta..." value={novoScript.conteudo} onChange={e=>setNovoScript({...novoScript, conteudo: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl text-xs`}></textarea>
-                <button onClick={()=>{if(novoScript.titulo){setScripts([...scripts, novoScript]); setNovoScript({titulo:'',conteudo:''});}}} className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold text-xs">Salvar Script</button>
-              </div>
-              <div className={`${CardStyle} border p-6 rounded-3xl space-y-4 shadow-xl`}>
-                <h3 className="font-bold text-indigo-400 border-b border-slate-500/20 pb-2 text-xs uppercase">Scripts de Consulta</h3>
-                <div className="space-y-3 max-h-[400px] overflow-y-auto">
-                  {scripts.map((s, i) => (
-                    <div key={i} className="p-3.5 bg-slate-500/10 border border-slate-500/20 rounded-2xl text-xs space-y-1">
-                      <p className="font-bold text-indigo-400">{s.titulo}</p>
-                      <p className="opacity-80">{s.conteudo}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* LISTA DE UP-GRADE */}
-          {abaAtiva === 'pos_upgrade' && (
+          {/* VENDAS ATIVAS */}
+          {abaAtiva === 'pos_vendas_ativas' && (
             <div className={`${CardStyle} border p-6 rounded-3xl space-y-4 shadow-xl`}>
-              <h3 className="font-bold text-indigo-400 border-b border-slate-500/20 pb-2 text-xs uppercase">Lista de Oportunidades Up-Grade</h3>
+              <h3 className="font-bold text-indigo-400 border-b border-slate-500/20 pb-2 text-xs uppercase">Lista de Vendas Ativas</h3>
               <div className="space-y-2">
-                {listaUpgrade.map(item => (
+                {listaVendasAtivas.map(item => (
                   <div key={item.id} className="p-3.5 bg-slate-500/10 border border-slate-500/20 rounded-2xl text-xs flex justify-between items-center">
                     <div>
                       <p className="font-bold">{item.nome} (ID: {item.codigo})</p>
-                      <p className="opacity-70 text-[10px]">Plano Atual: <span className="text-indigo-400 font-bold">{item.plano || 'N/A'}</span></p>
+                      <p className="opacity-70 text-[10px]">Tel: {formatarTelefone(item.telefone)}</p>
                     </div>
+                    {item.telefone && (
+                      <a href={`sip:${item.telefone.replace(/\D/g, '')}`} className="inline-flex items-center space-x-1 bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 px-2.5 py-1 rounded-lg text-[10px] font-bold hover:bg-indigo-600 hover:text-white transition-all">
+                        <PhoneCall className="w-3 h-3"/> <span>Ligar MicroSIP</span>
+                      </a>
+                    )}
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* CADASTRO DE USUÁRIOS (ADMIN) */}
-          {abaAtiva === 'admin_usuarios' && (
-            <div className="grid grid-cols-3 gap-6">
-              <div className={`${CardStyle} border p-6 rounded-3xl space-y-4 h-fit shadow-xl`}>
-                <h3 className="font-bold text-indigo-400 border-b border-slate-500/20 pb-2 text-xs uppercase">Novo Usuário</h3>
-                <form onSubmit={cadastrarUsuario} className="space-y-3 text-xs">
-                  <input type="text" required placeholder="Nome Completo" value={novoUsuario.nome} onChange={e=>setNovoUsuario({...novoUsuario, nome: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} />
-                  <input type="text" required placeholder="Login de Acesso" value={novoUsuario.login} onChange={e=>setNovoUsuario({...novoUsuario, login: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} />
-                  <input type="password" required placeholder="Senha" value={novoUsuario.senha} onChange={e=>setNovoUsuario({...novoUsuario, senha: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} />
-                  <select value={novoUsuario.cargo} onChange={e=>setNovoUsuario({...novoUsuario, cargo: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`}>
-                    <option value="COBRADOR">COBRADOR (Agente)</option>
-                    <option value="SUPERVISOR">SUPERVISOR (Acesso Total)</option>
-                    <option value="ADMIN">ADMIN (Acesso Total)</option>
-                  </select>
-                  <button type="submit" className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-bold uppercase">Cadastrar Usuário</button>
-                </form>
-              </div>
-              <div className={`col-span-2 ${CardStyle} border p-6 rounded-3xl space-y-4 shadow-xl`}>
-                <h3 className="font-bold text-indigo-400 border-b border-slate-500/20 pb-2 text-xs uppercase">Usuários do Banco de Dados ({usuarios.length})</h3>
-                <div className="space-y-2">
-                  {usuarios.map(u => (
-                    <div key={u.id} className="p-3.5 bg-slate-500/10 border border-slate-500/20 rounded-2xl flex justify-between items-center text-xs">
-                      <div>
-                        <p className="font-bold">{u.nome} ({u.login})</p>
-                        <p className="text-[10px] opacity-60">Cargo: <span className="text-indigo-400 font-bold">{u.cargo}</span></p>
-                      </div>
-                      <button onClick={() => excluirUsuario(u.id)} className="text-rose-500"><Trash2 className="w-4 h-4"/></button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* IMPORTAR LISTAS (ADMIN) */}
+          {/* IMPORTAÇÃO DE LISTAS */}
           {abaAtiva === 'admin_listas' && (
             <div className={`${CardStyle} border p-6 rounded-3xl space-y-4 shadow-xl max-w-xl`}>
               <h3 className="font-bold text-indigo-400 border-b border-slate-500/20 pb-2 text-xs uppercase">Importar Planilhas (CSV / TXT)</h3>
-              
               <div>
                 <label className="block mb-1 text-xs font-semibold opacity-70">Tipo de Lista</label>
                 <select value={tipoImportacao} onChange={e=>setTipoImportacao(e.target.value)} className={`w-full ${InputStyle} border p-3 rounded-xl text-xs`}>
@@ -612,14 +473,46 @@ export default function App() {
               )}
 
               <input type="file" accept=".csv,.txt" onChange={handleUploadPlanilha} className="w-full text-xs opacity-70 cursor-pointer"/>
-              
               {previaPlanilha.length > 0 && (
                 <div className="p-3 bg-slate-500/10 rounded-xl text-xs space-y-1">
                   <p className="font-bold text-emerald-400">{previaPlanilha.length} registro(s) prontos para importar.</p>
                 </div>
               )}
-
               <button onClick={processarImportacao} disabled={previaPlanilha.length === 0} className="w-full bg-indigo-600 disabled:opacity-40 text-white py-3.5 rounded-xl font-bold uppercase text-xs">Processar e Importar</button>
+            </div>
+          )}
+
+          {/* CADASTRO DE USUÁRIOS */}
+          {abaAtiva === 'admin_usuarios' && (
+            <div className="grid grid-cols-3 gap-6">
+              <div className={`${CardStyle} border p-6 rounded-3xl space-y-4 h-fit shadow-xl`}>
+                <h3 className="font-bold text-indigo-400 border-b border-slate-500/20 pb-2 text-xs uppercase">Novo Usuário</h3>
+                <form onSubmit={cadastrarUsuario} className="space-y-3 text-xs">
+                  <input type="text" required placeholder="Nome Completo" value={novoUsuario.nome} onChange={e=>setNovoUsuario({...novoUsuario, nome: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} />
+                  <input type="text" required placeholder="Login de Acesso" value={novoUsuario.login} onChange={e=>setNovoUsuario({...novoUsuario, login: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} />
+                  <input type="password" required placeholder="Senha" value={novoUsuario.senha} onChange={e=>setNovoUsuario({...novoUsuario, senha: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} />
+                  <select value={novoUsuario.cargo} onChange={e=>setNovoUsuario({...novoUsuario, cargo: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`}>
+                    <option value="COBRADOR">COBRADOR (Agente)</option>
+                    <option value="SUPERVISOR">SUPERVISOR (Acesso Total)</option>
+                    <option value="ADMIN">ADMIN (Acesso Total)</option>
+                  </select>
+                  <button type="submit" className="w-full bg-indigo-600 text-white py-3.5 rounded-xl font-bold uppercase">Cadastrar Usuário</button>
+                </form>
+              </div>
+              <div className={`col-span-2 ${CardStyle} border p-6 rounded-3xl space-y-4 shadow-xl`}>
+                <h3 className="font-bold text-indigo-400 border-b border-slate-500/20 pb-2 text-xs uppercase">Usuários Cadastrados ({usuarios.length})</h3>
+                <div className="space-y-2">
+                  {usuarios.map(u => (
+                    <div key={u.id} className="p-3.5 bg-slate-500/10 border border-slate-500/20 rounded-2xl flex justify-between items-center text-xs">
+                      <div>
+                        <p className="font-bold">{u.nome} ({u.login})</p>
+                        <p className="text-[10px] opacity-60">Cargo: <span className="text-indigo-400 font-bold">{u.cargo}</span></p>
+                      </div>
+                      <button onClick={() => excluirUsuario(u.id)} className="text-rose-500"><Trash2 className="w-4 h-4"/></button>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 

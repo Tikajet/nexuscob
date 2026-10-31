@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   BarChart2, Users, Calendar, Settings, MessageSquare, Search, LogOut, 
   Send, Trash2, Sun, Moon, Filter, Award, ChevronDown, ChevronRight, Upload, 
-  HeartHandshake, PlusCircle, Wrench, BookOpen, CheckCircle, CalendarPlus, Star, UserPlus, Edit3, Phone, ShieldCheck, Sparkles
+  HeartHandshake, PlusCircle, Wrench, BookOpen, CheckCircle, CalendarPlus, Star, UserPlus, Edit3, Phone, ShieldCheck, Sparkles, Lock
 } from 'lucide-react';
 
 const ESTAGIOS_COBRANCA = [
@@ -36,7 +36,7 @@ const formatarTelefone = (tel) => {
 
 export default function App() {
   const [usuario, setUsuario] = useState(null);
-  const [emailLogin, setEmailLogin] = useState('');
+  const [usuarioSelecionadoId, setUsuarioSelecionadoId] = useState('');
   const [senhaLogin, setSenhaLogin] = useState('');
   const [temaEscuro, setTemaEscuro] = useState(() => localStorage.getItem('nexus_theme') !== 'light');
 
@@ -111,13 +111,20 @@ export default function App() {
     else document.documentElement.classList.remove('dark');
   }, [temaEscuro]);
 
-  // LOGIN CORRIGIDO: Valida e-mail (ignorando maiúsculas/minúsculas) e senha exata
+  // LOGIN SIMPLIFICADO POR SELEÇÃO DE USUÁRIO E SENHA
   const handleLogin = (e) => {
     e.preventDefault();
-    const emailLimpo = emailLogin.trim().toLowerCase();
-    const achado = usuarios.find(u => u.email.trim().toLowerCase() === emailLimpo && String(u.senha) === String(senhaLogin));
+    if (!usuarioSelecionadoId) {
+      alert('Por favor, selecione um usuário.');
+      return;
+    }
+    const achado = usuarios.find(u => String(u.id) === String(usuarioSelecionadoId));
     if (!achado) {
-      alert('E-mail ou senha inválidos. Verifique se o e-mail cadastrado é único e se a senha está correta.');
+      alert('Usuário não encontrado.');
+      return;
+    }
+    if (String(achado.senha || '123456') !== String(senhaLogin)) {
+      alert('Senha incorreta.');
       return;
     }
     setUsuario(achado);
@@ -378,12 +385,29 @@ export default function App() {
             
             <form onSubmit={handleLogin} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase mb-1.5 opacity-70">E-mail Corporativo</label>
-                <input type="email" required value={emailLogin} onChange={e => setEmailLogin(e.target.value)} placeholder="seu.email@nexus.com.br" className={`w-full ${InputStyle} border rounded-xl px-4 py-3.5 text-xs transition-all`} />
+                <label className="block text-xs font-bold uppercase mb-1.5 opacity-70">Selecione o Usuário / Operador</label>
+                <select 
+                  required 
+                  value={usuarioSelecionadoId} 
+                  onChange={e => setUsuarioSelecionadoId(e.target.value)} 
+                  className={`w-full ${InputStyle} border rounded-xl px-4 py-3.5 text-xs transition-all`}
+                >
+                  <option value="">-- Clique para escolher o usuário --</option>
+                  {usuarios.map(u => (
+                    <option key={u.id} value={u.id}>{u.nome} ({u.cargo})</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-xs font-bold uppercase mb-1.5 opacity-70">Senha de Acesso</label>
-                <input type="password" required value={senhaLogin} onChange={e => setSenhaLogin(e.target.value)} placeholder="••••••••" className={`w-full ${InputStyle} border rounded-xl px-4 py-3.5 text-xs transition-all`} />
+                <input 
+                  type="password" 
+                  required 
+                  value={senhaLogin} 
+                  onChange={e => setSenhaLogin(e.target.value)} 
+                  placeholder="••••••••" 
+                  className={`w-full ${InputStyle} border rounded-xl px-4 py-3.5 text-xs transition-all`} 
+                />
               </div>
               <button type="submit" className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-black py-4 rounded-xl uppercase tracking-wider text-xs shadow-lg shadow-indigo-600/30 transition-all transform active:scale-[0.99]">
                 Entrar no Sistema
@@ -392,7 +416,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Rodapé Obrigatório com Versículo Bíblico e Assinatura */}
+        {/* Rodapé com Versículo Bíblico e Assinatura */}
         <footer className="w-full text-center space-y-2 py-4 border-t border-slate-500/20 text-xs opacity-85 z-10">
           <p className="italic font-medium max-w-xl mx-auto">"Tudo quanto fizerem, façam-no de todo o coração, como para o Senhor, e não para os homens." — Colossenses 3:23</p>
           <p className="font-black tracking-wider uppercase text-[11px] text-indigo-500">DEVELOPER JET SISTEMAS</p>
@@ -854,20 +878,19 @@ export default function App() {
                 <h3 className="font-bold text-indigo-500 border-b border-slate-500/20 pb-2 text-sm uppercase">Cadastrar Novo Usuário</h3>
                 <form onSubmit={(e)=>{
                   e.preventDefault(); 
-                  const emailDigitado = novoUsuario.email.trim().toLowerCase();
-                  if (usuarios.some(u => u.email.trim().toLowerCase() === emailDigitado)) {
-                    alert('Já existe um usuário cadastrado com este e-mail! Use um e-mail único para cada operador.');
+                  const nomeDigitado = novoUsuario.nome.trim();
+                  if (usuarios.some(u => u.nome.trim().toLowerCase() === nomeDigitado.toLowerCase())) {
+                    alert('Já existe um operador com este nome!');
                     return;
                   }
-                  const atualizados = [...usuarios, {id: Date.now(), ...novoUsuario, email: emailDigitado}]; 
+                  const atualizados = [...usuarios, {id: Date.now(), ...novoUsuario, nome: nomeDigitado}]; 
                   setUsuarios(atualizados); 
                   localStorage.setItem('nexus_usuarios', JSON.stringify(atualizados)); 
-                  alert('Usuário cadastrado com sucesso e habilitado para login!'); 
+                  alert('Usuário cadastrado com sucesso!'); 
                   setNovoUsuario({nome:'', email:'', cargo:'COBRADOR', senha:'123456'});
                 }} className="space-y-3 text-xs">
-                  <div><label className="block mb-1 font-semibold opacity-70">Nome</label><input type="text" required value={novoUsuario.nome} onChange={e=>setNovoUsuario({...novoUsuario, nome: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} /></div>
-                  <div><label className="block mb-1 font-semibold opacity-70">E-mail (Único)</label><input type="email" required value={novoUsuario.email} onChange={e=>setNovoUsuario({...novoUsuario, email: e.target.value})} placeholder="ex: teste@nexus.com.br" className={`w-full ${InputStyle} border p-3 rounded-xl`} /></div>
-                  <div><label className="block mb-1 font-semibold opacity-70">Senha inicial</label><input type="password" required minLength={6} value={novoUsuario.senha} onChange={e=>setNovoUsuario({...novoUsuario, senha: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`} /></div>
+                  <div><label className="block mb-1 font-semibold opacity-70">Nome do Operador</label><input type="text" required value={novoUsuario.nome} onChange={e=>setNovoUsuario({...novoUsuario, nome: e.target.value})} placeholder="Ex: João Silva" className={`w-full ${InputStyle} border p-3 rounded-xl`} /></div>
+                  <div><label className="block mb-1 font-semibold opacity-70">Senha de Acesso</label><input type="password" required minLength={4} value={novoUsuario.senha} onChange={e=>setNovoUsuario({...novoUsuario, senha: e.target.value})} placeholder="••••••" className={`w-full ${InputStyle} border p-3 rounded-xl`} /></div>
                   <div>
                     <label className="block mb-1 font-semibold opacity-70">Cargo / Permissão</label>
                     <select value={novoUsuario.cargo} onChange={e=>setNovoUsuario({...novoUsuario, cargo: e.target.value})} className={`w-full ${InputStyle} border p-3 rounded-xl`}>
@@ -887,8 +910,8 @@ export default function App() {
                   {usuarios.map(u => (
                     <div key={u.id} className="p-3.5 bg-slate-500/10 border border-slate-500/20 rounded-2xl flex justify-between items-center text-xs shadow-sm">
                       <div>
-                        <p className="font-bold">{u.nome}</p>
-                        <p className="opacity-60 text-[10px]">{u.email} • Cargo: <span className="text-indigo-500 font-bold">{u.cargo}</span></p>
+                        <p className="font-bold text-sm">{u.nome}</p>
+                        <p className="opacity-60 text-[10px]">Cargo: <span className="text-indigo-500 font-bold">{u.cargo}</span> • Senha: {u.senha || '123456'}</p>
                       </div>
                       <button onClick={() => { const atualizados = usuarios.filter(x => x.id !== u.id); setUsuarios(atualizados); localStorage.setItem('nexus_usuarios', JSON.stringify(atualizados)); }} className="text-red-500 p-2 hover:bg-red-500/15 rounded-lg transition-all"><Trash2 className="w-4 h-4"/></button>
                     </div>

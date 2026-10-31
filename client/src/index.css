@@ -3,29 +3,29 @@
 @tailwind utilities;
 
 :root {
-  /* TEMA CLARO - BRANCO GELO E MARSALA */
-  --color-fundo: #F5F7FA;
+  /* TEMA CLARO - SUAVIZADO */
+  --color-fundo: #F3F4F6;
   --color-card: #FFFFFF;
-  --color-texto-principal: #2C3E50;
-  --color-texto-secundario: #606F7B;
-  --color-bordas: #E2E8F0;
+  --color-texto-principal: #18181B;
+  --color-texto-secundario: #52525B;
+  --color-bordas: #E4E4E7;
   
-  --color-primaria: #8B1E3F; /* Marsala */
-  --color-primaria-hover: #701832;
-  --text-on-primary: #FFFFFF;
+  /* CORES DA MARCA NEXUS COB */
+  --color-primaria: #f97316; /* Laranja 500 */
+  --color-primaria-hover: #ea580c; /* Laranja 600 */
+  --color-ciano: #06b6d4;
+  --color-verde: #10b981;
+  --color-vermelho: #ef4444;
+  --color-amarelo: #f59e0b;
 }
 
 .dark {
-  /* TEMA ESCURO - PRETO ABSOLUTO E LARANJA */
+  /* TEMA ESCURO - PRETO ABSOLUTO E ZINC ESCURO */
   --color-fundo: #000000;
   --color-card: #121212;
   --color-texto-principal: #F4F7FB;
   --color-texto-secundario: #A1A1AA;
   --color-bordas: #27272A;
-
-  --color-primaria: #f97316; /* Laranja */
-  --color-primaria-hover: #ea580c;
-  --text-on-primary: #000000;
 }
 
 body {
@@ -35,20 +35,7 @@ body {
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
-.bg-tema-primario {
-  background-color: var(--color-primaria);
-  color: var(--text-on-primary);
-}
-.text-tema-primario {
-  color: var(--color-primaria);
-}
-.border-tema-primario {
-  border-color: var(--color-primaria);
-}
-.hover-bg-tema-primario:hover {
-  background-color: var(--color-primaria-hover);
-}
-
+/* Custom Scrollbar para combinar com o tema escuro/laranja */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;

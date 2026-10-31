@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   BarChart2, Users, Calendar, Settings, MessageSquare, Search, LogOut, 
   Send, Trash2, Sun, Moon, Filter, Award, ChevronDown, ChevronRight, Upload, 
-  HeartHandshake, PlusCircle, Wrench, BookOpen, CheckCircle, CalendarPlus, Star, UserPlus, Edit3, Phone, ShieldCheck
+  HeartHandshake, PlusCircle, Wrench, BookOpen, CheckCircle, CalendarPlus, Star, UserPlus, Edit3, Phone, ShieldCheck, Sparkles
 } from 'lucide-react';
 
 const ESTAGIOS_COBRANCA = [
@@ -78,7 +78,7 @@ export default function App() {
     setDadosCarregados(true);
   }, []);
 
-  // Sincronização automática com localStorage sempre que houver alteração
+  // Sincronização automática com localStorage
   useEffect(() => {
     if (!dadosCarregados) return;
     const dados = { clientes, posVendas, contatosAtivos, listaUpgrade, agenda, scripts, usuarios, chatMensagens };
@@ -111,12 +111,12 @@ export default function App() {
     else document.documentElement.classList.remove('dark');
   }, [temaEscuro]);
 
-  // LOGIN CORRIGIDO: Valida contra a lista unificada de usuários (inclusive novos cadastros)
+  // LOGIN ROBUSTO: Valida contra a lista atualizada de usuários salvos
   const handleLogin = (e) => {
     e.preventDefault();
     const achado = usuarios.find(u => u.email.toLowerCase() === emailLogin.trim().toLowerCase() && String(u.senha) === String(senhaLogin));
     if (!achado) {
-      alert('E-mail ou senha inválidos.');
+      alert('E-mail ou senha inválidos. Verifique as credenciais cadastradas.');
       return;
     }
     setUsuario(achado);
@@ -296,7 +296,6 @@ export default function App() {
     }
   };
 
-  // IMPORTAÇÃO GLOBAL CORRIGIDA: Salva e persiste instantaneamente no localStorage
   const confirmarImportacao = () => {
     if (tipoImportacao === 'cobranca') {
       const atualizados = [...clientes, ...previaPlanilha];
@@ -356,14 +355,12 @@ export default function App() {
     setListasSelecionadas(atual => ({ ...atual, [tipo]: [] }));
   };
 
-  // Design Profissional e Inovador (Paleta Corporativa de Alta Performance)
   const InputStyle = temaEscuro ? 'bg-zinc-900 border-zinc-700 text-white focus:border-indigo-500 shadow-inner' : 'bg-white border-slate-200 text-slate-900 focus:border-indigo-600 shadow-sm';
   const CardStyle = temaEscuro ? 'bg-gradient-to-br from-zinc-900 to-zinc-950 border-zinc-800 shadow-2xl backdrop-blur-md' : 'bg-gradient-to-br from-white to-slate-50 border-slate-200/80 shadow-xl backdrop-blur-md';
 
   if (!usuario) {
     return (
       <div className={`min-h-screen ${temaEscuro ? 'bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-900'} flex flex-col justify-between items-center p-6 font-sans relative overflow-hidden`}>
-        {/* Elemento decorativo de fundo moderno */}
         <div className="absolute -top-40 -left-40 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-cyan-500/20 rounded-full blur-3xl pointer-events-none"></div>
 
@@ -373,7 +370,9 @@ export default function App() {
               <div className="w-16 h-16 bg-gradient-to-tr from-indigo-600 to-violet-500 rounded-2xl flex items-center justify-center font-black text-3xl mb-2 shadow-xl shadow-indigo-500/30 text-white">N</div>
               <h1 className="text-3xl font-black tracking-wider bg-gradient-to-r from-indigo-500 to-cyan-400 bg-clip-text text-transparent">NEXUS</h1>
               <h2 className="text-lg font-bold tracking-widest uppercase opacity-80">METRONET</h2>
-              <p className="text-[11px] opacity-60 mt-1 uppercase tracking-widest font-semibold">Plataforma Operacional de Alta Performance</p>
+              <p className="text-[11px] opacity-60 mt-1 uppercase tracking-widest font-semibold flex items-center justify-center gap-1">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-500"/> Plataforma Operacional de Alta Performance
+              </p>
             </div>
             
             <form onSubmit={handleLogin} className="space-y-4">
@@ -392,10 +391,10 @@ export default function App() {
           </div>
         </div>
 
-        {/* Rodapé Obrigatório Requisitado */}
-        <footer className="w-full text-center space-y-2 py-4 border-t border-slate-500/20 text-xs opacity-75 z-10">
+        {/* Rodapé Obrigatório com Versículo Bíblico e Assinatura */}
+        <footer className="w-full text-center space-y-2 py-4 border-t border-slate-500/20 text-xs opacity-85 z-10">
           <p className="italic font-medium max-w-xl mx-auto">"Tudo quanto fizerem, façam-no de todo o coração, como para o Senhor, e não para os homens." — Colossenses 3:23</p>
-          <p className="font-bold tracking-wider uppercase text-[10px] text-indigo-500">DEVELOPER JET SISTEMAS</p>
+          <p className="font-black tracking-wider uppercase text-[11px] text-indigo-500">DEVELOPER JET SISTEMAS</p>
         </footer>
       </div>
     );
@@ -408,7 +407,7 @@ export default function App() {
       {modalAgendaRapida.exibir && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className={`${CardStyle} border p-6 rounded-3xl max-w-sm w-full text-center space-y-4 shadow-2xl`}>
-            <CalendarPlus className="w-12 h-12 text-indigo-500 mx-auto" />
+            <CalendarPlus className="w-12 h-12 text-indigo-500 mx-auto"/>
             <h3 className="text-lg font-bold">Agendar Retorno</h3>
             <p className="text-sm opacity-70">Adicionar <b>{modalAgendaRapida.clienteNome}</b> para retorno amanhã?</p>
             <div className="flex space-x-2 pt-4">
@@ -525,7 +524,7 @@ export default function App() {
         <header className={`h-16 ${CardStyle} border-b flex items-center justify-between px-6 shrink-0`}>
           <h2 className="text-sm font-black uppercase tracking-wider text-indigo-500">{abaAtiva.replace('_', ' - ')}</h2>
           <div className="relative w-72">
-            <Search className="w-4 h-4 opacity-50 absolute left-3.5 top-3" />
+            <Search className="w-4 h-4 opacity-50 absolute left-3.5 top-3"/>
             <input type="text" placeholder="Buscar clientes..." value={buscaPipeline} onChange={e => setBuscaPipeline(e.target.value)} className={`w-full ${InputStyle} border rounded-full pl-10 pr-4 py-2 text-xs transition-all`} />
           </div>
         </header>
@@ -809,7 +808,7 @@ export default function App() {
                     <div className="space-y-1">
                       <p className="font-bold text-sm tracking-wide">{c.nome}</p>
                       <p className="opacity-80 flex items-center space-x-1.5 font-medium">
-                        <Phone className="w-3.5 h-3.5 text-indigo-500" />
+                        <Phone className="w-3.5 h-3.5 text-indigo-500"/>
                         <span>Tel: {formatarTelefone(c.telefone)}</span>
                         <span className="opacity-40">•</span>
                         <span>ID: {c.codigo}</span>
@@ -833,7 +832,7 @@ export default function App() {
                     <div className="space-y-1">
                       <p className="font-bold text-sm tracking-wide">{c.nome}</p>
                       <p className="opacity-80 flex items-center space-x-1.5 font-medium">
-                        <Phone className="w-3.5 h-3.5 text-indigo-500" />
+                        <Phone className="w-3.5 h-3.5 text-indigo-500"/>
                         <span>Tel: {formatarTelefone(c.telefone)}</span>
                         <span className="opacity-40">•</span>
                         <span>ID: {c.codigo}</span>
